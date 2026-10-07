@@ -66,7 +66,10 @@ test("upload ingestion status and arbitrary demo error are visible", async ({
     page.getByText("browser-test.txt", { exact: true }),
   ).toBeVisible();
   await page
-    .getByLabel("What would you like to investigate?")
+    .getByRole("textbox", {
+      name: "What would you like to investigate?",
+      exact: true,
+    })
     .fill("Tell me the actual current vendor prices.");
   await page
     .getByRole("button", { name: "Start research", exact: true })
