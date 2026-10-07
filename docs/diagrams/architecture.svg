@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="690" viewBox="0 0 1180 690" role="img" aria-labelledby="title desc">
+<title id="title">Evidence Workbench architecture</title>
+<desc id="desc">The browser calls FastAPI through the Next.js proxy. Postgres queues research. An independent Python worker executes LangGraph, which uses hybrid retrieval and model adapters and persists checkpoints.</desc>
+<rect width="1180" height="690" fill="white"/>
+<text x="60" y="45" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a" dominant-baseline="middle" text-anchor="start">Evidence Workbench</text>
+<text x="60" y="80" font-family="Arial, sans-serif" font-size="16" font-weight="400" fill="#334155" dominant-baseline="middle" text-anchor="start">Browser requests queue work; research executes in an independent worker.</text>
+<polyline points="290,172 370,172" fill="none" stroke="#64748b" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="370,172 360.9955289764732,176.3496553411123 360.9955289764732,167.6503446588877" fill="#64748b"/>
+<polyline points="630,172 840,172" fill="none" stroke="#64748b" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="840,172 830.9955289764732,176.3496553411123 830.9955289764732,167.6503446588877" fill="#64748b"/>
+<text x="735" y="147" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#64748b" dominant-baseline="middle" text-anchor="middle">queue + read</text>
+<polyline points="200,350 200,275 890,275 890,214" fill="none" stroke="#64748b" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="890,214 894.3496553411123,223.00447102352678 885.6503446588877,223.00447102352678" fill="#64748b"/>
+<text x="520" y="251" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#64748b" dominant-baseline="middle" text-anchor="middle">lease + heartbeat</text>
+<polyline points="330,392 425,392" fill="none" stroke="#64748b" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="425,392 415.9955289764732,396.3496553411123 415.9955289764732,387.6503446588877" fill="#64748b"/>
+<polyline points="715,392 805,392" fill="none" stroke="#64748b" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="805,392 795.9955289764732,396.3496553411123 795.9955289764732,387.6503446588877" fill="#64748b"/>
+<polyline points="985,350 985,214" fill="none" stroke="#64748b" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="985,214 989.3496553411123,223.00447102352678 980.6503446588877,223.00447102352678" fill="#64748b"/>
+<text x="1018" y="299" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#64748b" dominant-baseline="middle" text-anchor="middle">query</text>
+<polyline points="570,434 570,550" fill="none" stroke="#64748b" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="570,550 565.6503446588877,540.9955289764732 574.3496553411123,540.9955289764732" fill="#64748b"/>
+<text x="610" y="492" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#64748b" dominant-baseline="middle" text-anchor="middle">invoke</text>
+<polyline points="650,434 650,490 960,490 960,550" fill="none" stroke="#64748b" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="960,550 955.6503446588877,540.9955289764732 964.3496553411123,540.9955289764732" fill="#64748b"/>
+<text x="806" y="470" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#64748b" dominant-baseline="middle" text-anchor="middle">checkpoint</text>
+<rect x="60" y="130" width="230" height="84" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="175.0" y="161" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a" dominant-baseline="middle" text-anchor="middle">Next.js workspace</text>
+<text x="175.0" y="187" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#334155" dominant-baseline="middle" text-anchor="middle">Browser</text>
+<rect x="370" y="130" width="260" height="84" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="500.0" y="161" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a" dominant-baseline="middle" text-anchor="middle">FastAPI</text>
+<text x="500.0" y="187" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#334155" dominant-baseline="middle" text-anchor="middle">Through Next.js proxy</text>
+<rect x="840" y="130" width="250" height="84" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="965.0" y="161" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a" dominant-baseline="middle" text-anchor="middle">Postgres / pgvector</text>
+<text x="965.0" y="187" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#334155" dominant-baseline="middle" text-anchor="middle">Queue, data, and evidence</text>
+<rect x="70" y="350" width="260" height="84" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="200.0" y="381" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a" dominant-baseline="middle" text-anchor="middle">Python worker</text>
+<text x="200.0" y="407" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#334155" dominant-baseline="middle" text-anchor="middle">Independent process</text>
+<rect x="425" y="350" width="290" height="84" rx="8" fill="#eff6ff" stroke="#93c5fd"/>
+<text x="570.0" y="381" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a" dominant-baseline="middle" text-anchor="middle">LangGraph</text>
+<text x="570.0" y="407" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#334155" dominant-baseline="middle" text-anchor="middle">Bounded research loop</text>
+<rect x="805" y="350" width="305" height="84" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="957.5" y="381" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a" dominant-baseline="middle" text-anchor="middle">Hybrid retrieval</text>
+<text x="957.5" y="407" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#334155" dominant-baseline="middle" text-anchor="middle">Vector + full-text search</text>
+<rect x="425" y="550" width="290" height="84" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="570.0" y="581" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a" dominant-baseline="middle" text-anchor="middle">Model adapter</text>
+<text x="570.0" y="607" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#334155" dominant-baseline="middle" text-anchor="middle">Scripted demo or live AI</text>
+<rect x="805" y="550" width="305" height="84" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="957.5" y="581" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a" dominant-baseline="middle" text-anchor="middle">Persisted checkpoints</text>
+<text x="957.5" y="607" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#334155" dominant-baseline="middle" text-anchor="middle">Saved execution state</text>
+<text x="60" y="666" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#64748b" dominant-baseline="middle" text-anchor="start">Source: repository architecture and research workflow.</text>
+</svg>

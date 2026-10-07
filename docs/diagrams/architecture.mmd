@@ -1,0 +1,9 @@
+flowchart LR
+    UI["Next.js workspace"] --> API["FastAPI via Next.js proxy"]
+    API --> DB[("Postgres / pgvector")]
+    Worker["Independent Python worker"] --> DB
+    Worker --> Graph["LangGraph research loop"]
+    Graph --> Search["Vector + full-text retrieval"]
+    Search --> DB
+    Graph --> Model["Scripted demo or live AI"]
+    Graph --> Checkpoints[("Persisted checkpoints")]
