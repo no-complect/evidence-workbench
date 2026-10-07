@@ -1,0 +1,58 @@
+name: Workbench verification
+on: [push, pull_request]
+permissions: { contents: read }
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env: { POSTGRES_USER: workbench, POSTGRES_PASSWORD: workbench, POSTGRES_DB: workbench_test }
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U workbench -d workbench_test"
+          --health-interval 3s --health-timeout 5s --health-retries 20
+    env:
+      APP_ENV: test
+      AUTH_MODE: demo
+      LIVE_ENABLED: 'false'
+      DATABASE_URL: postgresql://workbench:workbench@localhost:55432/workbench_test
+      STORAGE_PATH: .runtime/test-objects
+      API_SHARED_SECRET: local-demo-only-not-for-production
+      WORKBENCH_INTEGRATION: '1'
+      NEXT_PUBLIC_AUTH_MODE: demo
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { version: '0.12.7', python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - run: uv sync --frozen
+      - run: npm ci --no-audit --no-fund
+        working-directory: apps/web
+      - run: python3 scripts/check-publication.py
+      - run: uv run ruff check services tests scripts
+      - run: uv run python scripts/check-contracts.py
+      - run: uv run pytest --timeout=180
+      - run: npm run test:proxy
+        working-directory: apps/web
+      - run: npm run typecheck && npm run build
+        working-directory: apps/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Verify real browser journey
+        run: |
+          uv run uvicorn workbench.api:app --host 127.0.0.1 --port 8000 > .runtime/api.log 2>&1 &
+          uv run python -m workbench.worker > .runtime/worker.log 2>&1 &
+          npm --prefix apps/web run start > .runtime/web.log 2>&1 &
+          for i in $(seq 1 45); do if curl -fsS http://localhost:3000 > /dev/null; then break; fi; sleep 1; done
+          npm --prefix apps/web run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-results
+          path: |
+            .runtime/*.log
+            apps/web/playwright-report
+            apps/web/test-results
