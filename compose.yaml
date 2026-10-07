@@ -1,0 +1,87 @@
+name: evidence-workbench
+x-research-env: &research-env
+  APP_ENV: local
+  AUTH_MODE: demo
+  DATABASE_URL: postgresql://workbench:workbench@db:5432/workbench
+  API_SHARED_SECRET: ${API_SHARED_SECRET:-local-demo-only-not-for-production}
+  STORAGE_PATH: /data/objects
+  STORAGE_BACKEND: local
+  LIVE_ENABLED: ${LIVE_ENABLED:-false}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+  OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+  MODEL_INPUT_USD_PER_MILLION: ${MODEL_INPUT_USD_PER_MILLION:-}
+  MODEL_OUTPUT_USD_PER_MILLION: ${MODEL_OUTPUT_USD_PER_MILLION:-}
+  EMBEDDING_USD_PER_MILLION: ${EMBEDDING_USD_PER_MILLION:-}
+  TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+  WEB_SEARCH_USD_PER_CALL: ${WEB_SEARCH_USD_PER_CALL:-}
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: workbench
+      POSTGRES_PASSWORD: workbench
+      POSTGRES_DB: workbench
+    ports: ['127.0.0.1:55432:5432']
+    volumes: ['database:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U workbench -d workbench']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  init:
+    build:
+      context: .
+      dockerfile: services/research/Dockerfile
+    environment: *research-env
+    command: ['python', '-m', 'workbench.seed']
+    volumes: ['objects:/data/objects']
+    depends_on:
+      db: { condition: service_healthy }
+  api:
+    build:
+      context: .
+      dockerfile: services/research/Dockerfile
+    environment: *research-env
+    command: ['uvicorn', 'workbench.api:app', '--host', '0.0.0.0', '--port', '8000']
+    ports: ['127.0.0.1:8000:8000']
+    volumes: ['objects:/data/objects']
+    depends_on:
+      init: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+  worker:
+    build:
+      context: .
+      dockerfile: services/research/Dockerfile
+    environment: *research-env
+    command: ['python', '-m', 'workbench.worker']
+    volumes: ['objects:/data/objects', 'evaluations:/app/evals/results']
+    depends_on:
+      init: { condition: service_completed_successfully }
+    restart: unless-stopped
+    stop_grace_period: 45s
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      APP_ENV: local
+      API_URL: http://api:8000
+      API_SHARED_SECRET: ${API_SHARED_SECRET:-local-demo-only-not-for-production}
+      NEXT_PUBLIC_AUTH_MODE: demo
+    ports: ['127.0.0.1:3000:3000']
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 4s
+      timeout: 5s
+      retries: 30
+volumes:
+  database:
+  objects:
+  evaluations:
