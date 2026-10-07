@@ -74,5 +74,7 @@ test("upload ingestion status and arbitrary demo error are visible", async ({
   await page
     .getByRole("button", { name: "Start research", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText("seeded questions");
+  const errorBanner = page.locator(".error-banner");
+  await expect(errorBanner).toBeVisible();
+  await expect(errorBanner).toContainText("seeded questions");
 });
