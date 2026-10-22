@@ -144,7 +144,6 @@ Commit both [uv.lock](./uv.lock) and [apps/web/package-lock.json](./apps/web/pac
 
 - [Development and tests](./docs/DEVELOPMENT.md)
 - [Verification status and remaining checks](./docs/BUILD_STATUS.md)
-- [Enterprise harness refactor plan and implementation stages](./docs/ENTERPRISE_REFACTOR.md)
 - [Architecture, authorization, context, and recovery](./docs/ARCHITECTURE.md)
 - [Evaluation methodology](./docs/EVALUATION.md)
 - [Contributing](./CONTRIBUTING.md) · [Security](./SECURITY.md) · [Preparing a public release](./docs/RELEASING.md)

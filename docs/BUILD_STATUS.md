@@ -1,16 +1,5 @@
 # Verification status
 
-## Enterprise refactor stage 1 — 2026-10-22
-
-The evaluation service refactor passed 34 offline Python tests, nine proxy tests,
-TypeScript checking, the production Next.js build, Ruff, the shared-contract check,
-and the repository publication check in the editing environment. Four new
-database integration tests and a desktop/mobile benchmark browser journey are
-included in CI. Docker and Postgres are not installed in that environment, so
-those checks are not claimed as local passes. The approved notebook UI, collection
-wizard and provider connection work remain separate stages; see
-[the refactor plan](ENTERPRISE_REFACTOR.md).
-
 ## Earlier verification record — 2026-10-07
 
 The repository includes application source, locked dependencies, a containerized
