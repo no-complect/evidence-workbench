@@ -6,7 +6,6 @@ async function openWizard(page: Page) {
   await page.getByRole("button", { name: "RAG", exact: true }).click();
   await page
     .getByRole("button", { name: "New collection", exact: true })
-    .first()
     .click();
   const dialog = page.getByRole("dialog", {
     name: "Create an evidence collection",
@@ -43,9 +42,14 @@ test("guided starter preparation → real retrieval methods → pinned provenanc
       name: "Your collection is ready to inspect.",
     }),
   ).toBeVisible({ timeout: 30000 });
+  const methodControl = dialog.getByRole("combobox", {
+    name: "Retrieval method",
+    exact: true,
+  });
+  expect((await methodControl.boundingBox())?.width).toBeGreaterThan(170);
   for (const method of ["keyword", "vector", "hybrid"]) {
     await dialog
-      .getByLabel("Retrieval method", { exact: true })
+      .getByRole("combobox", { name: "Retrieval method", exact: true })
       .selectOption(method);
     await dialog
       .getByRole("button", { name: "Search collection", exact: true })

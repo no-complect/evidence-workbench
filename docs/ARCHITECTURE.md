@@ -10,6 +10,23 @@ Application migrations are ordered SQL files in `db/migrations`, recorded in `sc
 
 `projects` and `project_memberships` define access. Collections select an immutable embedding configuration. Documents have a stable identity within a collection, and content hashes identify immutable versions. Chunks preserve section, page (PDF only), and character offsets within a page or text document. Long paragraphs are split at 1,600 characters; chunk boundaries and hashes are deterministic. A document points to its current version; reuploading old bytes can explicitly reactivate an existing immutable version. Runs pin the current version of each document **at submission**, so later ingestion cannot change their corpus. Existing citations retain old versions.
 
+Collection setup stores a normalized purpose/source/profile intent and preparation
+status. Its project/user/request-key identity reuses the same collection on retry.
+A collection advisory lock serializes starter preparation; committed document
+versions survive interruption. Ready retries return without reseeding user changes.
+A database trigger prevents changing the setup intent or embedding profile.
+Incomplete setup blocks uploads, retrieval and research until preparation resumes.
+
+The browser owns local file intent in a project-scoped sequential upload queue.
+Each row reports its actual response or validation/indexing error; it does not
+simulate pipeline progress. Failed replacement ingestion leaves the previous
+current version available. Source counts and vector coverage describe that current
+version, while version counts retain history. Retrieval experiments submit explicit
+snapshots, use scoped abortable queries and disable automatic embedding-call retries
+and refetches. Keyword retrieval makes no model call; Vector and Hybrid use the
+collection's embedding profile. Component ranks and reciprocal-rank scores are
+retrieval measurements, not calibrated confidence.
+
 `research_runs` is the durable queue and run projection. `research_tasks`, `evidence`, `claims`, and `citations` retain structured results. Composite foreign keys protect project/run relationships. `run_events` gives ordered cursors; `contexts` retains redacted assembled model inputs; `usage_records` records reservations and reconciled usage. `effects` stores replayable node results outside graph state. `evaluation_runs` stores measured demo aggregates; raw files contain per-case data. Large source bytes live in a local volume or a private Supabase bucket.
 
 Production APIs verify both a shared backend secret and the user's Supabase access token through `/auth/v1/user`; every route verifies membership before retrieving source, run, context or citation data. Next.js passes the token without exposing worker/service-role credentials. Supabase JS reads authorized projects through RLS in the browser. The RLS migration exposes project-scoped reads only; client writes use the validating API. Workers have privileged database access but apply explicit project/collection predicates. A run references its submitter and collection. MCP tools call the same API and cannot mutate data.

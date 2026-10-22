@@ -11,7 +11,6 @@ export function SourcesPanel({
   projectId,
   collectionId,
   readOnly,
-  onCreate,
   uploads,
   ready = true,
   active = true,
@@ -19,7 +18,6 @@ export function SourcesPanel({
   projectId: string;
   collectionId: string;
   readOnly: boolean;
-  onCreate: () => void;
   uploads: UploadQueue;
   ready?: boolean;
   active?: boolean;
@@ -40,11 +38,9 @@ export function SourcesPanel({
       )}
       <SourcesView
         sources={sources.data ?? []}
-        canCreate={!!projectId}
         canUpload={!!collectionId && !readOnly && ready}
         readOnly={readOnly}
         busy={uploads.busy}
-        onCreate={onCreate}
         onUpload={(files) => void uploads.add(collectionId, files)}
       />
       <UploadBatch queue={uploads} collectionId={collectionId} />

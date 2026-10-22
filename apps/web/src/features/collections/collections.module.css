@@ -282,6 +282,13 @@
   .batch {
     padding: 14px;
   }
+  .searchControls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .searchControls .field {
+    flex: auto;
+  }
   .field input,
   .field select,
   .wizard textarea {

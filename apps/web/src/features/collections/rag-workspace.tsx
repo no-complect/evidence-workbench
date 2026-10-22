@@ -80,7 +80,6 @@ export function RagWorkspace({
             ready={ready}
             active={active}
             uploads={uploads}
-            onCreate={onCreate}
           />
         </div>
       </div>

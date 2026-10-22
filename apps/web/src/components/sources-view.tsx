@@ -1,32 +1,21 @@
 "use client";
 import { useRef } from "react";
-import {
-  Database,
-  FileText,
-  Loader2,
-  Plus,
-  ShieldCheck,
-  Upload,
-} from "lucide-react";
+import { Database, FileText, Loader2, ShieldCheck, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { Empty } from "./empty";
 import type { Source } from "@/lib/api";
 
 export function SourcesView({
   sources,
-  canCreate,
   canUpload,
   readOnly = false,
   busy,
-  onCreate,
   onUpload,
 }: {
   sources: Source[];
-  canCreate: boolean;
   canUpload: boolean;
   readOnly?: boolean;
   busy: boolean;
-  onCreate: () => void;
   onUpload: (files: File[]) => void;
 }) {
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -38,15 +27,6 @@ export function SourcesView({
           <p>Markdown, plain text, and text-based PDFs · up to 8 MiB.</p>
         </div>
         <div className="flex-row">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onCreate}
-            disabled={!canCreate}
-          >
-            <Plus size={14} />
-            New collection
-          </Button>
           <Button
             size="sm"
             onClick={() => uploadRef.current?.click()}
