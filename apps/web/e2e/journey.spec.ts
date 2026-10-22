@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 test("benchmark queues in UI and exposes persisted case results", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  const menu = page.getByRole("button", { name: "Toggle navigation", exact: true });
+  if (await menu.isVisible()) await menu.click();
   await page.getByRole("button", { name: "New project", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New project", exact: true });
   await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(`Benchmark ${Date.now()}`);

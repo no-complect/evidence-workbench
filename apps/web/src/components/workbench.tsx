@@ -354,6 +354,7 @@ export function Workbench() {
         });
         setProjects((old) => [...old, p]);
         setProjectId(p.id);
+        setSidebar(false);
       } else {
         const c = await api<Collection>(`projects/${projectId}/collections`, {
           method: "POST",
