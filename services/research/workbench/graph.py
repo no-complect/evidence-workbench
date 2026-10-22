@@ -12,6 +12,8 @@ from .providers import DemoProvider, OpenAIProvider
 from .retrieval import PostgresHybridRetriever
 from .evidence import for_run, persist_report, verify
 from .config import settings
+from .harness import connection, fingerprints
+from .credential_store import decrypt
 
 from .reducers import merge_ids
 
@@ -59,16 +61,29 @@ class Runtime:
             trace['schema_and_message_overhead_included'] = True
             reserve_tokens = trace['input_tokens_estimate'] + trace['output_token_reservation']
             s = settings()
+            provider = self.provider
+            target = None
+            snapshot = self.run.get('harness_snapshot')
+            if snapshot:
+                if snapshot['fingerprints'] != fingerprints() or not s.live_enabled:
+                    raise ValueError('Pinned harness no longer matches the enabled runtime')
+                target = snapshot['targets'][stage]
+                credential = connection(self.run['project_id'], target['connection_id'], self.run['user_id'])
+                provider = OpenAIProvider(target, decrypt(credential['encrypted_key']))
+                trace['harness_revision_id'] = snapshot['revision_id']
+                trace['model_target'] = target
+            input_price = target['input_usd_per_million'] if target else s.model_input_usd_per_million
+            output_price = target['output_usd_per_million'] if target else s.model_output_usd_per_million
             cost = 0 if self.run['mode'] == 'demo' else (
-                trace['input_tokens_estimate'] * s.model_input_usd_per_million +
-                2200 * s.model_output_usd_per_million) / 1_000_000
+                trace['input_tokens_estimate'] * input_price +
+                2200 * output_price) / 1_000_000
             call_key = f"{key}/attempt-{self.run['attempts']}"
             budget.reserve(self.run, call_key, tokens=reserve_tokens, cost=cost)
             db.execute(
                 'INSERT INTO contexts(id,run_id,project_id,call_key,stage,payload) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(run_id,call_key) DO NOTHING',
                 (db.uid(), self.run['id'], self.run['project_id'], call_key, stage,
                  db.jsonb(trace)))
-            result, actual, actual_cost = self.provider.invoke(
+            result, actual, actual_cost = provider.invoke(
                 stage,
                 payload,
                 schema,
@@ -79,7 +94,8 @@ class Runtime:
             budget.reconcile(self.run, call_key, actual, actual_cost)
             db.event(
                 self.run, key, stage, f'{stage.title()} completed', {
-                    'provider': self.provider.name,
+                    'provider': provider.name,
+                    'model_target': target,
                     'estimated_tokens_reserved': reserve_tokens,
                     'actual_tokens': actual,
                     'cost_known': self.run['mode'] == 'demo' or actual_cost is not None

@@ -304,3 +304,29 @@ test("retrieval snapshots are scoped, abortable and never automatically repeat m
     client.clear();
   }
 });
+
+test("provider reads are abortable and scoped while paid actions never automatically retry", async () => {
+  let signal;
+  const queries = load("features/harness/queries.ts", {
+    "./api": {
+      harnessApi: {
+        state: async (_project, abort) => {
+          signal = abort;
+          return { checks: [] };
+        },
+      },
+    },
+  });
+  const first = queries.harnessOptions("one", true),
+    second = queries.harnessOptions("two", true);
+  assert.notDeepEqual(first.queryKey, second.queryKey);
+  assert.equal(queries.harnessOptions("one", false).enabled, false);
+  const client = new QueryClient();
+  try {
+    const result = await client.fetchQuery(first);
+    assert.ok(signal);
+    assert.equal(first.refetchInterval({ state: { data: result } }), false);
+  } finally {
+    client.clear();
+  }
+});

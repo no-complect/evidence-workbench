@@ -4,6 +4,7 @@ from . import db
 from .auth import authorize
 from .config import settings
 from .models import EXAMPLES
+from .harness import run_snapshot
 
 
 def create_run(project_id, body, user, *, evaluation_job_id=None):
@@ -14,6 +15,11 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
         raise HTTPException(404, 'Collection not found')
     if collection['setup_status'] != 'ready':
         raise HTTPException(409, 'Finish or retry collection preparation before starting research')
+    harness_snapshot = None
+    if body.harness_revision_id:
+        if body.mode != 'live':
+            raise HTTPException(422, 'Harness model revisions require live mode')
+        harness_snapshot = run_snapshot(project_id, user, body.harness_revision_id)
     if body.mode == 'demo':
         if body.question not in EXAMPLES:
             raise HTTPException(
@@ -30,16 +36,18 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
             raise HTTPException(
                 422,
                 'Create and ingest a live embedding collection; fixture vectors cannot be mixed')
-        if any(x is None or x < 0 for x in [
-                s.model_input_usd_per_million, s.model_output_usd_per_million,
-                s.embedding_usd_per_million
-        ]):
+        prices = [s.embedding_usd_per_million] + ([] if harness_snapshot else [s.model_input_usd_per_million, s.model_output_usd_per_million])
+        if any(x is None or x < 0 for x in prices):
             raise HTTPException(
                 409, 'Configure model and embedding cost estimates before live execution')
         if body.web_enabled and (not s.tavily_api_key or s.web_search_usd_per_call is None):
             raise HTTPException(409,
                                 'Web search needs a key and a configured per-call cost estimate')
     request = body.model_dump(mode='json')
+    if body.harness_revision_id is None:
+        request.pop('harness_revision_id')
+    if harness_snapshot:
+        request['limits'] = harness_snapshot['limits']
     with db.connection() as conn:
         prior = conn.execute(
             'SELECT * FROM research_runs WHERE project_id=%s AND user_id=%s AND idempotency_key=%s',
@@ -53,10 +61,10 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
             (project_id, body.collection_id)).fetchall()
         snapshot = [str(v['id']) for v in versions]
         run = conn.execute(
-            'INSERT INTO research_runs(id,project_id,collection_id,user_id,question,mode,strategy,request,corpus_versions,idempotency_key,evaluation_job_id) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(project_id,user_id,idempotency_key) DO NOTHING RETURNING *',
+            'INSERT INTO research_runs(id,project_id,collection_id,user_id,question,mode,strategy,request,corpus_versions,idempotency_key,evaluation_job_id,harness_snapshot) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(project_id,user_id,idempotency_key) DO NOTHING RETURNING *',
             (db.uid(), project_id,
              body.collection_id, user, body.question, body.mode, body.strategy, db.jsonb(request),
-             db.jsonb(snapshot), body.idempotency_key, evaluation_job_id)).fetchone()
+             db.jsonb(snapshot), body.idempotency_key, evaluation_job_id, db.jsonb(harness_snapshot))).fetchone()
         if not run:
             run = conn.execute(
                 'SELECT * FROM research_runs WHERE project_id=%s AND user_id=%s AND idempotency_key=%s',

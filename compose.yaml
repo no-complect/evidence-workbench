@@ -6,6 +6,7 @@ x-research-env: &research-env
   API_SHARED_SECRET: ${API_SHARED_SECRET:-local-demo-only-not-for-production}
   STORAGE_PATH: /data/objects
   STORAGE_BACKEND: local
+  CREDENTIAL_STORE_PATH: /data/credentials
   LIVE_ENABLED: ${LIVE_ENABLED:-false}
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
@@ -45,7 +46,7 @@ services:
     environment: *research-env
     command: ['uvicorn', 'workbench.api:app', '--host', '0.0.0.0', '--port', '8000']
     ports: ['127.0.0.1:8000:8000']
-    volumes: ['objects:/data/objects']
+    volumes: ['objects:/data/objects', 'credentials:/data/credentials']
     depends_on:
       init: { condition: service_completed_successfully }
     healthcheck:
@@ -59,7 +60,7 @@ services:
       dockerfile: services/research/Dockerfile
     environment: *research-env
     command: ['python', '-m', 'workbench.worker']
-    volumes: ['objects:/data/objects', 'evaluations:/app/evals/results']
+    volumes: ['objects:/data/objects', 'evaluations:/app/evals/results', 'credentials:/data/credentials']
     depends_on:
       init: { condition: service_completed_successfully }
     restart: unless-stopped
@@ -96,3 +97,4 @@ volumes:
   database:
   objects:
   evaluations:
+  credentials:

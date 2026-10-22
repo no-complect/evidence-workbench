@@ -39,6 +39,31 @@ The shipped local demo explicitly sets `APP_ENV=local`, `AUTH_MODE=demo`, and lo
 
 The LangChain integration is a small `BaseRetriever` wrapper returning `Document` objects, with the SQL repository as the authorization boundary. Demo queries select a versioned topic fixture; they do not claim arbitrary semantic embeddings. Unseeded demo uploads have NULL vectors and remain full-text searchable. Reindexing means choosing a new collection/configuration and ingesting again. No API mutates embedding identity in place. Web fetches create immutable source versions with URL/time metadata and bounded text chunks; they enter that run directly and are full-text searchable later, without an additional unbudgeted embedding call.
 
+## Local provider and harness boundary
+
+Local/demo-authenticated installations expose project/user-scoped provider management.
+Production rejects these endpoints. Credentials are Fernet-encrypted in
+`provider_connections`; a private master key in a separate volume is shared only by
+the API and research worker. Connections are immutable credential versions: rotation
+creates a new connection, while disconnect nulls the ciphertext. Secret inputs stay
+out of TanStack mutation variables, browser persistence, API responses and traces.
+Validation errors omit submitted inputs and provider errors use safe generic messages.
+
+Discovery uses the fixed official OpenAI models endpoint with redirects disabled.
+Catalog IDs carry no inferred research capability. Explicit verification reserves a
+conservative price estimate before up to three bounded structured-output probes.
+A project/user/request key elects a single owner; uncertain/checking requests do not
+replay provider calls. Terminal checks and reported usage remain inspectable.
+
+`harness_revisions` are immutable at the database boundary. They pin verified
+per-stage models and price estimates, limits, adapter/context/tool versions and
+prompt/contract hashes. `research_runs.harness_snapshot` is immutable too. The
+worker uses each pinned stage target and price for reservation and reconciliation,
+rechecks revocation/live enablement and runtime fingerprints, and records only safe
+model identity in context/events. Contract drift requires a new revision; it does
+not silently substitute a different model or prompt. Legacy fixture and server-default
+live paths remain available. Embedding profiles are a separate boundary.
+
 ## Scheduling, checkpoints and replay
 
 A worker leases eligible jobs using `FOR UPDATE SKIP LOCKED`, increments its attempt count and maintains a 30-second lease with heartbeats. An expired lease makes a job recoverable. A separate session advisory lock prevents an old executor and a replacement from actively executing the same run. Losing a lease stops further work; a replacement that cannot get the advisory lock backs off. Four attempts bound retries, with exponential backoff for timeout/network/429/5xx failures. Invalid inputs, authorization failures, unsupported model profiles and schema errors are not blindly retried.

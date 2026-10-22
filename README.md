@@ -106,7 +106,7 @@ The optional CLI commands above run inside the evaluation container and submit c
 
 ## Features to explore
 
-- **Harness:** inspect the selected run's execution limits and saved prompt/context fingerprints. Provider connections, model discovery, and saved harness revisions are not available yet.
+- **Harness:** connect a local OpenAI account, discover its model catalog, explicitly verify research contracts, and save immutable planner/reviewer/writer model targets with budgets. Inspect the selected run’s pinned targets, execution limits, and saved prompt/context fingerprints.
 - **RAG:** create collections through a guided walkthrough, inspect per-file ingestion results and retries, and compare real keyword/vector/hybrid retrieval with pinned provenance. Collection preparation can resume after interruption; completed retries reuse the collection without resetting later source updates. Embedding profiles are immutable; changing the embedding model requires a new collection. Markdown, UTF-8 text, and text-based PDF uploads are limited to 8 MiB per file, 20 files per batch, and PDFs to 200 pages. Failed replacements preserve the last usable source version.
 - **Workflows:** run investigations, approve an edited plan, inspect **Decision brief**, **Evidence board**, **Research trail**, and **Context**. Findings retain citations and limitations; passage inspectors expose source identity and unavailable references. Redacted assembled inputs retain prompt hashes, token estimates, and evidence selection decisions. Private chain-of-thought is not requested or displayed.
 - **Evaluations:** queue, cancel, and inspect comparisons of basic RAG, a fixed workflow, and bounded follow-up research.
@@ -134,6 +134,40 @@ The demo uses ten original synthetic documents and 41 precomputed, 16-dimensiona
 ## Live mode and scope
 
 Live research supports an explicitly configured GPT-4.1-family model, `text-embedding-3-small` vectors, and optional Tavily/public-page research. It requires server-side keys, price estimates, and a separate live embedding collection. There is no silent fallback to scripted answers. Live uploads invoke paid embeddings outside the run's research budget.
+
+### Local provider connections and harness revisions
+
+In **Harness**, name a connection and enter a key or explicitly link the existing
+server `OPENAI_API_KEY`. Credentials are encrypted in the local database; the
+private encryption key lives in the separate `credentials` volume. Back up that
+volume with the database. Keys are never returned to the browser, stored in browser
+storage/query caches, or included in model context. Connecting makes no inference
+calls. Local provider management is disabled in hosted/production authentication.
+
+Choose **Discover available models** to retrieve the connected account’s actual
+OpenAI catalog. Listing does not prove inference permission or research capability.
+With `LIVE_ENABLED=true`, select a discovered model, enter input/output prices per
+million tokens and a probe budget, then choose **Run paid capability check**. This
+makes up to three calls against the actual planner, reviewer and writer schemas,
+with a 2,200-token output cap and an eight-second timeout per call. Models that fail
+these bounded checks cannot be selected as verified research targets. Price-based
+caps are estimates, not provider billing guarantees. Interrupted/uncertain checks
+retain their identity and never automatically replay; another check requires an
+explicit user action and budget.
+
+Choose verified targets and budgets, then **Save harness revision**. In **Workflows
+→ Research settings → Live**, select that revision. Each run pins its own model,
+price, budget, prompt/contract/context/tool-policy snapshot. Changing configuration
+requires a new revision; runtime contract drift fails closed. Disconnecting wipes
+the stored key and blocks future calls through it, including queued runs; in-flight
+provider calls may finish. Reconnect with a new connection to rotate a credential.
+
+OpenAI is the first adapter; other provider APIs and custom judge evaluations are
+not implemented. Embedding collections still use the separately configured server
+embedding key/model and pricing. Legacy live research without a revision retains
+the existing GPT-4.1-family configuration. Verification and ingestion are separate
+from the research-run budget. Provider tests use synthetic responses; paid account
+access must be verified in the operator’s local installation.
 
 The hosted configuration uses Supabase Auth, project membership checks, RLS, and private Storage. A read-only MCP server exposes corpus search, evidence lookup, and run status. See [Deployment and configuration](./docs/DEPLOYMENT.md).
 

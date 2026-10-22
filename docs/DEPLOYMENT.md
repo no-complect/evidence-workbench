@@ -68,6 +68,7 @@ The local Next production build passes; a hosted deployment has not been verifie
 | NEXT_PUBLIC_AUTH_MODE | demo | supabase | Browser build |
 | NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY | Unused | Required | Browser build; public values only |
 | LIVE_ENABLED | false | true only when explicitly opting in | Python |
+| CREDENTIAL_STORE_PATH | `.runtime/credentials` on host; `/data/credentials` in Compose | Private local credential key directory, shared by API and worker | Python only |
 | OPENAI_API_KEY | Unused | Required for live model/embedding calls | Python only |
 | OPENAI_MODEL | gpt-4.1-mini | Supported GPT-4.1 profile | Python |
 | OPENAI_EMBEDDING_MODEL | Unused | text-embedding-3-small, dimension 1536 | Python |

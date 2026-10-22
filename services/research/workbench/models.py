@@ -1,6 +1,6 @@
 from typing import Literal
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 DEFAULT_QUESTION = 'Compare three approaches to deploying an enterprise AI assistant. Investigate security, operating costs, retrieval quality, and maintenance. Support recommendations with evidence and identify unresolved questions.'
 EXAMPLES = [
@@ -34,6 +34,7 @@ class RunCreate(StrictModel):
     web_enabled: bool = False
     limits: Limits = Field(default_factory=Limits)
     idempotency_key: str = Field(min_length=8, max_length=128)
+    harness_revision_id: UUID | None = None
 
 
 class Task(StrictModel):
@@ -106,3 +107,36 @@ class RunSummary(BaseModel):
     tokens_used: int
     tools_used: int
     cost_used: float
+
+
+class ConnectionCreate(Named):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    use_environment: bool = False
+    api_key: SecretStr | None = Field(None, min_length=16, max_length=512)
+
+    @model_validator(mode='after')
+    def credential_source(self):
+        if self.use_environment == bool(self.api_key):
+            raise ValueError('Choose exactly one credential source')
+        return self
+
+
+class ModelVerification(StrictModel):
+    model_id: str = Field(pattern=r'^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')
+    input_usd_per_million: float = Field(gt=0, le=1000, allow_inf_nan=False)
+    output_usd_per_million: float = Field(gt=0, le=10000, allow_inf_nan=False)
+    max_cost_usd: float = Field(0.05, gt=0, le=1, allow_inf_nan=False)
+    idempotency_key: UUID
+
+
+class HarnessTargets(StrictModel):
+    plan: UUID
+    assess: UUID
+    report: UUID
+
+
+class HarnessCreate(Named):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    targets: HarnessTargets
+    limits: Limits = Field(default_factory=Limits)
+    idempotency_key: UUID

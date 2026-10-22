@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     api_shared_secret: str = 'local-demo-only-not-for-production'
     storage_path: Path = Path('.runtime/objects')
     storage_backend: str = 'local'
+    credential_store_path: Path = Path('.runtime/credentials')
     live_enabled: bool = False
     openai_api_key: str = ''
     openai_model: str = 'gpt-4.1-mini'

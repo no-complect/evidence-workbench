@@ -84,16 +84,27 @@ class DemoProvider:
 class OpenAIProvider:
     name = 'openai'
 
+    def __init__(self, target=None, api_key=None):
+        self.target = target
+        self.api_key = api_key
+
     def invoke(self, stage, payload, schema, timeout=35):
         from langchain_openai import ChatOpenAI
         s = settings()
         # Explicit capability contract: no temperature/reasoning params on unknown models.
-        if s.openai_model not in {'gpt-4.1-mini', 'gpt-4.1', 'gpt-4.1-nano'}:
+        if not self.target and s.openai_model not in {'gpt-4.1-mini', 'gpt-4.1', 'gpt-4.1-nano'}:
             raise ValueError(
                 'Model capabilities not configured; supported path is GPT-4.1 family with JSON schema'
             )
-        model = ChatOpenAI(model=s.openai_model,
-                           api_key=s.openai_api_key,
+        target = self.target or {
+            'model_id': s.openai_model,
+            'input_usd_per_million': s.model_input_usd_per_million,
+            'output_usd_per_million': s.model_output_usd_per_million,
+        }
+        model = ChatOpenAI(model=target['model_id'],
+                           api_key=self.api_key or s.openai_api_key,
+                           base_url='https://api.openai.com/v1',
+                           stream_usage=False,
                            max_tokens=2200,
                            timeout=timeout,
                            max_retries=0)
@@ -114,6 +125,6 @@ class OpenAIProvider:
         usage = output['raw'].usage_metadata
         if not usage:
             return output['parsed'], None, None
-        cost = (usage['input_tokens'] * s.model_input_usd_per_million +
-                usage['output_tokens'] * s.model_output_usd_per_million) / 1_000_000
+        cost = (usage['input_tokens'] * target['input_usd_per_million'] +
+                usage['output_tokens'] * target['output_usd_per_million']) / 1_000_000
         return output['parsed'], usage['total_tokens'], cost

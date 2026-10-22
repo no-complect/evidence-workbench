@@ -1,5 +1,7 @@
 "use client";
 import { useReducer, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { harnessOptions } from "@/features/harness/queries";
 import {
   CircleDot,
   Database,
@@ -26,6 +28,8 @@ import {
 
 export function ResearchComposer({
   projectId,
+  connectionsEnabled,
+  active,
   collections,
   collectionId,
   examples,
@@ -35,6 +39,8 @@ export function ResearchComposer({
   onStarted,
 }: {
   projectId: string;
+  connectionsEnabled: boolean;
+  active: boolean;
   collections: Collection[];
   collectionId: string;
   examples: string[];
@@ -43,6 +49,13 @@ export function ResearchComposer({
   onCollectionChange: (id: string) => void;
   onStarted: (id: string) => void;
 }) {
+  const [revisionId, setRevisionId] = useState("");
+  const harness = useQuery(
+    harnessOptions(projectId, connectionsEnabled && active),
+  );
+  const revision = harness.data?.revisions.find(
+    (item) => item.id === revisionId,
+  );
   const [draft, dispatch] = useReducer(researchReducer, initialResearchDraft);
   const [showSettings, setShowSettings] = useState(false);
   const [validationError, setValidationError] = useState("");
@@ -67,7 +80,15 @@ export function ResearchComposer({
     setValidationError("");
     mutation.reset();
     try {
+      if (mode === "live" && revisionId && !revision)
+        throw new Error(
+          "The selected harness revision is unavailable. Refresh provider settings or choose another revision.",
+        );
       const request = researchRequest(draft, collectionId);
+      if (mode === "live" && revision) {
+        request.harness_revision_id = revision.id;
+        request.limits = revision.snapshot.limits;
+      }
       intent.current = submissionIntent(intent.current, request, () =>
         crypto.randomUUID(),
       );
@@ -227,6 +248,32 @@ export function ResearchComposer({
                 <option value="rag">Basic RAG</option>
               </select>
             </label>
+            {mode === "live" && connectionsEnabled && (
+              <label>
+                Harness revision
+                <select
+                  aria-label="Harness revision"
+                  value={revisionId}
+                  onChange={(event) => setRevisionId(event.target.value)}
+                >
+                  <option value="">
+                    Server default · legacy configuration
+                  </option>
+                  {harness.data?.revisions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} · {item.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {mode === "live" && revision && (
+              <p className="fine-print">
+                This revision pins its task models and budgets. Save a new
+                revision in Harness to change them.
+              </p>
+            )}
+            <ErrorNotice error={harness.error} />
             {limitFields.map(([key, label, min, max]) => (
               <label key={key}>
                 {label}
@@ -236,7 +283,12 @@ export function ResearchComposer({
                   min={min}
                   max={max}
                   step={key === "estimated_cost_usd" ? 0.01 : 1}
-                  value={limits[key]}
+                  readOnly={mode === "live" && !!revision}
+                  value={
+                    mode === "live" && revision
+                      ? revision.snapshot.limits[key]
+                      : limits[key]
+                  }
                   onChange={(e) =>
                     dispatch({ type: "limit", key, value: e.target.value })
                   }

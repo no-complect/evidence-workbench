@@ -2,14 +2,22 @@ import { Braces, Fingerprint, ShieldCheck } from "lucide-react";
 import type { RunSnapshot } from "@/lib/contracts";
 import { WorkspaceHeading } from "./workspace-shell";
 import { limitFields } from "./research-state";
+import { ProviderConnections } from "@/features/harness/provider-connections";
+import { stages } from "@/features/harness/contracts";
 import styles from "./notebook.module.css";
 
 export function HarnessView({
   snapshot,
   liveEnabled,
+  projectId,
+  active,
+  connectionsEnabled,
 }: {
   snapshot: RunSnapshot | undefined;
   liveEnabled: boolean;
+  projectId: string;
+  active: boolean;
+  connectionsEnabled: boolean;
 }) {
   const run = snapshot?.detail.run;
   const contexts = snapshot?.detail.contexts ?? [];
@@ -19,8 +27,14 @@ export function HarnessView({
         kicker="LLM HARNESS / EXECUTION BOUNDARY"
         title="Make the model boundary explicit."
       >
-        Inspect the execution limits and saved context behind an investigation.
+        Connect a provider, verify research contracts, and pin task models
+        before an investigation.
       </WorkspaceHeading>
+      <ProviderConnections
+        projectId={projectId}
+        active={active}
+        enabled={connectionsEnabled}
+      />
       <div className={styles.twoColumns}>
         <section
           className={styles.surface}
@@ -62,10 +76,17 @@ export function HarnessView({
                 ? "Live inference is configured on this instance. The Workflows form selects execution mode and budgets."
                 : "This instance runs the self-contained fixture demo. No provider credentials or paid model calls are needed."}
             </div>
-            <p className="fine-print">
-              Provider connections, account-specific model discovery, and saved
-              harness revisions are not available in this version.
-            </p>
+            {run?.harness_snapshot && (
+              <div className={styles.note}>
+                <strong>Pinned harness: {run.harness_snapshot.name}</strong>
+                <p className="mono">{run.harness_snapshot.revision_id}</p>
+                {stages.map(([stage, label]) => (
+                  <p key={stage}>
+                    {label}: {run.harness_snapshot!.targets[stage].model_id}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         </section>
         <section className={styles.surface} aria-label="Saved context policy">

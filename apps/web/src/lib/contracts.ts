@@ -32,6 +32,8 @@ export type Run = {
   tools_used: number;
   cost_used: string | number;
   request: { limits: Limits };
+  harness_snapshot?:
+    import("@/features/harness/contracts").HarnessSnapshot | null;
   cancel_requested: boolean;
 };
 export type Evidence = {
@@ -149,6 +151,7 @@ export type Bootstrap = {
   examples: string[];
   live_enabled: boolean;
   evaluations_enabled: boolean;
+  provider_connections_enabled?: boolean;
   auth_mode: "demo" | "supabase";
 };
 export type RunListItem = Pick<

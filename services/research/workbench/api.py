@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
 from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from . import db
 from .config import settings
 from .auth import identity, authorize
@@ -13,6 +14,8 @@ from .storage import storage
 from .retrieval import search
 from .runs import create_run as submit_run
 from .evaluation_api import router as evaluation_router
+from .harness_api import router as harness_router
+from .harness import local_enabled
 
 
 @asynccontextmanager
@@ -23,6 +26,15 @@ async def lifespan(app):
 
 app = FastAPI(title='Evidence Workbench', version='0.1.0', lifespan=lifespan)
 app.include_router(evaluation_router)
+app.include_router(harness_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def safe_validation_error(request, exc):
+    # Validation details must never echo submitted credentials or arbitrary bodies.
+    return JSONResponse(status_code=422, content={'detail': [
+        {key: error[key] for key in ('loc', 'msg', 'type')} for error in exc.errors()
+    ]})
 
 
 def serialize(value):
@@ -57,6 +69,7 @@ def bootstrap(user=Depends(identity)):
         'examples': EXAMPLES,
         'auth_mode': s.auth_mode,
         'live_enabled': s.live_enabled,
+        'provider_connections_enabled': local_enabled(),
         'evaluations_enabled': s.app_env in {'local', 'test'} and s.auth_mode == 'demo',
         'mode_notice':
         'Demo uses scripted responses and synthetic documents. Real retrieval, checkpoints and events.',

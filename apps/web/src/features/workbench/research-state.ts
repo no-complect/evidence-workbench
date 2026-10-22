@@ -77,24 +77,9 @@ export function researchRequest(draft: ResearchDraft, collection: string) {
   if (!collection) throw new Error("Select a collection");
   if (draft.question.trim().length < 10)
     throw new Error("Enter a research question of at least 10 characters");
-  const limits = {} as Limits;
-  for (const [key, label, min, max] of limitFields) {
-    const raw = draft.limits[key];
-    const value = Number(raw);
-    if (
-      !raw.trim() ||
-      !Number.isFinite(value) ||
-      value < min ||
-      value > max ||
-      (key !== "estimated_cost_usd" && !Number.isInteger(value))
-    ) {
-      throw new Error(
-        `${label} must be ${key === "estimated_cost_usd" ? "a number" : "an integer"} between ${min} and ${max}`,
-      );
-    }
-    limits[key] = value;
-  }
+  const limits = parseLimits(draft.limits);
   return {
+    harness_revision_id: null as string | null,
     question: draft.question,
     collection_id: collection,
     mode: draft.mode,
@@ -115,4 +100,25 @@ export function submissionIntent(
   return previous?.fingerprint === fingerprint
     ? previous
     : { fingerprint, key: createKey() };
+}
+
+export function parseLimits(rawLimits: Record<keyof Limits, string>): Limits {
+  const limits = {} as Limits;
+  for (const [key, label, min, max] of limitFields) {
+    const raw = rawLimits[key];
+    const value = Number(raw);
+    if (
+      !raw.trim() ||
+      !Number.isFinite(value) ||
+      value < min ||
+      value > max ||
+      (key !== "estimated_cost_usd" && !Number.isInteger(value))
+    ) {
+      throw new Error(
+        `${label} must be ${key === "estimated_cost_usd" ? "a number" : "an integer"} between ${min} and ${max}`,
+      );
+    }
+    limits[key] = value;
+  }
+  return limits;
 }

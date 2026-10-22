@@ -153,6 +153,8 @@ function ProjectWorkspace({
         aria-label="Workflows workspace"
       >
         <ResearchComposer
+          connectionsEnabled={bootstrap?.provider_connections_enabled ?? false}
+          active={ui.workspace === "workflows"}
           projectId={projectId}
           collections={projectQuery.data?.collections ?? []}
           collectionId={collectionId}
@@ -200,6 +202,9 @@ function ProjectWorkspace({
         aria-label="Harness workspace"
       >
         <HarnessView
+          projectId={projectId}
+          active={ui.workspace === "harness"}
+          connectionsEnabled={bootstrap?.provider_connections_enabled ?? false}
           snapshot={runQuery.data}
           liveEnabled={bootstrap?.live_enabled ?? false}
         />
