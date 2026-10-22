@@ -49,6 +49,29 @@ test("server-authoritative selection falls back when a stale ID is absent", () =
   assert.equal(ui.resolveSelection([], "removed"), undefined);
 });
 
+test("workspace navigation preserves the selected run and workflow view while closing overlays", () => {
+  const previous = {
+    ...ui.initialWorkspaceState,
+    runId: "saved",
+    tab: "evidence",
+    overlay: { kind: "evidence", evidenceId: "passage" },
+  };
+  const next = ui.workspaceReducer(previous, {
+    type: "workspace",
+    workspace: "rag",
+  });
+  assert.equal(next.workspace, "rag");
+  assert.equal(next.runId, "saved");
+  assert.equal(next.tab, "evidence");
+  assert.equal(next.overlay, null);
+  const selected = ui.workspaceReducer(next, {
+    type: "select-run",
+    runId: "another",
+  });
+  assert.equal(selected.workspace, "workflows");
+  assert.equal(selected.tab, "report");
+});
+
 test("switching back to fixture mode clears previously enabled web access", () => {
   let draft = research.researchReducer(research.initialResearchDraft, {
     type: "mode",

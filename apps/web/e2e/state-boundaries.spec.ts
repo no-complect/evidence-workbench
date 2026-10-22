@@ -88,10 +88,10 @@ test("switching collections ignores an old source response", async ({
     }
     return true;
   });
-  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.getByRole("button", { name: "RAG", exact: true }).click();
   await started;
   await page
-    .getByRole("combobox", { name: "Collection", exact: true })
+    .getByRole("combobox", { name: "RAG collection", exact: true })
     .selectOption("a-two");
   await expect(page.getByText("a-two.txt", { exact: true })).toBeVisible();
   release();
@@ -139,7 +139,7 @@ test("project changes reset drafts and dialog focus returns to its trigger", asy
     page.getByRole("combobox", { name: "Collection", exact: true }),
   ).toHaveValue("b-one");
   await expect(
-    page.getByRole("tab", { name: "Report", exact: true }),
+    page.getByRole("tab", { name: "Decision brief", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
 });
 
@@ -210,7 +210,7 @@ test("successful evaluation polling does not erase a start error", async ({
       );
     return true;
   });
-  await page.getByRole("tab", { name: "Evaluations", exact: true }).click();
+  await page.getByRole("button", { name: "Evaluations", exact: true }).click();
   await page
     .getByRole("button", { name: "Run benchmark", exact: true })
     .click();
@@ -222,4 +222,162 @@ test("successful evaluation polling does not erase a start error", async ({
     timeout: 15000,
   });
   await expect(error).toBeVisible();
+});
+
+test("notebook workspaces preserve drafts and fetch only the active resources", async ({
+  page,
+}, testInfo) => {
+  const requested: string[] = [];
+  await mockWorkspace(page, async (_route, path) => {
+    requested.push(path);
+    return false;
+  });
+  const question = page.getByRole("textbox", {
+    name: "What would you like to investigate?",
+    exact: true,
+  });
+  await question.fill("Preserve this investigation draft across workspaces");
+  expect(
+    requested.some(
+      (path) => path.endsWith("/sources") || path.endsWith("/evaluation-jobs"),
+    ),
+  ).toBe(false);
+  for (const workspace of ["Harness", "RAG", "Evaluations", "Workflows"]) {
+    await page.getByRole("button", { name: workspace, exact: true }).click();
+    await expect(
+      page.getByRole("region", { name: `${workspace} workspace`, exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBeTruthy();
+    await page.screenshot({
+      path: testInfo.outputPath(`workspace-${workspace.toLowerCase()}.png`),
+      fullPage: true,
+    });
+  }
+  await expect(question).toHaveValue(
+    "Preserve this investigation draft across workspaces",
+  );
+  expect(requested.some((path) => path.endsWith("/sources"))).toBe(true);
+  expect(requested.some((path) => path.endsWith("/evaluation-jobs"))).toBe(
+    true,
+  );
+});
+
+test("evidence inspection deduplicates source references and exposes unavailable support", async ({
+  page,
+}) => {
+  const run = {
+    id: "saved-run",
+    question: "Which controls apply to the deployment?",
+    status: "completed",
+    mode: "demo",
+    strategy: "rag",
+    plan: null,
+    created_at: "2026-01-01T00:00:00Z",
+    tokens_used: 1000,
+    tools_used: 1,
+    cost_used: 0,
+    cancel_requested: false,
+    error: null,
+    request: {
+      limits: {
+        iterations: 1,
+        tool_calls: 5,
+        tokens: 4000,
+        wall_seconds: 60,
+        concurrency: 1,
+        estimated_cost_usd: 1,
+        top_k: 5,
+      },
+    },
+    report: {
+      title: "Control review",
+      summary: "Inspect the support.",
+      partial: false,
+      recommendations: [],
+      limitations: ["A cost comparison is not established."],
+      claims: [
+        {
+          text: "Retention controls require review.",
+          evidence_ids: ["passage-a", "passage-a"],
+          support: "direct_quote",
+        },
+        {
+          text: "Unavailable supporting source",
+          evidence_ids: ["unavailable"],
+          support: "direct_quote",
+        },
+      ],
+    },
+  };
+  await mockWorkspace(page, async (route, path) => {
+    if (path === "projects/project-a") {
+      await answer(route, { collections: [collection("a-one")], runs: [run] });
+      return true;
+    }
+    if (path === "projects/project-a/runs/saved-run") {
+      await answer(route, {
+        run,
+        contexts: [],
+        tasks: [],
+        evidence: [
+          {
+            id: "passage-a",
+            chunk_id: "chunk-a",
+            text: "Retention controls require review.",
+            source_name: "security.md",
+            version_id: "version-a",
+            section: "Retention",
+            page: null,
+            start_offset: 0,
+            end_offset: 34,
+            scores: { rrf: 0.02, reranker: "disabled" },
+            metadata: { synthetic: true },
+          },
+        ],
+      });
+      return true;
+    }
+    if (path === "projects/project-a/runs/saved-run/events") {
+      await answer(route, { events: [], cursor: 0 });
+      return true;
+    }
+    return false;
+  });
+  await page
+    .getByRole("combobox", { name: "Saved investigation", exact: true })
+    .selectOption("saved-run");
+  await expect(
+    page.locator(".run-strip .status-badge.completed"),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Evidence board", exact: true }).click();
+  const inspector = page.getByRole("region", {
+    name: "Selected evidence",
+    exact: true,
+  });
+  await expect(inspector).toContainText("version-a");
+  await expect(
+    inspector.getByRole("button", { name: "Inspect provenance", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    inspector.getByRole("button", { name: /Passage \d+/ }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("group", { name: "Research findings", exact: true })
+    .getByRole("button", { name: /Unavailable supporting source/ })
+    .click();
+  await expect(inspector).toContainText("Supporting passage unavailable.");
+  await expect(
+    inspector.getByRole("button", { name: "Inspect provenance", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "Filter evidence", exact: true })
+    .fill("no-such-finding");
+  await expect(
+    page.getByRole("heading", { name: "No matching findings", exact: true }),
+  ).toBeVisible();
+  await expect(inspector).toHaveCount(0);
 });

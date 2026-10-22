@@ -85,9 +85,11 @@ export function ResearchComposer({
     <>
       <div className="page-heading">
         <div>
-          <div className="eyebrow">ASK. INVESTIGATE. VERIFY.</div>
-          <h1>Research workspace</h1>
-          <p>Decisions grounded in sources you can inspect.</p>
+          <div className="eyebrow">WORKFLOWS / RESEARCH NOTEBOOK</div>
+          <h1>Follow the work, not just the answer.</h1>
+          <p>
+            Plan the investigation. Inspect the evidence. Keep the uncertainty.
+          </p>
         </div>
         <span className={`mode-badge ${mode}`}>
           <span />

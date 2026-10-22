@@ -12,14 +12,16 @@ import { EvaluationResults } from "@/features/evaluations/evaluation-results";
 export function EvaluationsView({
   projectId,
   enabled,
+  active = true,
 }: {
   projectId: string;
   enabled: boolean;
+  active?: boolean;
 }) {
   const [split, setSplit] = useState<EvaluationSplit>("development");
-  const { query, start, cancel, submit } = useEvaluations(projectId);
+  const { query, start, cancel, submit } = useEvaluations(projectId, active);
   const jobs = query.data?.jobs ?? [];
-  const active = jobs.some(
+  const hasActiveJob = jobs.some(
     (job) => job.status === "queued" || job.status === "running",
   );
   return (
@@ -40,7 +42,7 @@ export function EvaluationsView({
           className="benchmark-controls"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!active && enabled && !query.isPending && !query.isError)
+            if (!hasActiveJob && enabled && !query.isPending && !query.isError)
               submit(split);
           }}
         >
@@ -48,7 +50,7 @@ export function EvaluationsView({
             Case split
             <select
               value={split}
-              disabled={start.isPending || active}
+              disabled={start.isPending || hasActiveJob}
               onChange={(event) =>
                 setSplit(event.target.value as EvaluationSplit)
               }
@@ -66,7 +68,7 @@ export function EvaluationsView({
               query.isPending ||
               query.isError ||
               start.isPending ||
-              active
+              hasActiveJob
             }
           >
             {start.isPending ? (

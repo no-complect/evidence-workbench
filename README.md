@@ -78,12 +78,12 @@ See [Troubleshooting](./docs/TROUBLESHOOTING.md) for Docker access, port conflic
 
 After the initial build:
 
-1. Select **Enterprise AI architecture → Architecture decision pack**. Keep the default question comparing managed, self-hosted, and hybrid AI assistants.
+1. Open **Workflows**, select the **Enterprise AI architecture** project and **Architecture decision pack** collection. Keep the default question comparing managed, self-hosted, and hybrid AI assistants.
 2. Click **Start research**. When the plan appears, edit the security question to `security retention current requirements`, then click **Approve & investigate**.
-3. Open **Activity** to follow saved execution events. Open **Evidence** to inspect retrieved passages and stale-source labels.
-4. Open **Report**, click a numbered citation, and inspect its source version, section, offsets, and exact text. Click **Markdown** to download the report.
+3. Open **Research trail** to follow saved execution events. Open **Evidence board**, select a finding, and inspect its pinned passage or explicit limitation. **Inspect provenance** opens the full source details.
+4. Open **Decision brief**, click a numbered citation, and inspect its source version, section, offsets, and exact text. Click **Markdown** to download the report.
 5. Open **Context** to inspect a recorded model input, prompt version, and evidence inclusion/exclusion decisions.
-6. Open **Sources** and upload [reviewer-notes.txt](./docs/examples/reviewer-notes.txt). Its status should become `ready`. New demo uploads are full-text searchable; arbitrary research questions require live mode.
+6. Open **RAG** and upload [reviewer-notes.txt](./docs/examples/reviewer-notes.txt). Its status should become `ready`. New demo uploads are full-text searchable; arbitrary research questions require live mode.
 
 For a terminal-only investigation:
 
@@ -91,7 +91,7 @@ For a terminal-only investigation:
 bash scripts/demo.sh
 ```
 
-To populate **Evaluations** with your own measurements:
+For optional command-line benchmarks:
 
 ```bash
 bash scripts/eval.sh --split held-out
@@ -105,12 +105,12 @@ The optional CLI commands above run inside the evaluation container and submit c
 
 ## Features to explore
 
-- **Report:** cited findings, explicit uncertainty, next steps, partial-report labels, and Markdown export.
-- **Evidence:** passage filtering, retrieval scores, source provenance, and synthetic/stale/adversarial labels.
-- **Activity:** ordered, persisted progress events. Closing the browser does not cancel research.
-- **Context:** redacted assembled inputs, versioned prompt hashes, token estimates, and evidence selection decisions. Private chain-of-thought is not requested or displayed.
-- **Sources:** projects and collections; Markdown, UTF-8 text, and text-based PDF uploads; content deduplication and immutable versions. Uploads are limited to 8 MiB and PDFs to 200 pages.
-- **Evaluations:** comparable runs using basic RAG, a fixed workflow, and bounded follow-up research.
+- **Harness:** inspect the selected run's execution limits and saved prompt/context fingerprints. Provider connections, model discovery, and saved harness revisions are not available yet.
+- **RAG:** manage collections and inspect source ingestion, deduplicated uploads, and immutable versions. Markdown, UTF-8 text, and text-based PDF uploads are limited to 8 MiB and PDFs to 200 pages.
+- **Workflows:** run investigations, approve an edited plan, inspect **Decision brief**, **Evidence board**, **Research trail**, and **Context**. Findings retain citations and limitations; passage inspectors expose source identity and unavailable references. Redacted assembled inputs retain prompt hashes, token estimates, and evidence selection decisions. Private chain-of-thought is not requested or displayed.
+- **Evaluations:** queue, cancel, and inspect comparisons of basic RAG, a fixed workflow, and bounded follow-up research.
+
+Workspace changes preserve in-progress form and approval edits. Selecting another project resets that project's local workflow state. Closing the browser does not cancel a background investigation.
 
 In **Research settings**, compare the three strategies, choose 1–3 concurrent gathering tasks, change retrieval depth, and set iteration, tool-call, token, time, and estimated-cost limits. Plan review is enabled by default. **Cancel** retains gathered evidence; a limit can produce a visibly partial report. To demonstrate a budget stop, start a new investigation with the token budget set to 500.
 
