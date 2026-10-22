@@ -18,7 +18,7 @@ test("benchmark queues in UI and exposes persisted case results", async ({
     .getByRole("button", { name: "Create project", exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
-  await page.getByRole("tab", { name: "Evaluations", exact: true }).click();
+  await page.getByRole("button", { name: "Evaluations", exact: true }).click();
   await page
     .getByRole("button", { name: "Run benchmark", exact: true })
     .click();
@@ -53,6 +53,20 @@ test("seeded question → edited plan → report → citation → context → ex
   await page
     .getByLabel("security research question")
     .fill("security retention current requirements");
+  await page.getByRole("button", { name: "Harness", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Execution configuration", exact: true }),
+  ).toContainText("Deterministic fixture");
+  await page.screenshot({
+    path: testInfo.outputPath("harness.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "RAG", exact: true }).click();
+  await expect(page.getByLabel("Upload source file")).toBeAttached();
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
+  await expect(page.getByLabel("security research question")).toHaveValue(
+    "security retention current requirements",
+  );
   await page.getByRole("button", { name: "Approve & investigate" }).click();
   await expect(page.locator(".run-strip .status-badge.completed")).toBeVisible({
     timeout: 60000,
@@ -61,7 +75,7 @@ test("seeded question → edited plan → report → citation → context → ex
   await expect(
     page.getByRole("heading", { name: "A plan before we proceed" }),
   ).toHaveCount(0);
-  await page.getByRole("tab", { name: "Report", exact: true }).click();
+  await page.getByRole("tab", { name: "Decision brief", exact: true }).click();
   await page.screenshot({
     path: testInfo.outputPath("demo-report.png"),
     fullPage: true,
@@ -71,6 +85,35 @@ test("seeded question → edited plan → report → citation → context → ex
       name: /enterprise ai assistant.*evidence review/i,
     }),
   ).toBeVisible();
+  await page.getByRole("tab", { name: "Evidence board", exact: true }).click();
+  const findings = page.getByRole("group", {
+    name: "Research findings",
+    exact: true,
+  });
+  await expect(findings).toBeVisible();
+  await findings.getByRole("button").first().click();
+  const selectedEvidence = page.getByRole("region", {
+    name: "Selected evidence",
+    exact: true,
+  });
+  await expect(selectedEvidence).toContainText("Version");
+  await page.screenshot({
+    path: testInfo.outputPath("evidence-board.png"),
+    fullPage: true,
+  });
+  await selectedEvidence
+    .getByRole("button", { name: "Inspect provenance", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Evidence details" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await findings
+    .getByRole("button", { name: /LIMITATION/ })
+    .first()
+    .click();
+  await expect(selectedEvidence).toContainText("Preserve this limitation");
+  await page.getByRole("tab", { name: "Decision brief", exact: true }).click();
   await page
     .getByRole("button", { name: /Open citation/ })
     .first()
@@ -85,7 +128,7 @@ test("seeded question → edited plan → report → citation → context → ex
   expect((await downloaded).suggestedFilename()).toBe("research-report.md");
   await page.getByRole("tab", { name: "Context", exact: true }).click();
   await expect(page.locator(".code-header")).toContainText("Assembled input");
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await page.getByRole("tab", { name: "Research trail", exact: true }).click();
   await expect(page.getByText("Report ready", { exact: true })).toBeVisible();
   expect(
     await page.evaluate(
@@ -98,7 +141,7 @@ test("upload ingestion status and arbitrary demo error are visible", async ({
 }) => {
   await page.goto("/");
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.getByRole("button", { name: "RAG", exact: true }).click();
   await page.getByLabel("Upload source file").setInputFiles({
     name: "browser-test.txt",
     mimeType: "text/plain",
@@ -109,6 +152,7 @@ test("upload ingestion status and arbitrary demo error are visible", async ({
   await expect(
     page.getByText("browser-test.txt", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await page
     .getByRole("textbox", {
       name: "What would you like to investigate?",

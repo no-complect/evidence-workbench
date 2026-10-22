@@ -33,8 +33,8 @@ body:has(.workbench-dialog[open]) {
   }
 }
 .benchmark-launcher {
-  background: #f4f3f2;
-  border: 1px solid #d9d6d5;
+  background: white;
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 28px;
@@ -107,14 +107,19 @@ body:has(.workbench-dialog[open]) {
   }
 }
 :root {
-  --background: #f7f8fb;
-  --foreground: #1c2638;
-  --muted: #69758a;
-  --border: #e4e8ef;
-  --blue: #315bd8;
+  --background: #f4f6fa;
+  --foreground: #20283c;
+  --muted: #56627a;
+  --border: #dfe4ee;
+  --blue: #4055cf;
+  --blue-soft: #edf0ff;
+  --gunmetal: #6b7781;
+  --warm-soft: #e9e4e5;
+  --warm-ink: #62515a;
   --nav: #111c30;
   --ring: #4b77ee;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   color: var(--foreground);
   background: var(--background);
   font-size: 16px;
@@ -764,8 +769,8 @@ main {
 }
 .status-badge.awaiting_approval,
 .status-badge.partial {
-  background: #fff3d8;
-  color: #957024;
+  background: var(--warm-soft);
+  color: var(--warm-ink);
 }
 .status-badge.failed,
 .status-badge.error {
@@ -1077,9 +1082,9 @@ main {
   color: #6c7b94;
 }
 .partial-notice {
-  background: #fff5df;
-  border: 1px solid #f4e4b6;
-  color: #967029;
+  background: var(--warm-soft);
+  border: 1px solid #d4cdd0;
+  color: var(--warm-ink);
   padding: 12px 15px;
   border-radius: 5px;
   margin-top: 20px;
@@ -1145,8 +1150,8 @@ main {
   color: #7486a2;
 }
 .tag.stale {
-  background: #fff5df;
-  color: #9a7a37;
+  background: var(--warm-soft);
+  color: var(--warm-ink);
 }
 .tag.warning {
   background: #fceff1;
@@ -2071,4 +2076,19 @@ tr:last-child td {
   .claim p {
     font-size: 16px;
   }
+}
+
+[hidden] {
+  display: none !important;
+}
+.metric-pair {
+  display: contents;
+}
+.harness-context {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.harness-context summary {
+  font-size: 13px;
+  margin-bottom: 14px;
 }

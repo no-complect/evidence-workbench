@@ -10,9 +10,12 @@ import {
   type SubmissionIntent,
 } from "@/features/workbench/research-state";
 
-export function useEvaluations(projectId: string) {
+export function useEvaluations(projectId: string, active = true) {
   const client = useQueryClient();
-  const query = useQuery(evaluationOptions(projectId));
+  const query = useQuery({
+    ...evaluationOptions(projectId),
+    enabled: active && !!projectId,
+  });
   const intent = useRef<SubmissionIntent | null>(null);
   const start = useMutation({
     mutationFn: ({ split, key }: { split: EvaluationSplit; key: string }) =>

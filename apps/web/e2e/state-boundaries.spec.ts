@@ -88,10 +88,10 @@ test("switching collections ignores an old source response", async ({
     }
     return true;
   });
-  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.getByRole("button", { name: "RAG", exact: true }).click();
   await started;
   await page
-    .getByRole("combobox", { name: "Collection", exact: true })
+    .getByRole("combobox", { name: "RAG collection", exact: true })
     .selectOption("a-two");
   await expect(page.getByText("a-two.txt", { exact: true })).toBeVisible();
   release();
@@ -139,7 +139,7 @@ test("project changes reset drafts and dialog focus returns to its trigger", asy
     page.getByRole("combobox", { name: "Collection", exact: true }),
   ).toHaveValue("b-one");
   await expect(
-    page.getByRole("tab", { name: "Report", exact: true }),
+    page.getByRole("tab", { name: "Decision brief", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
 });
 
@@ -210,7 +210,7 @@ test("successful evaluation polling does not erase a start error", async ({
       );
     return true;
   });
-  await page.getByRole("tab", { name: "Evaluations", exact: true }).click();
+  await page.getByRole("button", { name: "Evaluations", exact: true }).click();
   await page
     .getByRole("button", { name: "Run benchmark", exact: true })
     .click();
@@ -222,4 +222,46 @@ test("successful evaluation polling does not erase a start error", async ({
     timeout: 15000,
   });
   await expect(error).toBeVisible();
+});
+
+test("notebook workspaces preserve drafts and fetch only the active resources", async ({
+  page,
+}, testInfo) => {
+  const requested: string[] = [];
+  await mockWorkspace(page, async (_route, path) => {
+    requested.push(path);
+    return false;
+  });
+  const question = page.getByRole("textbox", {
+    name: "What would you like to investigate?",
+    exact: true,
+  });
+  await question.fill("Preserve this investigation draft across workspaces");
+  expect(
+    requested.some(
+      (path) => path.endsWith("/sources") || path.endsWith("/evaluation-jobs"),
+    ),
+  ).toBe(false);
+  for (const workspace of ["Harness", "RAG", "Evaluations", "Workflows"]) {
+    await page.getByRole("button", { name: workspace, exact: true }).click();
+    await expect(
+      page.getByRole("region", { name: `${workspace} workspace`, exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBeTruthy();
+    await page.screenshot({
+      path: testInfo.outputPath(`workspace-${workspace.toLowerCase()}.png`),
+      fullPage: true,
+    });
+  }
+  await expect(question).toHaveValue(
+    "Preserve this investigation draft across workspaces",
+  );
+  expect(requested.some((path) => path.endsWith("/sources"))).toBe(true);
+  expect(requested.some((path) => path.endsWith("/evaluation-jobs"))).toBe(
+    true,
+  );
 });

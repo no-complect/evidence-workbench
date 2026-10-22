@@ -1,5 +1,6 @@
-export type WorkspaceTab =
-  "report" | "evidence" | "activity" | "context" | "sources" | "evaluations";
+export type WorkspaceTab = "report" | "evidence" | "activity" | "context";
+export type EngineeringWorkspace =
+  "harness" | "rag" | "workflows" | "evaluations";
 export type WorkspaceOverlay =
   | { kind: "create-project" }
   | { kind: "create-collection" }
@@ -9,10 +10,12 @@ export type WorkspaceState = {
   runId: string;
   collectionId: string;
   tab: WorkspaceTab;
+  workspace: EngineeringWorkspace;
   overlay: WorkspaceOverlay;
 };
 export type WorkspaceAction =
   | { type: "navigate"; tab: WorkspaceTab }
+  | { type: "workspace"; workspace: EngineeringWorkspace }
   | { type: "select-run"; runId: string }
   | { type: "started-run"; runId: string }
   | { type: "new-investigation" }
@@ -22,6 +25,7 @@ export const initialWorkspaceState: WorkspaceState = {
   runId: "",
   collectionId: "",
   tab: "report",
+  workspace: "workflows",
   overlay: null,
 };
 
@@ -32,12 +36,32 @@ export function workspaceReducer(
   switch (action.type) {
     case "navigate":
       return { ...state, tab: action.tab, overlay: null };
+    case "workspace":
+      return { ...state, workspace: action.workspace, overlay: null };
     case "select-run":
-      return { ...state, runId: action.runId, tab: "report", overlay: null };
+      return {
+        ...state,
+        runId: action.runId,
+        workspace: "workflows",
+        tab: "report",
+        overlay: null,
+      };
     case "started-run":
-      return { ...state, runId: action.runId, tab: "activity", overlay: null };
+      return {
+        ...state,
+        runId: action.runId,
+        workspace: "workflows",
+        tab: "activity",
+        overlay: null,
+      };
     case "new-investigation":
-      return { ...state, runId: "", tab: "report", overlay: null };
+      return {
+        ...state,
+        runId: "",
+        workspace: "workflows",
+        tab: "report",
+        overlay: null,
+      };
     case "select-collection":
       return { ...state, collectionId: action.collectionId, overlay: null };
     case "show-overlay":

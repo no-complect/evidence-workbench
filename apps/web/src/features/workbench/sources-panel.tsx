@@ -11,13 +11,18 @@ export function SourcesPanel({
   collectionId,
   readOnly,
   onCreate,
+  active = true,
 }: {
   projectId: string;
   collectionId: string;
   readOnly: boolean;
   onCreate: () => void;
+  active?: boolean;
 }) {
-  const sources = useQuery(sourceOptions(projectId, collectionId));
+  const sources = useQuery({
+    ...sourceOptions(projectId, collectionId),
+    enabled: active && !!projectId && !!collectionId,
+  });
   const upload = useUploadSource(projectId, collectionId);
   return (
     <>
