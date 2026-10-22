@@ -54,7 +54,7 @@ test("seeded question → edited plan → report → citation → context → ex
     .getByLabel("security research question")
     .fill("security retention current requirements");
   await page.getByRole("button", { name: "Approve & investigate" }).click();
-  await expect(page.locator(".status-badge.completed")).toBeVisible({
+  await expect(page.locator(".run-strip .status-badge.completed")).toBeVisible({
     timeout: 60000,
   });
   await page.getByRole("tab", { name: "Report", exact: true }).click();

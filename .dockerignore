@@ -23,3 +23,13 @@ docs/verification
 **/*.log
 **/*.pem
 **/*.key
+
+# Private AI development context is not a runtime input.
+**/AGENTS.md
+**/CLAUDE.md
+**/GEMINI.md
+.context
+**/.context
+docs/REFACTOR_STATUS.md
+docs/ENTERPRISE_REFACTOR.md
+docs/design
