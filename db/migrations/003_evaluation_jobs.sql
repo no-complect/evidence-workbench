@@ -1,4 +1,5 @@
 -- Durable evaluation scheduling is independent of research-run execution.
+ALTER TABLE collections ADD COLUMN read_only boolean NOT NULL DEFAULT false;
 CREATE TABLE evaluation_jobs (
   id uuid PRIMARY KEY,
   project_id uuid NOT NULL REFERENCES projects,

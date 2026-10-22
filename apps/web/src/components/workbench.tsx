@@ -922,7 +922,8 @@ export function Workbench() {
               <SourcesView
                 sources={sources}
                 canCreate={!!projectId}
-                canUpload={!!collectionId}
+                canUpload={!!collectionId && !collections.find(c => c.id === collectionId)?.read_only}
+                readOnly={!!collections.find(c => c.id === collectionId)?.read_only}
                 busy={busy}
                 onCreate={() => setDialog("collection")}
                 onUpload={(file) => void upload(file)}

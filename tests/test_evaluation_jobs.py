@@ -108,6 +108,14 @@ def test_evaluation_executes_and_reuses_cases_after_worker_restart(client, monke
     assert all(len(r['corpus_versions']) > 0 for r in children)
     assert result['versions']['source_hashes']
     assert all(r['mode'] == 'demo' for r in children)
+    upload = client.post(
+        f'/api/projects/{pid}/collections/{job["id"]}/sources',
+        files={'file': ('unknown.txt', b'Unknown collection', 'text/plain')})
+    assert upload.status_code == 404
+    upload = client.post(
+        f'/api/projects/{pid}/collections/{result["versions"]["collection_id"]}/sources',
+        files={'file': ('attempt.txt', b'Mutate the benchmark corpus', 'text/plain')})
+    assert upload.status_code == 409 and 'read-only' in upload.json()['detail']
 
 
 def test_active_evaluation_cancellation_stops_child_runs(client, monkeypatch):

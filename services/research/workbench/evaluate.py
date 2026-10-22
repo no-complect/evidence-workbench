@@ -46,6 +46,8 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
     versions = {
         'code_sha256': fingerprint(),
         'corpus_sha256': corpus_hash,
+        'cases_sha256': hashlib.sha256((ROOT / 'evals/cases.json').read_bytes()).hexdigest(),
+        'case_ids': [case['id'] for case in selected],
         'corpus': 'synthetic-corpus-v1',
         'model': 'deterministic-fixture-v1',
         'embedding': 'fixture-topic-vector-v1/16',
@@ -64,7 +66,7 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
     from .ingest import ingest, MANIFEST
     evaluation_collection = collection_id or db.uid()
     db.execute(
-        "INSERT INTO collections(id,project_id,name,embedding_config) VALUES(%s,%s,%s,'demo-v1') ON CONFLICT(id) DO NOTHING",
+        "INSERT INTO collections(id,project_id,name,embedding_config,read_only) VALUES(%s,%s,%s,'demo-v1',true) ON CONFLICT(id) DO NOTHING",
         (evaluation_collection, project_id, 'Evaluation snapshot ' + evaluation_collection[:8]))
     for metadata in MANIFEST['documents']:
         check_active()

@@ -22,10 +22,13 @@ class EvaluationCreate(StrictModel):
 
 
 def benchmark_versions():
+    sources = sorted((ROOT / 'fixtures/corpus').glob('*'))
     return {
         'code_sha256': fingerprint(),
         'corpus_sha256': hashlib.sha256((ROOT / 'fixtures/manifest.json').read_bytes()).hexdigest(),
         'cases_sha256': hashlib.sha256((ROOT / 'evals/cases.json').read_bytes()).hexdigest(),
+        'source_files_sha256': hashlib.sha256(b''.join(
+            p.name.encode() + p.read_bytes() for p in sources if p.is_file())).hexdigest(),
     }
 
 

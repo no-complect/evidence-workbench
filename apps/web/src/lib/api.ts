@@ -11,6 +11,7 @@ export type Collection = {
   name: string;
   document_count: number;
   embedding_config: string;
+  read_only?: boolean;
 };
 export type Run = {
   id: string;

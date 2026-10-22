@@ -113,6 +113,12 @@ def upload(project_id: UUID,
            file: UploadFile = File(...),
            user=Depends(identity)):
     authorize(project_id, user)
+    collection = db.one('SELECT read_only FROM collections WHERE id=%s AND project_id=%s',
+                        (collection_id, project_id))
+    if not collection:
+        raise HTTPException(404, 'Collection not found')
+    if collection['read_only']:
+        raise HTTPException(409, 'Benchmark snapshots are read-only; create a collection to upload sources')
     data = file.file.read(MAX_BYTES + 1)
     try:
         return ingest(project_id, collection_id, file.filename or 'upload.txt', data, {
