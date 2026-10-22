@@ -1,7 +1,9 @@
 "use client";
 import { useReducer, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { harnessOptions } from "@/features/harness/queries";
+import {
+  ModelSelector,
+  type ModelSelectionProps,
+} from "@/features/harness/model-selector";
 import {
   CircleDot,
   Database,
@@ -28,8 +30,7 @@ import {
 
 export function ResearchComposer({
   projectId,
-  connectionsEnabled,
-  active,
+  modelSelection,
   collections,
   collectionId,
   examples,
@@ -39,8 +40,7 @@ export function ResearchComposer({
   onStarted,
 }: {
   projectId: string;
-  connectionsEnabled: boolean;
-  active: boolean;
+  modelSelection?: ModelSelectionProps;
   collections: Collection[];
   collectionId: string;
   examples: string[];
@@ -49,21 +49,6 @@ export function ResearchComposer({
   onCollectionChange: (id: string) => void;
   onStarted: (id: string) => void;
 }) {
-  const [revisionId, setRevisionId] = useState("");
-  const harness = useQuery(
-    harnessOptions(projectId, connectionsEnabled && active),
-  );
-  const revision = harness.data?.revisions.find(
-    (item) => item.id === revisionId,
-  );
-  const revisionConnected =
-    !!revision &&
-    Object.values(revision.snapshot.targets).every((target) =>
-      harness.data?.connections.some(
-        (connection) =>
-          connection.id === target.connection_id && connection.active,
-      ),
-    );
   const [draft, dispatch] = useReducer(researchReducer, initialResearchDraft);
   const [showSettings, setShowSettings] = useState(false);
   const [validationError, setValidationError] = useState("");
@@ -71,6 +56,9 @@ export function ResearchComposer({
   const mutation = useStartResearch(projectId);
   const { question, mode, strategy, limits, approval, webEnabled } = draft;
   const busy = mutation.isPending;
+  const pricedModel =
+    !!modelSelection?.catalog?.pricing_configured &&
+    modelSelection.modelId === modelSelection.catalog.default_model;
   const collectionReady = collections.some(
     (item) =>
       item.id === collectionId &&
@@ -88,18 +76,13 @@ export function ResearchComposer({
     setValidationError("");
     mutation.reset();
     try {
-      if (mode === "live" && revisionId && !revision)
-        throw new Error(
-          "The selected harness revision is unavailable. Refresh provider settings or choose another revision.",
-        );
       const request = researchRequest(draft, collectionId);
-      if (mode === "live" && revision && !revisionConnected)
-        throw new Error(
-          "The selected revision uses a disconnected provider. Choose another revision.",
-        );
-      if (mode === "live" && revision) {
-        request.harness_revision_id = revision.id;
-        request.limits = revision.snapshot.limits;
+      if (mode === "live" && modelSelection) {
+        if (!modelSelection.catalog?.models.includes(modelSelection.modelId))
+          throw new Error(
+            "Choose an available model. Refresh models if the catalog has changed.",
+          );
+        request.model_id = modelSelection.modelId;
       }
       intent.current = submissionIntent(intent.current, request, () =>
         crypto.randomUUID(),
@@ -260,71 +243,39 @@ export function ResearchComposer({
                 <option value="rag">Basic RAG</option>
               </select>
             </label>
-            {mode === "live" && connectionsEnabled && (
-              <label>
-                Harness revision
-                <select
-                  aria-label="Harness revision"
-                  value={revisionId}
-                  onChange={(event) => setRevisionId(event.target.value)}
-                >
-                  <option value="">
-                    Server default · legacy configuration
-                  </option>
-                  {harness.data?.revisions.map((item) => (
-                    <option
-                      key={item.id}
-                      value={item.id}
-                      disabled={
-                        !Object.values(item.snapshot.targets).every((target) =>
-                          harness.data?.connections.some(
-                            (connection) =>
-                              connection.id === target.connection_id &&
-                              connection.active,
-                          ),
-                        )
-                      }
-                    >
-                      {item.name} · {item.id.slice(0, 8)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            {mode === "live" && modelSelection && (
+              <ModelSelector {...modelSelection} />
             )}
-            {mode === "live" && revision && (
+            {mode === "live" && modelSelection && !pricedModel && (
               <p className="fine-print">
-                This revision pins its task models and budgets. Save a new
-                revision in Harness to change them.
+                Dollar estimates are unavailable without server pricing
+                configuration. Token, tool, iteration, and time limits still
+                apply.
               </p>
             )}
-            {mode === "live" && revision && !revisionConnected && (
-              <p role="status" className="source-error">
-                This revision uses a disconnected provider. Choose another
-                revision or reconnect and save a new one.
-              </p>
-            )}
-            <ErrorNotice error={harness.error} />
-            {limitFields.map(([key, label, min, max]) => (
-              <label key={key}>
-                {label}
-                <input
-                  type="number"
-                  required
-                  min={min}
-                  max={max}
-                  step={key === "estimated_cost_usd" ? 0.01 : 1}
-                  readOnly={mode === "live" && !!revision}
-                  value={
-                    mode === "live" && revision
-                      ? revision.snapshot.limits[key]
-                      : limits[key]
-                  }
-                  onChange={(e) =>
-                    dispatch({ type: "limit", key, value: e.target.value })
-                  }
-                />
-              </label>
-            ))}
+            {limitFields
+              .filter(
+                ([key]) =>
+                  mode !== "live" ||
+                  pricedModel ||
+                  key !== "estimated_cost_usd",
+              )
+              .map(([key, label, min, max]) => (
+                <label key={key}>
+                  {label}
+                  <input
+                    type="number"
+                    required
+                    min={min}
+                    max={max}
+                    step={key === "estimated_cost_usd" ? 0.01 : 1}
+                    value={limits[key]}
+                    onChange={(e) =>
+                      dispatch({ type: "limit", key, value: e.target.value })
+                    }
+                  />
+                </label>
+              ))}
             <label className="check-label">
               <input
                 type="checkbox"
@@ -350,7 +301,7 @@ export function ResearchComposer({
         <span>
           {mode === "demo"
             ? "Synthetic documents. Scripted responses. Real retrieval, citations, and persisted execution."
-            : "Live model calls use server credentials and your configured budget. Costs are estimates."}
+            : "Live model calls use the server key and your execution limits. Dollar estimates are available only when pricing is configured."}
         </span>
         <span className="note-version">CORPUS v1</span>
       </div>

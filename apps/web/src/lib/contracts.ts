@@ -151,7 +151,7 @@ export type Bootstrap = {
   examples: string[];
   live_enabled: boolean;
   evaluations_enabled: boolean;
-  provider_connections_enabled?: boolean;
+  model_catalog_enabled?: boolean;
   auth_mode: "demo" | "supabase";
 };
 export type RunListItem = Pick<

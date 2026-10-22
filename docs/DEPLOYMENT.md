@@ -47,6 +47,14 @@ The frontend is a conventional Next.js App Router app. Configure Vercel's projec
 
 Set `APP_ENV=production`, `API_URL=https://your-deployed-api.example`, `API_SHARED_SECRET`, `NEXT_PUBLIC_AUTH_MODE=supabase`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Public variables are embedded at **build time**. Configure the Supabase Auth site's URL and allowed redirects to your actual Vercel domain. The browser uses Supabase JS auth; the Next API proxy forwards the user bearer token and a separate server-only backend secret. The browser may read its project list directly through Supabase RLS.
 
+The model catalog and research execution use `OPENAI_API_KEY` from the **Python
+API and worker environment**. In local Docker, both receive the root `.env` value.
+With the current separately hosted backend, adding this key only to the Vercel
+frontend does not configure the API or worker; set it in those services’ deployment
+environments too. If a future deployment hosts the Python API on Vercel, its
+server-side environment uses the same variable. Never use a `NEXT_PUBLIC_` key.
+No backend hosting topology is changed by the model selector.
+
 **A deployed Vercel app cannot reach your laptop's localhost API.** API_URL must be the publicly reachable, authenticated TLS API endpoint. Vercel requests submit jobs and return 202; they do not host the research loop. Source uploads are bounded synchronous requests and may need a direct-storage upload design for larger future ingestion workloads.
 
 The local Next production build passes; a hosted deployment has not been verified. No Vercel-native durable worker support is assumed or used. No deployment action is part of the local startup scripts.
@@ -70,10 +78,10 @@ The local Next production build passes; a hosted deployment has not been verifie
 | LIVE_ENABLED | false | true only when explicitly opting in | Python |
 | CREDENTIAL_STORE_PATH | `.runtime/credentials` on host; `/data/credentials` in Compose | Private local credential key directory, shared by API and worker | Python only |
 | OPENAI_API_KEY | Unused | Required for live model/embedding calls | Python only |
-| OPENAI_MODEL | gpt-4.1-mini | Supported GPT-4.1 profile | Python |
+| OPENAI_MODEL | gpt-4.1-mini | Initial model selection; UI can choose any discovered ID | Python |
 | OPENAI_EMBEDDING_MODEL | Unused | text-embedding-3-small, dimension 1536 | Python |
-| MODEL_INPUT_USD_PER_MILLION / MODEL_OUTPUT_USD_PER_MILLION | Unused | Operator's estimate, required for live | Python |
-| EMBEDDING_USD_PER_MILLION | Unused | Required for live run budgets | Python |
+| MODEL_INPUT_USD_PER_MILLION / MODEL_OUTPUT_USD_PER_MILLION | Unused | Optional estimate for OPENAI_MODEL only | Python |
+| EMBEDDING_USD_PER_MILLION | Unused | Optional embedding estimate | Python |
 | TAVILY_API_KEY / WEB_SEARCH_USD_PER_CALL | Unused | Required only when web research is enabled | Python |
 | LEASE_SECONDS / POLL_SECONDS | 30 / 0.5 | Tune after testing | Worker |
 

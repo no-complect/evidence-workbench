@@ -5,6 +5,7 @@ from .auth import authorize
 from .config import settings
 from .models import EXAMPLES
 from .harness import run_snapshot
+from .environment_models import snapshot as environment_snapshot
 
 
 def create_run(project_id, body, user, *, evaluation_job_id=None):
@@ -15,6 +16,23 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
         raise HTTPException(404, 'Collection not found')
     if collection['setup_status'] != 'ready':
         raise HTTPException(409, 'Finish or retry collection preparation before starting research')
+    request = body.model_dump(mode='json')
+    for optional in ['harness_revision_id', 'model_id']:
+        if request[optional] is None:
+            request.pop(optional)
+    prior = db.one('SELECT * FROM research_runs WHERE project_id=%s AND user_id=%s AND idempotency_key=%s',
+                   (project_id, user, body.idempotency_key))
+    if prior:
+        if prior['request'] != request:
+            # Legacy revisions store their own pinned limits in the request.
+            comparable = {**request, 'limits': prior['request']['limits']} if body.harness_revision_id else request
+            if prior['request'] != comparable:
+                raise HTTPException(409, 'Idempotency key already belongs to a different request')
+        return prior
+    if body.model_id and body.harness_revision_id:
+        raise HTTPException(422, 'Choose a model or a legacy revision, not both')
+    if body.model_id and body.mode != 'live':
+        raise HTTPException(422, 'Model selection applies to live research')
     harness_snapshot = None
     if body.harness_revision_id:
         if body.mode != 'live':
@@ -36,19 +54,14 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
             raise HTTPException(
                 422,
                 'Create and ingest a live embedding collection; fixture vectors cannot be mixed')
-        prices = [s.embedding_usd_per_million] + ([] if harness_snapshot else [s.model_input_usd_per_million, s.model_output_usd_per_million])
-        if any(x is None or x < 0 for x in prices):
-            raise HTTPException(
-                409, 'Configure model and embedding cost estimates before live execution')
         if harness_snapshot:
             harness_snapshot['embedding_usd_per_million'] = s.embedding_usd_per_million
             harness_snapshot['embedding_config'] = collection['embedding_config']
+        else:
+            harness_snapshot = environment_snapshot(project_id, user, body.model_id, body.limits, collection)
         if body.web_enabled and (not s.tavily_api_key or s.web_search_usd_per_call is None):
             raise HTTPException(409,
                                 'Web search needs a key and a configured per-call cost estimate')
-    request = body.model_dump(mode='json')
-    if body.harness_revision_id is None:
-        request.pop('harness_revision_id')
     if harness_snapshot:
         request['limits'] = harness_snapshot['limits']
     with db.connection() as conn:

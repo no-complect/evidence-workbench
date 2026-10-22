@@ -133,47 +133,40 @@ The demo uses ten original synthetic documents and 41 precomputed, 16-dimensiona
 
 ## Live mode and scope
 
-Live research supports an explicitly configured GPT-4.1-family model, `text-embedding-3-small` vectors, and optional Tavily/public-page research. It requires server-side keys, price estimates, and a separate live embedding collection. There is no silent fallback to scripted answers. Live uploads invoke paid embeddings outside the run's research budget.
+Configure `OPENAI_API_KEY` on the server. Local Docker reads it from the root
+`.env`; hosted runtimes read their environment variables. **Harness** automatically
+loads the models returned for that key. Choose any listed model and the selection
+carries into **Workflows → Research settings → Live**. **Refresh models** reloads
+the current catalog. There is no key-entry form, connection creation, paid preflight
+check, or saved revision required. Model discovery makes no inference calls and
+works while live execution is disabled.
 
-### Local provider connections and harness revisions
+Set `LIVE_ENABLED=true` to opt into paid execution. `OPENAI_MODEL` supplies the
+initial selection when that ID exists in the returned catalog. The selected model
+is pinned in each queued run for planner, reviewer and writer calls, together with
+its prompt/contract/context policy and limits. Changing the default does not alter
+queued jobs. The key remains in the server environment and is read by the API and
+worker; new jobs never copy it into the database, browser, logs or model context.
+Restart local services or redeploy after changing environment values.
 
-In **Harness**, name a connection and enter a key or explicitly link the existing
-server `OPENAI_API_KEY`. Credentials are encrypted in the local database; the
-private encryption key lives in the separate `credentials` volume. Back up that
-volume with the database. Keys are never returned to the browser, stored in browser
-storage/query caches, or included in model context. Connecting makes no inference
-calls. Local provider management is disabled in hosted/production authentication.
+All returned model IDs are listed without a family filter. Listing does not prove
+inference permission or compatibility: research needs a chat model that supports
+strict structured output. Unsupported models produce a visible execution error,
+with no scripted fallback. Live RAG still requires a separately ingested live
+collection using `text-embedding-3-small` vectors. Live ingestion invokes paid
+embeddings outside the research-run budget.
 
-Choose **Discover available models** to retrieve the connected account’s actual
-OpenAI catalog. All returned model IDs are listed, without a GPT-family or capability
-filter, and the selector remains usable with live inference disabled. Fresh discoveries
-show the provider-returned count and a safe request ID; older saved catalogs require a
-refresh to establish that provenance. Discovery updates the selector immediately even
-if the subsequent settings refresh fails. Connections capture their key at creation;
-changing the environment key requires a new connection.
-Listing does not prove inference permission or research capability.
-With `LIVE_ENABLED=true`, select a discovered model, enter input/output prices per
-million tokens and a probe budget, then choose **Run paid capability check**. This
-makes up to three calls against the actual planner, reviewer and writer schemas,
-with a 2,200-token output cap and an eight-second timeout per call. Models that fail
-these bounded checks cannot be selected as verified research targets. Price-based
-caps are estimates, not provider billing guarantees. Interrupted/uncertain checks
-retain their identity and never automatically replay; another check requires an
-explicit user action and budget.
-
-Choose verified targets and budgets, then **Save harness revision**. In **Workflows
-→ Research settings → Live**, select that revision. Each run pins its own model,
-price, budget, prompt/contract/context/tool-policy snapshot. Changing configuration
-requires a new revision; runtime contract drift fails closed. Disconnecting wipes
-the stored key and blocks future calls through it, including queued runs; in-flight
-provider calls may finish. Reconnect with a new connection to rotate a credential.
+Model and embedding prices are optional server estimates. When estimates are
+missing, dollar totals are shown as unavailable; token, tool, iteration and time
+limits still apply. A dollar cap cannot bound unpriced calls. Model price estimates
+apply only to `OPENAI_MODEL`, never silently to another selected model. Optional
+Tavily/public-page research still requires its server key and per-call estimate.
+Existing saved connection/revision APIs and queued snapshots are retained for
+compatibility, but are not part of the current setup or UI.
 
 OpenAI is the first adapter; other provider APIs and custom judge evaluations are
-not implemented. Embedding collections still use the separately configured server
-embedding key/model and pricing. Legacy live research without a revision retains
-the existing GPT-4.1-family configuration. Verification and ingestion are separate
-from the research-run budget. Provider tests use synthetic responses; paid account
-access must be verified in the operator’s local installation.
+not implemented. Provider tests use synthetic responses; paid account access must
+be verified in the operator’s installation.
 
 The hosted configuration uses Supabase Auth, project membership checks, RLS, and private Storage. A read-only MCP server exposes corpus search, evidence lookup, and run status. See [Deployment and configuration](./docs/DEPLOYMENT.md).
 

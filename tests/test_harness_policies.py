@@ -69,3 +69,32 @@ def test_malformed_catalogs_fail_instead_of_silently_truncating_the_model_list()
                     {'data': [{'id': 'valid'}, {'id': None}]}]:
         with pytest.raises(ValueError):
             parse_catalog(payload)
+
+
+def test_environment_adapter_accepts_new_model_families_without_pricing_or_preflight(monkeypatch):
+    import langchain_openai
+    from workbench import providers
+    from workbench.models import Plan, Task
+    observed = {}
+    profile = SimpleNamespace(openai_model='future-chat-family', openai_api_key='synthetic-test-key',
+                              model_input_usd_per_million=None, model_output_usd_per_million=None)
+    monkeypatch.setattr(providers, 'settings', lambda: profile)
+    plan = Plan(tasks=[Task(id='test', topic='security', question='test question')], rationale='test')
+    class Chat:
+        def __init__(self, **kwargs): observed.update(kwargs)
+        def with_structured_output(self, *args, **kwargs): return self
+        def invoke(self, messages):
+            return {'parsed': plan, 'raw': SimpleNamespace(usage_metadata={
+                'input_tokens': 100, 'output_tokens': 50, 'total_tokens': 150})}
+    monkeypatch.setattr(langchain_openai, 'ChatOpenAI', Chat)
+    result, tokens, cost = providers.OpenAIProvider().invoke('plan', {'trusted_instructions': 'test'}, Plan)
+    assert result == plan and tokens == 150 and cost is None
+    assert observed['model'] == 'future-chat-family'
+
+    class Denied(Exception):
+        status_code = 403
+    def denied(*args): raise Denied('synthetic-test-key')
+    monkeypatch.setattr(Chat, 'invoke', denied)
+    with pytest.raises(providers.ModelCompatibilityError) as failure:
+        providers.OpenAIProvider().invoke('plan', {'trusted_instructions': 'test'}, Plan)
+    assert 'synthetic-test-key' not in str(failure.value)

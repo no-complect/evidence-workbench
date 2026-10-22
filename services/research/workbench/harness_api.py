@@ -1,10 +1,15 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends
-from . import db, harness
+from . import db, harness, environment_models
 from .auth import identity
 from .models import ConnectionCreate, ModelVerification, HarnessCreate
 
 router = APIRouter(prefix='/api/projects/{project_id}/harness', tags=['harness'])
+
+
+@router.get('/models')
+def models(project_id: UUID, user=Depends(identity)):
+    return environment_models.catalog(project_id, user)
 
 
 @router.get('')

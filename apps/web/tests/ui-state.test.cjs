@@ -305,27 +305,28 @@ test("retrieval snapshots are scoped, abortable and never automatically repeat m
   }
 });
 
-test("provider reads consume abort signals and keep project scopes separate", async () => {
+test("model catalog reads consume abort signals and keep project scopes separate", async () => {
   let signal;
   const queries = load("features/harness/queries.ts", {
     "./api": {
-      harnessApi: {
-        state: async (_project, abort) => {
+      modelApi: {
+        catalog: async (_project, abort) => {
           signal = abort;
-          return { checks: [] };
+          return { models: [] };
         },
       },
     },
   });
-  const first = queries.harnessOptions("one", true),
-    second = queries.harnessOptions("two", true);
+  const first = queries.modelCatalogOptions("one", true),
+    second = queries.modelCatalogOptions("two", true);
   assert.notDeepEqual(first.queryKey, second.queryKey);
-  assert.equal(queries.harnessOptions("one", false).enabled, false);
+  assert.equal(queries.modelCatalogOptions("one", false).enabled, false);
   const client = new QueryClient();
   try {
-    const result = await client.fetchQuery(first);
+    await client.fetchQuery(first);
     assert.ok(signal);
-    assert.equal(first.refetchInterval({ state: { data: result } }), false);
+    assert.equal(first.retry, false);
+    assert.equal(first.staleTime, 60000);
   } finally {
     client.clear();
   }

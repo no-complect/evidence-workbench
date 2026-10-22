@@ -39,7 +39,11 @@ export function RunStrip({
             {run.tools_used} calls
           </span>
           <span>{run.tokens_used.toLocaleString()} tokens*</span>
-          <span>${Number(run.cost_used).toFixed(4)} est.</span>
+          <span>
+            {run.harness_snapshot?.cost_estimates_available === false
+              ? "Cost estimate unavailable"
+              : `$${Number(run.cost_used).toFixed(4)} est.`}
+          </span>
           {!isTerminalRun(run.status) && (
             <Button
               size="sm"

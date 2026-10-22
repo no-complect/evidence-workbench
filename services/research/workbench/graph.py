@@ -68,13 +68,18 @@ class Runtime:
                 if snapshot['fingerprints'] != fingerprints() or not s.live_enabled:
                     raise ValueError('Pinned harness no longer matches the enabled runtime')
                 target = snapshot['targets'][stage]
-                credential = connection(self.run['project_id'], target['connection_id'], self.run['user_id'])
-                provider = OpenAIProvider(target, decrypt(credential['encrypted_key']))
-                trace['harness_revision_id'] = snapshot['revision_id']
+                if snapshot.get('credential_source') == 'environment':
+                    if not s.openai_api_key:
+                        raise ValueError('Server model credentials are unavailable')
+                    provider = OpenAIProvider(target, s.openai_api_key)
+                else:
+                    credential = connection(self.run['project_id'], target['connection_id'], self.run['user_id'])
+                    provider = OpenAIProvider(target, decrypt(credential['encrypted_key']))
+                    trace['harness_revision_id'] = snapshot['revision_id']
                 trace['model_target'] = target
             input_price = target['input_usd_per_million'] if target else s.model_input_usd_per_million
             output_price = target['output_usd_per_million'] if target else s.model_output_usd_per_million
-            cost = 0 if self.run['mode'] == 'demo' else (
+            cost = 0 if self.run['mode'] == 'demo' or input_price is None or output_price is None else (
                 trace['input_tokens_estimate'] * input_price +
                 2200 * output_price) / 1_000_000
             call_key = f"{key}/attempt-{self.run['attempts']}"
@@ -164,7 +169,7 @@ def build_graph(run, checkpointer):
             tokens = 0 if run['mode'] == 'demo' else len(task['question'].encode())
             embedding_price = (run.get('harness_snapshot') or {}).get(
                 'embedding_usd_per_million', settings().embedding_usd_per_million)
-            cost = 0 if run['mode'] == 'demo' else tokens * embedding_price / 1_000_000
+            cost = 0 if run['mode'] == 'demo' or embedding_price is None else tokens * embedding_price / 1_000_000
             budget.reserve(run, call_key, tokens=tokens, tools=1, cost=cost)
             retriever = PostgresHybridRetriever(project_id=str(run['project_id']),
                                                 collection_id=str(run['collection_id']),

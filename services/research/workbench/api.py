@@ -15,7 +15,6 @@ from .retrieval import search
 from .runs import create_run as submit_run
 from .evaluation_api import router as evaluation_router
 from .harness_api import router as harness_router
-from .harness import local_enabled
 
 
 @asynccontextmanager
@@ -69,7 +68,7 @@ def bootstrap(user=Depends(identity)):
         'examples': EXAMPLES,
         'auth_mode': s.auth_mode,
         'live_enabled': s.live_enabled,
-        'provider_connections_enabled': local_enabled(),
+        'model_catalog_enabled': True,
         'evaluations_enabled': s.app_env in {'local', 'test'} and s.auth_mode == 'demo',
         'mode_notice':
         'Demo uses scripted responses and synthetic documents. Real retrieval, checkpoints and events.',

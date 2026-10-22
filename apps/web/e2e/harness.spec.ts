@@ -1,37 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
-import type {
-  HarnessState,
-  Connection,
-  Verification,
-} from "../src/features/harness/contracts";
-import {
-  initialResearchDraft,
-  parseLimits,
-} from "../src/features/workbench/research-state";
+import type { ModelCatalog } from "../src/features/harness/contracts";
 
-const secret = "synthetic-ui-credential-only";
-const stageKeys = ["plan", "assess", "report"] as const;
-
-async function mockHarness(
-  page: Page,
-  options: {
-    liveEnabled?: boolean;
-    largeCatalog?: boolean;
-    failRefresh?: boolean;
-  } = {},
-) {
-  const liveEnabled = options.liveEnabled ?? true;
-  let discovered = false;
-  const state: HarnessState = {
-    server_key_available: false,
-    live_enabled: liveEnabled,
-    connections: [],
-    checks: [],
-    revisions: [],
-  };
-  const keys: string[] = [];
-  let startBody: Record<string, unknown> | undefined;
-  let failVerification = true;
+async function mockModels(page: Page, liveEnabled = true) {
+  const models = [
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    ...Array.from({ length: 125 }, (_, i) => `other-family-${i}`),
+  ];
+  let fail = false;
+  let submitted: Record<string, unknown> | undefined;
+  let mutations = 0;
   await page.route("**/api/backend/**", async (route) => {
     const path = new URL(route.request().url()).pathname.replace(
       "/api/backend/",
@@ -40,18 +18,31 @@ async function mockHarness(
     const method = route.request().method();
     const reply = (json: unknown, status = 200) =>
       route.fulfill({ status, json });
+    if (method !== "GET") mutations++;
     if (path === "bootstrap")
       return reply({
         projects: [
-          { id: "project-a", name: "Local test project" },
-          { id: "project-b", name: "Other project" },
+          { id: "project-a", name: "First project" },
+          { id: "project-b", name: "Second project" },
         ],
         examples: [],
         live_enabled: liveEnabled,
+        model_catalog_enabled: true,
         evaluations_enabled: false,
-        provider_connections_enabled: true,
         auth_mode: "demo",
       });
+    if (path.endsWith("/harness/models")) {
+      if (fail)
+        return reply({ detail: "Model catalog temporarily unavailable" }, 502);
+      const catalog: ModelCatalog = {
+        configured: true,
+        models,
+        default_model: "gpt-4.1-mini",
+        live_enabled: liveEnabled,
+        pricing_configured: false,
+      };
+      return reply(catalog);
+    }
     if (path === "projects/project-a" || path === "projects/project-b")
       return reply({
         collections: [
@@ -59,367 +50,149 @@ async function mockHarness(
             id: "live-index",
             name: "Live index",
             embedding_config: "openai-small-v1",
-            document_count: 0,
+            document_count: 1,
+            setup_status: "ready",
           },
         ],
         runs: [],
       });
-    if (path.endsWith("/harness") && method === "GET") {
-      if (discovered && options.failRefresh)
-        return reply({ detail: "Synthetic settings refresh unavailable" }, 502);
-      return reply(
-        path.includes("project-b")
-          ? { ...state, connections: [], checks: [], revisions: [] }
-          : state,
-      );
-    }
-    if (path.endsWith("/harness/connections")) {
-      const body = route.request().postDataJSON();
-      expect(body.api_key).toBe(secret);
-      const connection: Connection = {
-        id: "connection-a",
-        name: body.name,
-        provider: "openai",
-        active: true,
-        catalog: [],
-        discovered_at: null,
-      };
-      state.connections.push(connection);
-      return reply(connection, 201);
-    }
-    if (path.endsWith("/discover")) {
-      state.connections[0].catalog = [
-        "account-model-a",
-        "account-model-b",
-        "embedding-model",
-      ];
-      if (options.largeCatalog)
-        state.connections[0].catalog = [
-          "gpt-4.1",
-          "gpt-4.1-mini",
-          ...Array.from({ length: 125 }, (_, i) => `other-family-${i}`),
-        ];
-      state.connections[0].catalog_discovery = {
-        endpoint: "https://api.openai.com/v1/models",
-        returned_count: state.connections[0].catalog.length,
-        unique_count: state.connections[0].catalog.length,
-        request_id: "req_ui_catalog",
-      };
-      discovered = true;
-      state.connections[0].discovered_at = new Date().toISOString();
-      return reply(state.connections[0].catalog);
-    }
-    if (path.endsWith("/verify")) {
-      const body = route.request().postDataJSON();
-      keys.push(body.idempotency_key);
-      if (failVerification) {
-        failVerification = false;
-        return reply(
-          { detail: "Synthetic uncertain response; retry the same request." },
-          502,
-        );
-      }
-      const check: Verification = {
-        id: "check-a",
-        connection_id: "connection-a",
-        status: "verified",
-        error: null,
-        estimated_cost: 0.025,
-        actual_cost: 0.001,
-        request: body,
-      };
-      if (!state.checks.length) state.checks.push(check);
-      return reply(check);
-    }
-    if (path.endsWith("/revisions")) {
-      const body = route.request().postDataJSON();
-      expect(body.targets).toEqual({
-        plan: "check-a",
-        assess: "check-a",
-        report: "check-a",
-      });
-      const target = {
-        model_id: "account-model-a",
-        provider: "openai",
-        connection_id: "connection-a",
-        connection_name: "Account A",
-        verification_id: "check-a",
-        input_usd_per_million: 1,
-        output_usd_per_million: 3,
-      };
-      const hashes = Object.fromEntries(
-        stageKeys.map((stage) => [stage, "a".repeat(64)]),
-      ) as Record<(typeof stageKeys)[number], string>;
-      const revision = {
-        id: "revision-a",
-        name: body.name,
-        created_at: new Date().toISOString(),
-        snapshot: {
-          targets: { plan: target, assess: target, report: target },
-          limits: body.limits,
-          fingerprints: {
-            adapter: "openai-json-schema-v1",
-            context_policy: "context-v1",
-            output_token_cap: 2200,
-            prompts: hashes,
-            contracts: hashes,
-            tool_policy: "scoped-retrieval-opt-in-web-v1",
-          },
-        },
-      };
-      state.revisions = [revision];
-      return reply(revision, 201);
-    }
     if (path.endsWith("/runs") && method === "POST") {
-      startBody = route.request().postDataJSON();
-      return reply({ detail: "Synthetic enqueue check complete" }, 409);
+      submitted = route.request().postDataJSON();
+      return reply({ detail: "Synthetic stop after request inspection" }, 409);
     }
-    if (path.endsWith("/disconnect")) {
-      state.connections[0].active = false;
-      state.connections[0].catalog = [];
-      return reply({ status: "disconnected" });
-    }
-    throw new Error(`Unexpected harness request ${method} ${path}`);
+    return reply({ detail: "Unexpected request" }, 404);
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Harness", exact: true }).click();
-  return { state, keys, getStart: () => startBody };
+  return {
+    failRefresh: () => {
+      fail = true;
+    },
+    submitted: () => submitted,
+    mutations: () => mutations,
+  };
 }
 
-test("mocked account catalog → explicit contract check → immutable model targets → workflow selection", async ({
+test("environment catalog selection carries from Harness into a live workflow without setup or pricing forms", async ({
   page,
 }, info) => {
-  const scenario = await mockHarness(page);
-  const form = page.getByRole("form", { name: "Connect OpenAI", exact: true });
-  await form.getByLabel("Connection name", { exact: true }).fill("Account A");
-  await form.getByLabel("OpenAI API key", { exact: true }).fill(secret);
-  await form
-    .getByRole("button", { name: "Connect OpenAI", exact: true })
-    .click();
-  await expect(form.getByLabel("OpenAI API key", { exact: true })).toHaveValue(
-    "",
+  const scenario = await mockModels(page);
+  await page.getByRole("button", { name: "Harness", exact: true }).click();
+  let workspace = page.getByRole("region", {
+    name: "Harness workspace",
+    exact: true,
+  });
+  const selector = workspace.getByRole("combobox", {
+    name: "Available model",
+    exact: true,
+  });
+  await expect(selector.locator("option")).toHaveCount(128);
+  await selector.selectOption("other-family-124");
+  await expect(page.getByLabel("OpenAI API key", { exact: true })).toHaveCount(
+    0,
   );
-  const card = page.getByRole("region", {
-    name: "Provider Account A",
-    exact: true,
-  });
-  await card
-    .getByRole("button", { name: "Discover available models", exact: true })
-    .click();
-  await expect(card).toContainText("3 catalog models");
-  expect(scenario.state.checks).toHaveLength(0);
-  await card
-    .getByRole("combobox", { name: "Available model", exact: true })
-    .selectOption("account-model-a");
-  await card.getByLabel("Input USD / million", { exact: true }).fill("1");
-  await card.getByLabel("Output USD / million", { exact: true }).fill("3");
-  await card
-    .getByRole("button", { name: "Run paid capability check", exact: true })
-    .click();
-  await expect(card).toContainText("Synthetic uncertain response");
-  await card
-    .getByRole("button", { name: "Run paid capability check", exact: true })
-    .click();
-  await expect(card.getByText("verified", { exact: true })).toBeVisible();
-  expect(scenario.keys).toHaveLength(2);
-  expect(scenario.keys[0]).toBe(scenario.keys[1]);
-  const revision = page.getByRole("form", {
-    name: "Save harness revision",
-    exact: true,
-  });
-  for (const label of ["Planner model", "Reviewer model", "Writer model"])
-    await revision
-      .getByRole("combobox", { name: label, exact: true })
-      .selectOption("check-a");
-  await revision
-    .getByRole("button", { name: "Save harness revision", exact: true })
-    .click();
-  await expect(revision).toContainText("Saved immutable revision");
-  const saved = page.getByRole("region", {
-    name: "Saved harness revisions",
-    exact: true,
-  });
-  await saved.getByText("Research baseline", { exact: false }).click();
-  await expect(saved).toContainText("account-model-a");
+  await expect(
+    page.getByText("Input USD / million", { exact: true }),
+  ).toHaveCount(0);
+  expect(scenario.mutations()).toBe(0);
   await page.screenshot({
-    path: info.outputPath("harness-model-targets.png"),
+    path: info.outputPath("environment-model-harness.png"),
     fullPage: true,
   });
   await page.getByRole("button", { name: "Workflows", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Research settings", exact: true })
-    .click();
-  await page
-    .getByRole("combobox", { name: "Execution mode", exact: true })
-    .selectOption("live");
-  await page
-    .getByRole("combobox", { name: "Harness revision", exact: true })
-    .selectOption("revision-a");
+  workspace = page.getByRole("region", {
+    name: "Workflows workspace",
+    exact: true,
+  });
+  await workspace.getByRole("button", { name: "Research settings" }).click();
+  await workspace.getByLabel("Execution mode").selectOption("live");
   await expect(
-    page
-      .getByRole("region", { name: "Workflows workspace", exact: true })
-      .getByLabel("Token budget", { exact: true }),
-  ).toHaveValue("48000");
+    workspace.getByRole("combobox", { name: "Available model", exact: true }),
+  ).toHaveValue("other-family-124");
   await expect(
-    page
-      .getByRole("region", { name: "Workflows workspace", exact: true })
-      .getByLabel("Token budget", { exact: true }),
-  ).toHaveAttribute("readonly", "");
-  await page
+    workspace.getByText("Dollar estimates are unavailable", { exact: false }),
+  ).toBeVisible();
+  await workspace
     .getByRole("button", { name: "Start research", exact: true })
     .click();
-  await expect(
-    page
-      .getByRole("alert")
-      .filter({ hasText: "Synthetic enqueue check complete" }),
-  ).toBeVisible();
-  expect(scenario.getStart()?.harness_revision_id).toBe("revision-a");
-  expect(scenario.getStart()?.limits).toEqual(
-    parseLimits(initialResearchDraft.limits),
-  );
+  await expect(workspace.getByRole("alert")).toContainText("Synthetic stop");
+  expect(scenario.submitted()?.model_id).toBe("other-family-124");
+  expect(scenario.submitted()?.harness_revision_id).toBeNull();
+  expect(scenario.mutations()).toBe(1);
+  await page
+    .getByRole("combobox", { name: "Project", exact: true })
+    .selectOption("project-b");
   await page.getByRole("button", { name: "Harness", exact: true }).click();
-  await expect(form.getByLabel("OpenAI API key", { exact: true })).toHaveValue(
-    "",
+  await expect(
+    page
+      .getByRole("region", { name: "Harness workspace", exact: true })
+      .getByRole("combobox", { name: "Available model", exact: true }),
+  ).toHaveValue("gpt-4.1-mini");
+});
+
+test("model selection works with live inference off and survives a failed catalog refresh", async ({
+  page,
+}, info) => {
+  const scenario = await mockModels(page, false);
+  await page.getByRole("button", { name: "Harness", exact: true }).click();
+  const workspace = page.getByRole("region", {
+    name: "Harness workspace",
+    exact: true,
+  });
+  const selector = workspace.getByRole("combobox", {
+    name: "Available model",
+    exact: true,
+  });
+  await expect(selector).toBeEnabled();
+  await selector.selectOption("other-family-124");
+  scenario.failRefresh();
+  await workspace
+    .getByRole("button", { name: "Refresh models", exact: true })
+    .click();
+  await expect(workspace.getByRole("alert")).toContainText(
+    "Model catalog temporarily unavailable",
   );
-  await card.getByRole("button", { name: "Disconnect", exact: true }).click();
-  await card
-    .getByRole("button", { name: "Confirm disconnect", exact: true })
-    .click();
-  await expect(card.getByText("Disconnected", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Workflows", exact: true }).click();
-  await expect(
-    page.getByText(
-      "This revision uses a disconnected provider. Choose another revision or reconnect and save a new one.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Start research", exact: true })
-    .click();
-  await expect(
-    page.getByRole("alert").filter({
-      hasText: "The selected revision uses a disconnected provider.",
-    }),
-  ).toBeVisible();
+  await expect(selector).toHaveValue("other-family-124");
+  await expect(selector.locator("option")).toHaveCount(128);
+  expect(scenario.mutations()).toBe(0);
+  await page.screenshot({
+    path: info.outputPath("environment-model-refresh-error.png"),
+    fullPage: true,
+  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
-  expect(
-    await page.evaluate(() =>
-      JSON.stringify({ ...localStorage, ...sessionStorage }),
-    ),
-  ).not.toContain(secret);
 });
 
-test("real local connection storage clears credentials and allows explicit disconnect without inference", async ({
+test("real environment catalog returns a clear missing-key state without connection or probe forms", async ({
   page,
 }, info) => {
   await page.goto("/");
-  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "New project", exact: true }).click();
-  const project = page.getByRole("dialog", {
-    name: "New project",
-    exact: true,
-  });
-  await project
-    .getByRole("textbox", { name: "Name", exact: true })
-    .fill(`Credential UI ${Date.now()}`);
-  await project
-    .getByRole("button", { name: "Create project", exact: true })
-    .click();
-  await expect(project).not.toBeVisible();
   await page.getByRole("button", { name: "Harness", exact: true }).click();
-  const form = page.getByRole("form", { name: "Connect OpenAI", exact: true });
-  await form
-    .getByLabel("Connection name", { exact: true })
-    .fill("Local placeholder account");
-  await form.getByLabel("OpenAI API key", { exact: true }).fill(secret);
-  const response = page.waitForResponse(
-    (r) =>
-      r.url().endsWith("/harness/connections") &&
-      r.request().method() === "POST",
-  );
-  await form
-    .getByRole("button", { name: "Connect OpenAI", exact: true })
-    .click();
-  expect(await (await response).text()).not.toContain(secret);
-  await expect(form.getByLabel("OpenAI API key", { exact: true })).toHaveValue(
-    "",
-  );
-  const card = page.getByRole("region", {
-    name: "Provider Local placeholder account",
+  const workspace = page.getByRole("region", {
+    name: "Harness workspace",
     exact: true,
   });
-  await expect(card).toContainText("Live calls are disabled");
   await expect(
-    card.getByRole("button", {
-      name: "Run paid capability check",
-      exact: true,
+    workspace.getByText("Set OPENAI_API_KEY in the server environment", {
+      exact: false,
     }),
-  ).toBeDisabled();
-  await page.screenshot({
-    path: info.outputPath("local-harness.png"),
-    fullPage: true,
-  });
-  await card.getByRole("button", { name: "Disconnect", exact: true }).click();
-  await card
-    .getByRole("button", { name: "Confirm disconnect", exact: true })
-    .click();
-  await expect(card.getByText("Disconnected", { exact: true })).toBeVisible();
-  await page.reload();
-  await page.getByRole("button", { name: "Harness", exact: true }).click();
-  await expect(form.getByLabel("OpenAI API key", { exact: true })).toHaveValue(
-    "",
-  );
-});
-
-test("all discovered models stay selectable with live inference disabled, even if settings refresh fails", async ({
-  page,
-}, info) => {
-  const scenario = await mockHarness(page, {
-    liveEnabled: false,
-    largeCatalog: true,
-    failRefresh: true,
-  });
-  const form = page.getByRole("form", { name: "Connect OpenAI", exact: true });
-  await form
-    .getByLabel("Connection name", { exact: true })
-    .fill("Full catalog account");
-  await form.getByLabel("OpenAI API key", { exact: true }).fill(secret);
-  await form
-    .getByRole("button", { name: "Connect OpenAI", exact: true })
-    .click();
-  const card = page.getByRole("region", {
-    name: "Provider Full catalog account",
-    exact: true,
-  });
-  await card
-    .getByRole("button", { name: "Discover available models", exact: true })
-    .click();
-  const model = card.getByRole("combobox", {
-    name: "Available model",
-    exact: true,
-  });
-  await expect(model).toBeEnabled();
-  await expect(model.locator("option")).toHaveCount(128);
-  await model.selectOption("other-family-124");
-  await expect(model).toHaveValue("other-family-124");
-  await expect(
-    page
-      .getByRole("alert")
-      .filter({ hasText: "Synthetic settings refresh unavailable" }),
   ).toBeVisible();
   await expect(
-    card.getByRole("button", {
+    workspace.getByRole("combobox", { name: "Available model", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    workspace.getByRole("button", { name: "Connect OpenAI", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    workspace.getByRole("button", {
       name: "Run paid capability check",
       exact: true,
     }),
-  ).toBeDisabled();
-  expect(scenario.keys).toHaveLength(0);
+  ).toHaveCount(0);
   await page.screenshot({
-    path: info.outputPath("discovered-models-live-disabled.png"),
+    path: info.outputPath("environment-model-missing-key.png"),
     fullPage: true,
   });
   expect(

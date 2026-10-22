@@ -3,6 +3,7 @@
 import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ErrorNotice } from "./error-notice";
+import { modelCatalogOptions } from "@/features/harness/queries";
 import { ApiError } from "@/lib/api";
 import type { Bootstrap, Project } from "@/lib/contracts";
 import { AuthPanel } from "@/features/workbench/auth-panel";
@@ -88,6 +89,31 @@ function ProjectWorkspace({
   // Server records are read directly from query caches rather than copied to state.
   const [ui, dispatch] = useReducer(workspaceReducer, initialWorkspaceState);
   const projectId = project?.id ?? "";
+  const [selectedModelId, setSelectedModelId] = useState("");
+  const modelsEnabled = bootstrap?.model_catalog_enabled ?? false;
+  const models = useQuery(
+    modelCatalogOptions(
+      projectId,
+      modelsEnabled &&
+        (ui.workspace === "harness" || ui.workspace === "workflows"),
+    ),
+  );
+  const defaultModel = models.data?.default_model ?? "";
+  const modelId =
+    selectedModelId ||
+    (models.data?.models.includes(defaultModel) ? defaultModel : "");
+  const modelSelection = modelsEnabled
+    ? {
+        catalog: models.data,
+        fetching: models.isFetching,
+        error: models.error,
+        modelId,
+        onModelChange: setSelectedModelId,
+        onRefresh: () => {
+          void models.refetch();
+        },
+      }
+    : undefined;
   const uploads = useUploadQueue(projectId);
   const projectQuery = useQuery(projectOptions(projectId));
   const runQuery = useResearchRun(projectId, ui.runId);
@@ -153,8 +179,7 @@ function ProjectWorkspace({
         aria-label="Workflows workspace"
       >
         <ResearchComposer
-          connectionsEnabled={bootstrap?.provider_connections_enabled ?? false}
-          active={ui.workspace === "workflows"}
+          modelSelection={modelSelection}
           projectId={projectId}
           collections={projectQuery.data?.collections ?? []}
           collectionId={collectionId}
@@ -202,9 +227,7 @@ function ProjectWorkspace({
         aria-label="Harness workspace"
       >
         <HarnessView
-          projectId={projectId}
-          active={ui.workspace === "harness"}
-          connectionsEnabled={bootstrap?.provider_connections_enabled ?? false}
+          modelSelection={modelSelection}
           snapshot={runQuery.data}
           liveEnabled={bootstrap?.live_enabled ?? false}
         />

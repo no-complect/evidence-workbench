@@ -80,6 +80,7 @@ export function researchRequest(draft: ResearchDraft, collection: string) {
   const limits = parseLimits(draft.limits);
   return {
     harness_revision_id: null as string | null,
+    model_id: null as string | null,
     question: draft.question,
     collection_id: collection,
     mode: draft.mode,

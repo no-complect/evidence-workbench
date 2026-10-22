@@ -35,6 +35,7 @@ class RunCreate(StrictModel):
     limits: Limits = Field(default_factory=Limits)
     idempotency_key: str = Field(min_length=8, max_length=128)
     harness_revision_id: UUID | None = None
+    model_id: str | None = Field(None, min_length=1, max_length=1024)
 
 
 class Task(StrictModel):
