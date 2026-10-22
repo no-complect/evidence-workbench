@@ -265,3 +265,119 @@ test("notebook workspaces preserve drafts and fetch only the active resources", 
     true,
   );
 });
+
+test("evidence inspection deduplicates source references and exposes unavailable support", async ({
+  page,
+}) => {
+  const run = {
+    id: "saved-run",
+    question: "Which controls apply to the deployment?",
+    status: "completed",
+    mode: "demo",
+    strategy: "rag",
+    plan: null,
+    created_at: "2026-01-01T00:00:00Z",
+    tokens_used: 1000,
+    tools_used: 1,
+    cost_used: 0,
+    cancel_requested: false,
+    error: null,
+    request: {
+      limits: {
+        iterations: 1,
+        tool_calls: 5,
+        tokens: 4000,
+        wall_seconds: 60,
+        concurrency: 1,
+        estimated_cost_usd: 1,
+        top_k: 5,
+      },
+    },
+    report: {
+      title: "Control review",
+      summary: "Inspect the support.",
+      partial: false,
+      recommendations: [],
+      limitations: ["A cost comparison is not established."],
+      claims: [
+        {
+          text: "Retention controls require review.",
+          evidence_ids: ["passage-a", "passage-a"],
+          support: "direct_quote",
+        },
+        {
+          text: "Unavailable supporting source",
+          evidence_ids: ["unavailable"],
+          support: "direct_quote",
+        },
+      ],
+    },
+  };
+  await mockWorkspace(page, async (route, path) => {
+    if (path === "projects/project-a") {
+      await answer(route, { collections: [collection("a-one")], runs: [run] });
+      return true;
+    }
+    if (path === "projects/project-a/runs/saved-run") {
+      await answer(route, {
+        run,
+        contexts: [],
+        tasks: [],
+        evidence: [
+          {
+            id: "passage-a",
+            chunk_id: "chunk-a",
+            text: "Retention controls require review.",
+            source_name: "security.md",
+            version_id: "version-a",
+            section: "Retention",
+            page: null,
+            start_offset: 0,
+            end_offset: 34,
+            scores: { rrf: 0.02, reranker: "disabled" },
+            metadata: { synthetic: true },
+          },
+        ],
+      });
+      return true;
+    }
+    if (path === "projects/project-a/runs/saved-run/events") {
+      await answer(route, { events: [], cursor: 0 });
+      return true;
+    }
+    return false;
+  });
+  await page
+    .getByRole("combobox", { name: "Saved investigation", exact: true })
+    .selectOption("saved-run");
+  await expect(
+    page.locator(".run-strip .status-badge.completed"),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Evidence board", exact: true }).click();
+  const inspector = page.getByRole("region", {
+    name: "Selected evidence",
+    exact: true,
+  });
+  await expect(inspector).toContainText("version-a");
+  await expect(
+    inspector.getByRole("button", { name: "Inspect provenance", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    inspector.getByRole("button", { name: /Passage \d+/ }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("group", { name: "Research findings", exact: true })
+    .getByRole("button", { name: /Unavailable supporting source/ })
+    .click();
+  await expect(inspector).toContainText("Supporting passage unavailable.");
+  await expect(
+    inspector.getByRole("button", { name: "Inspect provenance", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "Filter evidence", exact: true })
+    .fill("no-such-finding");
+  await expect(
+    page.getByRole("heading", { name: "No matching findings", exact: true }),
+  ).toBeVisible();
+  await expect(inspector).toHaveCount(0);
+});

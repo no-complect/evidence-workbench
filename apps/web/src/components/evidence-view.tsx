@@ -36,7 +36,7 @@ export function EvidenceView({
     id: `claim-${index}`,
     kind: "claim",
     text: claim.text,
-    passages: claim.evidence_ids.flatMap((id) => {
+    passages: [...new Set(claim.evidence_ids)].flatMap((id) => {
       const passage = byId.get(id);
       return passage ? [passage] : [];
     }),

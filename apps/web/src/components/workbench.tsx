@@ -237,19 +237,23 @@ function ProjectWorkspace({
             ))}
           </select>
         </label>
-        <SourcesPanel
-          key={collectionId}
-          projectId={projectId}
-          collectionId={collectionId}
-          readOnly={collection?.read_only ?? false}
-          active={ui.workspace === "rag"}
-          onCreate={() =>
-            dispatch({
-              type: "show-overlay",
-              overlay: { kind: "create-collection" },
-            })
-          }
-        />
+        <div className={notebook.surface}>
+          <div className={notebook.pad}>
+            <SourcesPanel
+              key={collectionId}
+              projectId={projectId}
+              collectionId={collectionId}
+              readOnly={collection?.read_only ?? false}
+              active={ui.workspace === "rag"}
+              onCreate={() =>
+                dispatch({
+                  type: "show-overlay",
+                  overlay: { kind: "create-collection" },
+                })
+              }
+            />
+          </div>
+        </div>
       </section>
       <section
         hidden={ui.workspace !== "evaluations"}

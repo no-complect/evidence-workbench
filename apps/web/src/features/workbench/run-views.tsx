@@ -50,6 +50,12 @@ export function RunViews({
             key={id}
             id={`tab-${id}`}
             role="tab"
+            aria-label={label}
+            aria-describedby={
+              id === "evidence" && evidence.length > 0
+                ? "evidence-count"
+                : undefined
+            }
             aria-selected={tab === id}
             aria-controls={`panel-${id}`}
             tabIndex={tab === id ? 0 : -1}
@@ -77,7 +83,10 @@ export function RunViews({
             <Icon size={16} />
             {label}
             {id === "evidence" && evidence.length > 0 && (
-              <span>{evidence.length}</span>
+              <span id="evidence-count">
+                {evidence.length}
+                <span className="sr-only"> passages</span>
+              </span>
             )}
           </button>
         ))}
