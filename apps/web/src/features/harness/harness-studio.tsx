@@ -82,6 +82,7 @@ export function HarnessStudio({
             <label className={`${styles.field} ${styles.wide}`}>
               System instruction
               <textarea
+                aria-label="System instruction"
                 rows={4}
                 maxLength={2000}
                 value={configuration.system_instruction}

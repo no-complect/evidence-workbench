@@ -12,10 +12,10 @@ test("Harness studio → contract validation → real graph inspector → decisi
     harness.getByRole("region", { name: "Harness configuration", exact: true }),
   ).toBeVisible();
   await harness
-    .getByLabel("System instruction", { exact: true })
+    .getByRole("textbox", { name: "System instruction", exact: true })
     .fill("Preserve explicit evidence gaps. Cite the supplied passages.");
   await harness
-    .getByLabel("Context policy", { exact: true })
+    .getByRole("combobox", { name: "Context policy", exact: true })
     .selectOption("strict");
   await harness
     .getByRole("button", { name: "Validate sample", exact: true })
@@ -105,7 +105,7 @@ test("collection evaluation editor queues its own pinned comparison in the evalu
   const project = await page.request.post("/api/backend/projects", {
     data: { name: `Authored evaluation ${Date.now()}` },
   });
-  expect(project.status()).toBe(200);
+  expect(project.status()).toBe(201);
   const pid = (await project.json()).id;
   const collection = await page.request.post(
     `/api/backend/projects/${pid}/collection-setups`,

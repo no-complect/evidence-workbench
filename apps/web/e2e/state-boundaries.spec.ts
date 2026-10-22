@@ -46,6 +46,17 @@ async function mockWorkspace(
       });
     if (path === "projects/project-b")
       return answer(route, { collections: [collection("b-one")], runs: [] });
+    if (path.endsWith("/harness/studio"))
+      return answer(route, {
+        schemas: { plan: {}, assess: {}, report: {} },
+        prompts: {
+          plan: "Planner contract",
+          assess: "Reviewer contract",
+          report: "Report contract",
+        },
+        context_caps: { plan: 1800, assess: 5000, report: 6500 },
+        context_policy: "context-v1",
+      });
     if (path.endsWith("/sources"))
       return answer(route, [source(`${path.split("/")[3]}.txt`)]);
     if (path.endsWith("/evaluations") || path.endsWith("/evaluation-jobs"))

@@ -129,7 +129,11 @@ test("seeded question → edited plan → report → citation → context → ex
   await page.getByRole("button", { name: "Markdown", exact: true }).click();
   expect((await downloaded).suggestedFilename()).toBe("research-report.md");
   await page.getByRole("tab", { name: "Context", exact: true }).click();
-  await expect(page.locator(".code-header")).toContainText("Assembled input");
+  await expect(
+    page
+      .getByRole("region", { name: "Workflows workspace", exact: true })
+      .locator(".code-header"),
+  ).toContainText("Assembled input");
   await page.getByRole("tab", { name: "Research trail", exact: true }).click();
   await expect(page.getByText("Report ready", { exact: true })).toBeVisible();
   expect(

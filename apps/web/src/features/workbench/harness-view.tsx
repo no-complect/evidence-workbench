@@ -39,8 +39,8 @@ export function HarnessView({
         kicker="LLM HARNESS / CONFIGURATION STUDIO"
         title="Make the model boundary explicit."
       >
-        Choose a model from the server’s configured provider, then inspect how
-        each investigation uses its context and execution limits.
+        Shape the request, constrain the response, and inspect the context. Each
+        investigation keeps its configuration.
       </WorkspaceHeading>
       <HarnessStudio
         projectId={projectId}
