@@ -160,7 +160,7 @@ function ConnectionCard({
         <PlugZap size={17} />
         {connection.name}
         <span className="status-badge">
-          {connection.active ? "Connected" : "Disconnected"}
+          {connection.active ? "Credential stored" : "Disconnected"}
         </span>
       </div>
       <div className={notebook.pad}>

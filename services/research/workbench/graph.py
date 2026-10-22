@@ -162,8 +162,9 @@ def build_graph(run, checkpointer):
             call_key = f'{key}/attempt-{run["attempts"]}'
             # Query embeddings are separately budgeted as one tool plus worst-case input tokens.
             tokens = 0 if run['mode'] == 'demo' else len(task['question'].encode())
-            cost = 0 if run['mode'] == 'demo' else tokens * settings(
-            ).embedding_usd_per_million / 1_000_000
+            embedding_price = (run.get('harness_snapshot') or {}).get(
+                'embedding_usd_per_million', settings().embedding_usd_per_million)
+            cost = 0 if run['mode'] == 'demo' else tokens * embedding_price / 1_000_000
             budget.reserve(run, call_key, tokens=tokens, tools=1, cost=cost)
             retriever = PostgresHybridRetriever(project_id=str(run['project_id']),
                                                 collection_id=str(run['collection_id']),

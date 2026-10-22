@@ -56,6 +56,14 @@ export function ResearchComposer({
   const revision = harness.data?.revisions.find(
     (item) => item.id === revisionId,
   );
+  const revisionConnected =
+    !!revision &&
+    Object.values(revision.snapshot.targets).every((target) =>
+      harness.data?.connections.some(
+        (connection) =>
+          connection.id === target.connection_id && connection.active,
+      ),
+    );
   const [draft, dispatch] = useReducer(researchReducer, initialResearchDraft);
   const [showSettings, setShowSettings] = useState(false);
   const [validationError, setValidationError] = useState("");
@@ -85,6 +93,10 @@ export function ResearchComposer({
           "The selected harness revision is unavailable. Refresh provider settings or choose another revision.",
         );
       const request = researchRequest(draft, collectionId);
+      if (mode === "live" && revision && !revisionConnected)
+        throw new Error(
+          "The selected revision uses a disconnected provider. Choose another revision.",
+        );
       if (mode === "live" && revision) {
         request.harness_revision_id = revision.id;
         request.limits = revision.snapshot.limits;
@@ -260,7 +272,19 @@ export function ResearchComposer({
                     Server default · legacy configuration
                   </option>
                   {harness.data?.revisions.map((item) => (
-                    <option key={item.id} value={item.id}>
+                    <option
+                      key={item.id}
+                      value={item.id}
+                      disabled={
+                        !Object.values(item.snapshot.targets).every((target) =>
+                          harness.data?.connections.some(
+                            (connection) =>
+                              connection.id === target.connection_id &&
+                              connection.active,
+                          ),
+                        )
+                      }
+                    >
                       {item.name} · {item.id.slice(0, 8)}
                     </option>
                   ))}
@@ -271,6 +295,12 @@ export function ResearchComposer({
               <p className="fine-print">
                 This revision pins its task models and budgets. Save a new
                 revision in Harness to change them.
+              </p>
+            )}
+            {mode === "live" && revision && !revisionConnected && (
+              <p role="status" className="source-error">
+                This revision uses a disconnected provider. Choose another
+                revision or reconnect and save a new one.
               </p>
             )}
             <ErrorNotice error={harness.error} />

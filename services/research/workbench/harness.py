@@ -55,7 +55,10 @@ def create_connection(project, user, body):
     key = settings().openai_api_key if body.use_environment else body.api_key.get_secret_value()
     if not key:
         raise HTTPException(409, 'No server OpenAI key is configured')
-    encrypted = encrypt(key)
+    try:
+        encrypted = encrypt(key)
+    except Exception:
+        raise HTTPException(503, 'Local credential storage unavailable; check the private credential volume') from None
     cid = db.uid()
     db.execute('INSERT INTO provider_connections(id,project_id,user_id,name,provider,encrypted_key) '
                "VALUES(%s,%s,%s,%s,'openai',%s)", (cid, project, user, body.name, encrypted))

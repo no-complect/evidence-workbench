@@ -257,6 +257,23 @@ test("mocked account catalog → explicit contract check → immutable model tar
     .getByRole("button", { name: "Confirm disconnect", exact: true })
     .click();
   await expect(card.getByText("Disconnected", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
+  await expect(
+    page.getByText(
+      "This revision uses a disconnected provider. Choose another revision or reconnect and save a new one.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Start research", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({
+        hasText: "The selected revision uses a disconnected provider.",
+      }),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

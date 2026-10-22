@@ -305,7 +305,7 @@ test("retrieval snapshots are scoped, abortable and never automatically repeat m
   }
 });
 
-test("provider reads are abortable and scoped while paid actions never automatically retry", async () => {
+test("provider reads consume abort signals and keep project scopes separate", async () => {
   let signal;
   const queries = load("features/harness/queries.ts", {
     "./api": {

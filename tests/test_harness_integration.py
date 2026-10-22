@@ -153,6 +153,7 @@ def test_queued_live_run_uses_immutable_stage_models_prices_and_traces(client, p
     rid = response.json()['id']
     row = db.scoped_run(rid, project)
     assert row['request']['limits']['tokens'] == 48000 and row['harness_snapshot']['revision_id'] == saved['id']
+    assert row['harness_snapshot']['embedding_usd_per_million'] == 0.1
     with pytest.raises(CheckViolation):
         db.execute('UPDATE research_runs SET harness_snapshot=%s WHERE id=%s', (db.jsonb({}),rid))
     for _ in range(50):

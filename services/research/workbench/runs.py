@@ -40,6 +40,9 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
         if any(x is None or x < 0 for x in prices):
             raise HTTPException(
                 409, 'Configure model and embedding cost estimates before live execution')
+        if harness_snapshot:
+            harness_snapshot['embedding_usd_per_million'] = s.embedding_usd_per_million
+            harness_snapshot['embedding_config'] = collection['embedding_config']
         if body.web_enabled and (not s.tavily_api_key or s.web_search_usd_per_call is None):
             raise HTTPException(409,
                                 'Web search needs a key and a configured per-call cost estimate')
