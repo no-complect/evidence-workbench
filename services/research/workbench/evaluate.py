@@ -43,7 +43,7 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
     if custom:
         selected = [{'id': f'custom-{i+1}', 'split': split, 'question': case['question'], 'query': case['query'],
                      'relevant_sources': case['expected_sources'], 'required_topics': [],
-                     'must_disclose': case.get('expected_disclosure', '')} for i, case in enumerate(custom['cases'])]
+                     'must_disclose': case.get('expected_disclosure', ''), 'expect_no_evidence': case.get('expect_no_evidence', False)} for i, case in enumerate(custom['cases'])]
     if not selected:
         raise ValueError('No research cases selected')
     corpus_hash = hashlib.sha256((ROOT / 'fixtures/manifest.json').read_bytes()).hexdigest()
@@ -152,6 +152,8 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
             }
             required = set(case['required_topics'])
             checks = {}
+            if case.get('expect_no_evidence'):
+                checks['abstained_without_claims'] = not claims
             text = json.dumps(run['report'])
             if case.get('must_disclose'):
                 checks['disclosure'] = case['must_disclose'].casefold() in text.casefold()

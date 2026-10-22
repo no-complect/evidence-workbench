@@ -187,7 +187,8 @@ the seeded questions and fixture embedding profile. The browser currently author
 one case per comparison; the API accepts up to six. Collection retrieval metrics use
 the top five retained evidence passages by RRF score and ID; fixture benchmarks use
 an independent retrieval probe. Source labels are human expectations and disclosure
-checks are lexical. No independent semantic judge is claimed.
+checks are lexical. Cases labeled as having no supporting evidence check whether
+the report abstains from claims. No independent semantic judge is claimed.
 
 OpenAI is the first adapter; other provider APIs are not implemented. Provider tests
 use synthetic responses; paid account access must be verified in the operator’s
