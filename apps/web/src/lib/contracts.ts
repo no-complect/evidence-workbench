@@ -20,6 +20,7 @@ export type Collection = {
 };
 export type Run = {
   id: string;
+  collection_id?: string;
   question: string;
   status: string;
   mode: string;

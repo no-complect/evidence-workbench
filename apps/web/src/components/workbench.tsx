@@ -15,6 +15,7 @@ import { AuthPanel } from "@/features/workbench/auth-panel";
 import { CreateDialog } from "@/features/workbench/create-dialog";
 import { EvidenceDrawer } from "@/features/workbench/evidence-drawer";
 import { PlanReview } from "@/features/workbench/plan-review";
+import { InvestigationHeader } from "@/features/workbench/investigation-header";
 import { ResearchComposer } from "@/features/workbench/research-composer";
 import { RunStrip } from "@/features/workbench/run-strip";
 import { RunViews } from "@/features/workbench/run-views";
@@ -193,21 +194,38 @@ function ProjectWorkspace({
         hidden={ui.workspace !== "workflows"}
         aria-label="Workflows workspace"
       >
-        <ResearchComposer
-          research={research}
-          configuration={configuration}
-          modelSelection={modelSelection}
-          projectId={projectId}
-          collections={projectQuery.data?.collections ?? []}
-          collectionId={collectionId}
-          examples={bootstrap?.examples ?? []}
-          liveEnabled={bootstrap?.live_enabled ?? false}
-          running={running}
-          onCollectionChange={(id) =>
-            dispatch({ type: "select-collection", collectionId: id })
-          }
-          onStarted={(id) => dispatch({ type: "started-run", runId: id })}
-        />
+        <div hidden={!!ui.runId}>
+          <ResearchComposer
+            research={research}
+            configuration={configuration}
+            modelSelection={modelSelection}
+            projectId={projectId}
+            collections={projectQuery.data?.collections ?? []}
+            collectionId={collectionId}
+            examples={bootstrap?.examples ?? []}
+            liveEnabled={bootstrap?.live_enabled ?? false}
+            running={running}
+            onCollectionChange={(id) =>
+              dispatch({ type: "select-collection", collectionId: id })
+            }
+            onStarted={(id) => dispatch({ type: "started-run", runId: id })}
+          />
+        </div>
+        {run && (
+          <InvestigationHeader
+            run={run}
+            collectionName={
+              projectQuery.data?.collections.find(
+                (c) => c.id === run.collection_id,
+              )?.name ??
+              collection?.name ??
+              "Evidence collection"
+            }
+            evidenceCount={runQuery.data?.detail.evidence.length ?? 0}
+            onNavigate={(tab) => dispatch({ type: "navigate", tab })}
+          />
+        )}
+
         {run && (
           <RunStrip
             key={`summary-${run.id}`}
