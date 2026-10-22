@@ -42,7 +42,6 @@ import {
   type Evidence,
   type RunEvent,
   type Source,
-  type Evaluation,
   type Plan,
   type Limits,
 } from "@/lib/api";
@@ -94,7 +93,7 @@ export function Workbench() {
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
-  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [evaluationsEnabled, setEvaluationsEnabled] = useState(false);
   const [tab, setTab] = useState<Tab>("report");
   const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(
     null,
@@ -170,6 +169,7 @@ export function Workbench() {
         projects: Project[];
         examples: string[];
         live_enabled: boolean;
+        evaluations_enabled: boolean;
       }>("bootstrap");
       const client = supabase();
       if (client && process.env.NEXT_PUBLIC_AUTH_MODE === "supabase") {
@@ -182,6 +182,7 @@ export function Workbench() {
       setProjects(data.projects);
       setExamples(data.examples);
       setLiveEnabled(data.live_enabled);
+      setEvaluationsEnabled(data.evaluations_enabled);
       setProjectId((current) => current || data.projects[0]?.id || "");
       setConnected(true);
       setError("");
@@ -255,20 +256,6 @@ export function Workbench() {
       alive = false;
     };
   }, [projectId, collectionId]);
-  useEffect(() => {
-    if (!projectId || tab !== "evaluations") return;
-    let alive = true;
-    api<Evaluation[]>(`projects/${projectId}/evaluations`)
-      .then((data) => {
-        if (alive) setEvaluations(data);
-      })
-      .catch((e) => {
-        if (alive) setError(e.message);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [projectId, tab]);
   useEffect(() => {
     if (!runId || !projectId) return;
     const current = ++epoch.current;
@@ -942,7 +929,7 @@ export function Workbench() {
               />
             )}
             {tab === "evaluations" && (
-              <EvaluationsView evaluations={evaluations} />
+              <EvaluationsView key={projectId} projectId={projectId} enabled={evaluationsEnabled} />
             )}
           </section>
           <footer className="workspace-footer">

@@ -4,7 +4,11 @@ A measured synthetic [fixture comparison](examples/fixture-comparison.md) and it
 
 ## Fixture comparison
 
-`./scripts/eval.sh` submits research cases to the **running durable worker**. `--split held-out` limits the case set. Every strategy uses the same fixture provider, original corpus snapshot, query set, default budgets and explicit per-case limit overrides. The harness creates an isolated collection from the source manifest so user uploads cannot contaminate the benchmark, and each run pins its source versions. Expected source labels stay in `evals/cases.json`, which the research workflow does not load.
+**Run from the UI:** open Evaluations, choose Development, Held-out, or All cases, then select Run benchmark. FastAPI returns a queued job immediately. The separate `eval-worker` service coordinates the comparison, while research workers execute each graph. Progress, cancellation, raw case results and the reproducibility manifest are available in the workspace. Built-in fixture jobs are limited to local/test demo instances and make no paid provider calls.
+
+Jobs pin code, corpus-manifest and case hashes when submitted. A changed benchmark is rejected before execution. Each job owns a dedicated fixture collection; stable per-case idempotency keys allow a restarted evaluation coordinator to reuse saved research runs. Evaluation leases and a session advisory lock fence competing coordinators. Cancelling a job also requests cancellation of its unfinished child research runs.
+
+The optional `./scripts/eval.sh` CLI runs in the evaluation container and submits research cases to the **running durable worker**. `--split held-out` limits the case set. Every strategy uses the same fixture provider, original corpus snapshot, query set, default budgets and explicit per-case limit overrides. The harness creates an isolated collection from the source manifest so user uploads cannot contaminate the benchmark, and each run pins its source versions. Expected source labels stay in `evals/cases.json`, which the research workflow does not load.
 
 - **Basic RAG:** one question, one retrieval task, one reviewer pass, one report; no follow-up.
 - **Fixed workflow:** planned subquestions, one research round, reviewer, report.
@@ -12,7 +16,7 @@ A measured synthetic [fixture comparison](examples/fixture-comparison.md) and it
 
 The catalog has fourteen cases: comparison, security synthesis, cost baselines, stale/conflicting evidence, insufficient scale evidence, prompt injection, iteration stop, shared parallel budget, token exhaustion, authorization isolation, timeout/retry, cancellation, checkpoint process restart, and expired-lease recovery. The first nine have comparable research runs. The five infrastructure cases map to named integration tests rather than being misrepresented as language-model quality scores.
 
-The harness exports raw JSON and a concise Markdown comparison with code/corpus/prompt/context/model identifiers, source hashes, run IDs, explicit budgets and split. The UI reads persisted `evaluation_runs` aggregates. Outputs include:
+The harness exports raw JSON and a concise Markdown comparison with code/corpus/prompt/context/model identifiers, source hashes, run IDs, explicit budgets and split. The UI reads persisted `evaluation_runs` aggregates and raw per-case results. Outputs include:
 
 - Recall@5 and MRR against manually authored **document-level** source relevance labels. These use the same independent retrieval probe for all strategies; equal results are expected and do not establish an iterative-research advantage.
 - Citation existence and run/project access checks, with no-claim cases represented as ungraded in raw results.

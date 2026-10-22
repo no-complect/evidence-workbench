@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from . import db
 from .config import ROOT, DEMO_PROJECT, DEMO_USER, settings
 from .models import EXAMPLES, RunCreate
-from .api import create_run
+from .runs import create_run
 from .retrieval import search
 from .evidence import for_run
 
@@ -28,9 +28,14 @@ def fingerprint():
         str(p.relative_to(ROOT)).encode() + p.read_bytes() for p in files)).hexdigest()
 
 
-def run_evaluation(split='all'):
+def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
+                   evaluation_id=None, collection_id=None, progress=None, check_active=None):
     if settings().app_env not in {'local', 'test'} or settings().auth_mode != 'demo':
         raise ValueError('Fixture evaluations run only in local/test demo configuration')
+    evaluation_id = evaluation_id or db.uid()
+    check_active = check_active or (lambda: None)
+    progress = progress or (lambda value: None)
+    check_active()
     cases = json.loads((ROOT / 'evals/cases.json').read_text())['cases']
     selected = [
         c for c in cases if 'question_index' in c and (split == 'all' or c['split'] == split)
@@ -57,13 +62,14 @@ def run_evaluation(split='all'):
     }
     # Freeze a dedicated collection from the fixture manifest; never benchmark mutable user uploads.
     from .ingest import ingest, MANIFEST
-    evaluation_collection = db.uid()
+    evaluation_collection = collection_id or db.uid()
     db.execute(
-        "INSERT INTO collections(id,project_id,name,embedding_config) VALUES(%s,%s,%s,'demo-v1')",
-        (evaluation_collection, DEMO_PROJECT, 'Evaluation snapshot ' + evaluation_collection[:8]))
+        "INSERT INTO collections(id,project_id,name,embedding_config) VALUES(%s,%s,%s,'demo-v1') ON CONFLICT(id) DO NOTHING",
+        (evaluation_collection, project_id, 'Evaluation snapshot ' + evaluation_collection[:8]))
     for metadata in MANIFEST['documents']:
+        check_active()
         source = ROOT / 'fixtures/corpus' / metadata['file']
-        ingest(DEMO_PROJECT, evaluation_collection, source.name, source.read_bytes(), metadata)
+        ingest(project_id, evaluation_collection, source.name, source.read_bytes(), metadata)
     versions['collection_id'] = evaluation_collection
     versions['source_hashes'] = [
         r['content_hash'] for r in db.all_rows(
@@ -71,25 +77,30 @@ def run_evaluation(split='all'):
             (evaluation_collection, ))
     ]
     raw = []
+    total = len(STRATEGIES) * len(selected)
+    progress({'completed': 0, 'total': total, 'stage': 'cases'})
     for strategy in STRATEGIES:
         for case in selected:
+            check_active()
             request = RunCreate(collection_id=evaluation_collection,
                                 question=EXAMPLES[case['question_index']],
                                 strategy=strategy,
                                 approve_plan=False,
                                 limits=case.get('limits', {}),
-                                idempotency_key=db.uid())
+                                idempotency_key=f'eval/{evaluation_id}/{strategy}/{case["id"]}')
             started = time.monotonic()
-            run = create_run(DEMO_PROJECT, request, DEMO_USER)
+            run = create_run(project_id, request, user_id,
+                             evaluation_job_id=evaluation_id if collection_id else None)
             while time.monotonic() - started < 180:
-                run = db.scoped_run(run['id'], DEMO_PROJECT)
+                check_active()
+                run = db.scoped_run(run['id'], project_id)
                 if run['status'] in {'completed', 'failed', 'partial', 'cancelled'}:
                     break
                 time.sleep(.15)
             else:
                 raise TimeoutError(
                     'Worker did not finish evaluation; start the worker and inspect its logs')
-            elapsed = time.monotonic() - started
+            elapsed = max(0., (run['updated_at'] - run['created_at']).total_seconds())
             evidence = for_run(run)
             available = {str(e['id']): e for e in evidence}
             claims = (run['report'] or {}).get('claims', [])
@@ -98,7 +109,7 @@ def run_evaluation(split='all'):
             quotes = [(c, eid) for c, eid in cited if c['support'] == 'direct_quote']
             supported = sum(eid in available and c['text'] in available[eid]['text']
                             for c, eid in quotes)
-            retrieval = search(DEMO_PROJECT, evaluation_collection, case['query'], 5,
+            retrieval = search(project_id, evaluation_collection, case['query'], 5,
                                run['corpus_versions'])
             ranked = [x['chunk']['source_name'] for x in retrieval]
             relevant = set(case['relevant_sources'])
@@ -137,6 +148,8 @@ def run_evaluation(split='all'):
                 'limits': request.limits.model_dump()
             }
             raw.append(item)
+            progress({'completed': len(raw), 'total': total, 'stage': 'cases',
+                      'strategy': strategy, 'case': case['id']})
             print(f'{strategy:8} {case["id"]:25} {run["status"]:10} {elapsed:.2f}s', flush=True)
     aggregate = []
     for strategy in STRATEGIES:
@@ -166,10 +179,11 @@ def run_evaluation(split='all'):
             'estimated_cost_usd':
             sum(r['estimated_cost_usd'] for r in rows)
         })
-    eid = db.uid()
+    check_active()
+    eid = evaluation_id
     db.execute(
-        'INSERT INTO evaluation_runs(id,project_id,mode,versions,results) VALUES(%s,%s,%s,%s,%s)',
-        (eid, DEMO_PROJECT, 'demo', db.jsonb(versions), db.jsonb(aggregate)))
+        'INSERT INTO evaluation_runs(id,project_id,mode,versions,results,raw) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(id) DO NOTHING',
+        (eid, project_id, 'demo', db.jsonb(versions), db.jsonb(aggregate), db.jsonb(raw)))
     out = ROOT / 'evals/results'
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
@@ -203,6 +217,7 @@ def run_evaluation(split='all'):
     ]
     (out / f'{stamp}-{eid}.md').write_text('\n'.join(lines) + '\n')
     print(f'Saved evaluation {eid} and raw results to evals/results')
+    return eid
 
 
 if __name__ == '__main__':

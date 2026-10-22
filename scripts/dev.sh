@@ -8,4 +8,4 @@ mkdir -p evals/results
 # Installs project dependencies inside containers only; never installs host tools.
 docker compose up --build -d --wait --wait-timeout 240
 printf '\nEvidence workbench: http://localhost:3000\nAPI health: http://localhost:8000/health\nAPI schema: http://localhost:8000/docs\nStop: ./scripts/stop.sh (keeps your data)\n\n'
-if [ "${1:-}" != '--no-follow' ]; then docker compose logs --follow api worker web; fi
+if [ "${1:-}" != '--no-follow' ]; then docker compose logs --follow api worker eval-worker web; fi

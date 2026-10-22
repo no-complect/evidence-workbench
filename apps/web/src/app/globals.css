@@ -1,4 +1,16 @@
 @import "tailwindcss";
+.benchmark-launcher{background:#f4f3f2;border:1px solid #d9d6d5;border-radius:12px;padding:24px;margin-bottom:28px;color:#292b30}
+.benchmark-launcher .section-title{margin-bottom:18px}
+.benchmark-controls{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.benchmark-controls label{display:grid;gap:6px;font-size:13px;min-width:180px}
+.benchmark-controls select{background:#fff;border:1px solid #bcbfc5;border-radius:6px;padding:9px 12px}
+.benchmark-jobs{display:grid;gap:10px}
+.benchmark-job{display:flex;justify-content:space-between;gap:16px;align-items:center;background:#fff;padding:16px;border-radius:8px;border:1px solid #dedddd;overflow-wrap:anywhere}
+.benchmark-job>div{min-width:0;flex:1}
+.benchmark-job strong{font-size:13px;margin-right:10px}
+.benchmark-job p{font-size:12px;color:#5b5b65;margin:7px 0}
+.benchmark-job progress{accent-color:#46536c;width:100%;max-width:360px;height:6px}
+@media(max-width:600px){.benchmark-launcher{padding:16px}.benchmark-job{flex-wrap:wrap}.benchmark-controls>label{width:100%}}
 :root {
   --background: #f7f8fb;
   --foreground: #1c2638;

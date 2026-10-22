@@ -1,4 +1,22 @@
 import { test, expect } from "@playwright/test";
+test("benchmark queues in UI and exposes persisted case results", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "New project", exact: true });
+  await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(`Benchmark ${Date.now()}`);
+  await dialog.getByRole("button", { name: "Create project", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.getByRole("tab", { name: "Evaluations", exact: true }).click();
+  await page.getByRole("button", { name: "Run benchmark", exact: true }).click();
+  await expect(page.locator(".benchmark-job")).toBeVisible();
+  await expect(page.locator(".benchmark-job .status-badge")).toHaveText("completed", { timeout: 90000 });
+  await expect(page.locator(".benchmark-job")).toContainText("15 / 15 cases");
+  await page.getByText("Inspect 15 case results", { exact: true }).click();
+  await expect(page.locator(".evaluation")).toContainText("security-synthesis");
+  await expect(page.locator(".evaluation")).toContainText("Reproducibility manifest");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+});
 test("seeded question → edited plan → report → citation → context → export", async ({
   page,
 }, testInfo) => {

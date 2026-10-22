@@ -95,6 +95,7 @@ export type Evaluation = {
   mode: string;
   created_at: string;
   versions: Record<string, unknown>;
+  raw?: EvaluationCase[];
   results: {
     strategy: string;
     cases: number;
@@ -150,3 +151,24 @@ export async function exportReport(path: string) {
   link.click();
   URL.revokeObjectURL(url);
 }
+
+export type EvaluationCase = {
+  case: string;
+  split: string;
+  strategy: string;
+  run_id: string;
+  status: string;
+  checks: Record<string, boolean>;
+  ranked_sources: string[];
+  latency_seconds: number;
+};
+export type EvaluationJob = {
+  id: string;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  request: { split: string };
+  progress: { completed?: number; total?: number; strategy?: string; case?: string };
+  result_id: string | null;
+  cancel_requested: boolean;
+  error: string | null;
+  created_at: string;
+};
