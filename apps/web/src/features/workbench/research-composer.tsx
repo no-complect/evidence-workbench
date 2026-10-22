@@ -63,7 +63,10 @@ export function ResearchComposer({
   const busy = mutation.isPending;
   const pricedModel =
     !!modelSelection?.catalog?.pricing_configured &&
-    modelSelection.modelId === modelSelection.catalog.default_model;
+    modelSelection.modelId === modelSelection.catalog.default_model &&
+    Object.values(configuration.stage_models).every(
+      (id) => !id || id === modelSelection.catalog?.default_model,
+    );
   const collectionReady = collections.some(
     (item) =>
       item.id === collectionId &&
