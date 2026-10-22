@@ -1,0 +1,225 @@
+import { test, expect, type Page, type Route } from "@playwright/test";
+
+const projects = [
+  { id: "project-a", name: "Project A" },
+  { id: "project-b", name: "Project B" },
+];
+const collection = (id: string) => ({
+  id,
+  name: id,
+  document_count: 1,
+  embedding_config: "demo-v1",
+});
+const source = (name: string) => ({
+  id: name,
+  name,
+  status: "ready",
+  error: null,
+  chunk_count: 1,
+  version_count: 1,
+});
+const answer = (route: Route, body: unknown, status = 200) =>
+  route.fulfill({ status, json: body });
+
+async function mockWorkspace(
+  page: Page,
+  handle?: (route: Route, path: string) => Promise<boolean>,
+) {
+  await page.route("**/api/backend/**", async (route) => {
+    const path = new URL(route.request().url()).pathname.replace(
+      "/api/backend/",
+      "",
+    );
+    if (await handle?.(route, path)) return;
+    if (path === "bootstrap")
+      return answer(route, {
+        projects,
+        examples: [],
+        live_enabled: false,
+        evaluations_enabled: true,
+        auth_mode: "demo",
+      });
+    if (path === "projects/project-a")
+      return answer(route, {
+        collections: [collection("a-one"), collection("a-two")],
+        runs: [],
+      });
+    if (path === "projects/project-b")
+      return answer(route, { collections: [collection("b-one")], runs: [] });
+    if (path.endsWith("/sources"))
+      return answer(route, [source(`${path.split("/")[3]}.txt`)]);
+    if (path.endsWith("/evaluations") || path.endsWith("/evaluation-jobs"))
+      return answer(route, []);
+    throw new Error(
+      `Unexpected mocked request: ${route.request().method()} ${path}`,
+    );
+  });
+  await page.goto("/");
+  await expect(
+    page.getByRole("combobox", { name: "Collection", exact: true }),
+  ).toHaveValue("a-one");
+}
+
+test("switching collections ignores an old source response", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let began!: () => void;
+  const started = new Promise<void>((resolve) => {
+    began = resolve;
+  });
+  let ended!: () => void;
+  const finished = new Promise<void>((resolve) => {
+    ended = resolve;
+  });
+  await mockWorkspace(page, async (route, path) => {
+    if (path !== "projects/project-a/collections/a-one/sources") return false;
+    began();
+    await gate;
+    try {
+      await answer(route, [source("old-scope-private.txt")]);
+    } catch (error) {
+      if (!/closed|aborted|disposed/i.test(String(error))) throw error;
+    } finally {
+      ended();
+    }
+    return true;
+  });
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await started;
+  await page
+    .getByRole("combobox", { name: "Collection", exact: true })
+    .selectOption("a-two");
+  await expect(page.getByText("a-two.txt", { exact: true })).toBeVisible();
+  release();
+  await finished;
+  await expect(
+    page.getByText("old-scope-private.txt", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("a-two.txt", { exact: true })).toBeVisible();
+});
+
+test("project changes reset drafts and dialog focus returns to its trigger", async ({
+  page,
+}) => {
+  await mockWorkspace(page);
+  const question = page.getByRole("textbox", {
+    name: "What would you like to investigate?",
+    exact: true,
+  });
+  const initialQuestion = await question.inputValue();
+  await question.fill("Private draft for project A only");
+  const menu = page.getByRole("button", {
+    name: "Toggle navigation",
+    exact: true,
+  });
+  if (await menu.isVisible()) await menu.click();
+  const trigger = page.getByRole("button", {
+    name: "New project",
+    exact: true,
+  });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "New project", exact: true });
+  await expect(
+    dialog.getByRole("textbox", { name: "Name", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  // Mobile navigation closes as the dialog opens, so its hidden trigger is not a focus target.
+  if (!(await menu.isVisible())) await expect(trigger).toBeFocused();
+  if (await menu.isVisible()) await menu.click();
+  await page
+    .getByRole("combobox", { name: "Project", exact: true })
+    .selectOption("project-b");
+  await expect(question).toHaveValue(initialQuestion);
+  await expect(
+    page.getByRole("combobox", { name: "Collection", exact: true }),
+  ).toHaveValue("b-one");
+  await expect(
+    page.getByRole("tab", { name: "Report", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+});
+
+test("research retries reuse an uncertain request key until the request changes", async ({
+  page,
+}) => {
+  const keys: string[] = [];
+  await mockWorkspace(page, async (route, path) => {
+    if (
+      path !== "projects/project-a/runs" ||
+      route.request().method() !== "POST"
+    )
+      return false;
+    keys.push(route.request().postDataJSON().idempotency_key);
+    await answer(route, { detail: "Research response unavailable" }, 503);
+    return true;
+  });
+  const start = page.getByRole("button", {
+    name: "Start research",
+    exact: true,
+  });
+  const error = page.getByText("Research response unavailable", {
+    exact: true,
+  });
+  await start.click();
+  await expect(error).toBeVisible();
+  await start.click();
+  await expect.poll(() => keys.length).toBe(2);
+  await expect(error).toBeVisible();
+  expect(keys[1]).toBe(keys[0]);
+  await page
+    .getByRole("textbox", {
+      name: "What would you like to investigate?",
+      exact: true,
+    })
+    .fill("A different question changes the submission intent");
+  await start.click();
+  await expect.poll(() => keys.length).toBe(3);
+  expect(keys[2]).not.toBe(keys[0]);
+});
+
+test("successful evaluation polling does not erase a start error", async ({
+  page,
+}) => {
+  let attempted = false;
+  await mockWorkspace(page, async (route, path) => {
+    if (path !== "projects/project-a/evaluation-jobs") return false;
+    if (route.request().method() === "POST") {
+      attempted = true;
+      await answer(route, { detail: "Benchmark could not be queued" }, 503);
+    } else
+      await answer(
+        route,
+        attempted
+          ? [
+              {
+                id: "older-job",
+                status: "completed",
+                request: { split: "development" },
+                progress: { completed: 15, total: 15 },
+                result_id: null,
+                cancel_requested: false,
+                error: null,
+                created_at: "2026-01-01T00:00:00Z",
+              },
+            ]
+          : [],
+      );
+    return true;
+  });
+  await page.getByRole("tab", { name: "Evaluations", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Run benchmark", exact: true })
+    .click();
+  const error = page.getByText("Benchmark could not be queued", {
+    exact: true,
+  });
+  await expect(error).toBeVisible();
+  await expect(page.locator(".benchmark-job")).toContainText("15 / 15 cases", {
+    timeout: 15000,
+  });
+  await expect(error).toBeVisible();
+});

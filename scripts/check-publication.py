@@ -50,6 +50,10 @@ def candidates(git_dir=None):
 def forbidden(name):
     path = Path(name)
     return (
+        path.name in {'AGENTS.md', 'CLAUDE.md', 'GEMINI.md'}
+        or name.startswith(('.context/', 'docs/design/'))
+        or name in {'docs/REFACTOR_STATUS.md', 'docs/ENTERPRISE_REFACTOR.md'}
+        or
         any(part in LOCAL_DIRS or part.startswith(('.a', '.c')) for part in path.parts)
         or (path.name.startswith('.env') and path.name != '.env.example')
         or path.suffix in {'.pem', '.key', '.log', '.pyc', '.tsbuildinfo'}

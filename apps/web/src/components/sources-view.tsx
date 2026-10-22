@@ -16,6 +16,7 @@ export function SourcesView({
   sources,
   canCreate,
   canUpload,
+  readOnly = false,
   busy,
   onCreate,
   onUpload,
@@ -23,6 +24,7 @@ export function SourcesView({
   sources: Source[];
   canCreate: boolean;
   canUpload: boolean;
+  readOnly?: boolean;
   busy: boolean;
   onCreate: () => void;
   onUpload: (file: File) => void;
@@ -73,9 +75,15 @@ export function SourcesView({
       <div className="source-note">
         <ShieldCheck size={16} />
         <span>
-          Sources keep immutable versions. New demo uploads use full-text
-          search; only seeded passages have fixture vectors. Scanned PDFs
-          require OCR, which is unavailable.
+          {readOnly ? (
+            "This benchmark snapshot is read-only. Create a separate collection to upload your sources."
+          ) : (
+            <>
+              Sources keep immutable versions. New demo uploads use full-text
+              search; only seeded passages have fixture vectors. Scanned PDFs
+              require OCR, which is unavailable.
+            </>
+          )}
         </span>
       </div>
       {sources.length === 0 ? (

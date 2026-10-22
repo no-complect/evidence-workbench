@@ -1,4 +1,6 @@
-# Verification status — 2026-10-07
+# Verification status
+
+## Earlier verification record — 2026-10-07
 
 The repository includes application source, locked dependencies, a containerized
 local demo, and a GitHub verification workflow. The public README describes the

@@ -1,4 +1,44 @@
 import { test, expect } from "@playwright/test";
+test("benchmark queues in UI and exposes persisted case results", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  const menu = page.getByRole("button", {
+    name: "Toggle navigation",
+    exact: true,
+  });
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "New project", exact: true });
+  await dialog
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill(`Benchmark ${Date.now()}`);
+  await dialog
+    .getByRole("button", { name: "Create project", exact: true })
+    .click();
+  await expect(dialog).not.toBeVisible();
+  await page.getByRole("tab", { name: "Evaluations", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Run benchmark", exact: true })
+    .click();
+  await expect(page.locator(".benchmark-job")).toBeVisible();
+  await expect(page.locator(".benchmark-job .status-badge")).toHaveText(
+    "completed",
+    { timeout: 90000 },
+  );
+  await expect(page.locator(".benchmark-job")).toContainText("15 / 15 cases");
+  await page.getByText("Inspect 15 case results", { exact: true }).click();
+  await expect(page.locator(".evaluation")).toContainText("security-synthesis");
+  await expect(page.locator(".evaluation")).toContainText(
+    "Reproducibility manifest",
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+});
 test("seeded question → edited plan → report → citation → context → export", async ({
   page,
 }, testInfo) => {
@@ -14,9 +54,13 @@ test("seeded question → edited plan → report → citation → context → ex
     .getByLabel("security research question")
     .fill("security retention current requirements");
   await page.getByRole("button", { name: "Approve & investigate" }).click();
-  await expect(page.locator(".status-badge.completed")).toBeVisible({
+  await expect(page.locator(".run-strip .status-badge.completed")).toBeVisible({
     timeout: 60000,
   });
+  await expect(page.locator(".run-strip")).toHaveCount(1);
+  await expect(
+    page.getByRole("heading", { name: "A plan before we proceed" }),
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: "Report", exact: true }).click();
   await page.screenshot({
     path: testInfo.outputPath("demo-report.png"),

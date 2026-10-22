@@ -64,6 +64,17 @@ services:
       init: { condition: service_completed_successfully }
     restart: unless-stopped
     stop_grace_period: 45s
+  eval-worker:
+    build:
+      context: .
+      dockerfile: services/research/Dockerfile
+    environment: *research-env
+    command: ['python', '-m', 'workbench.evaluation_worker']
+    volumes: ['objects:/data/objects', 'evaluations:/app/evals/results']
+    depends_on:
+      init: { condition: service_completed_successfully }
+    restart: unless-stopped
+    stop_grace_period: 45s
   web:
     build:
       context: .

@@ -45,7 +45,7 @@ The first build may take several minutes. The startup command automatically:
 1. Creates a local `.env` from the included example if one does not already exist.
 2. Builds the containers and installs the locked application dependencies inside them.
 3. Starts PostgreSQL, applies database migrations, and loads the synthetic example documents.
-4. Starts the API, the background research worker, and the website, then waits for service readiness.
+4. Starts the API, separate research and evaluation workers, and the website, then waits for service readiness.
 
 When startup succeeds, open **[http://localhost:3000](http://localhost:3000)**. No configuration edits or sign-in are needed for a fresh local demo. Continue with the [reviewer walkthrough](#five-minute-reviewer-walkthrough) below.
 
@@ -69,7 +69,7 @@ Make sure Docker is running, then inspect the services and logs:
 
 ```bash
 docker compose ps
-docker compose logs --tail=100 api worker web
+docker compose logs --tail=100 api worker eval-worker web
 ```
 
 See [Troubleshooting](./docs/TROUBLESHOOTING.md) for Docker access, port conflicts, build failures, and queued research.
@@ -99,7 +99,9 @@ bash scripts/eval.sh --split held-out
 bash scripts/eval.sh
 ```
 
-These commands run against the independent worker and export local results to `evals/results/`. A [saved fixture comparison](./docs/examples/fixture-comparison.md) and its [raw data](./docs/examples/fixture-comparison.json) are included for inspection without running the suite. They are historical demo measurements, not live-model benchmarks or a certification of the current checkout.
+In the **Evaluations** workspace, choose a case split and select **Run benchmark**. The dedicated evaluation service queues the comparison, reports progress, supports cancellation, and saves aggregate and case-level results. No terminal command is needed.
+
+The optional CLI commands above run inside the evaluation container and submit cases to the independent research worker, exporting local results to `evals/results/`. A [saved fixture comparison](./docs/examples/fixture-comparison.md) and its [raw data](./docs/examples/fixture-comparison.json) are included for inspection without running the suite. They are historical demo measurements, not live-model benchmarks or a certification of the current checkout.
 
 ## Features to explore
 

@@ -1,95 +1,109 @@
 "use client";
 
-import { FlaskConical } from "lucide-react";
-
-import { Empty } from "./empty";
-import type { Evaluation } from "@/lib/api";
+import { useState } from "react";
+import { FlaskConical, Loader2, Play } from "lucide-react";
+import { Button } from "./ui/button";
+import { ErrorNotice } from "./error-notice";
+import type { EvaluationSplit } from "@/lib/contracts";
+import { useEvaluations } from "@/features/evaluations/use-evaluations";
+import { EvaluationJobs } from "@/features/evaluations/evaluation-jobs";
+import { EvaluationResults } from "@/features/evaluations/evaluation-results";
 
 export function EvaluationsView({
-  evaluations,
+  projectId,
+  enabled,
 }: {
-  evaluations: Evaluation[];
+  projectId: string;
+  enabled: boolean;
 }) {
+  const [split, setSplit] = useState<EvaluationSplit>("development");
+  const { query, start, cancel, submit } = useEvaluations(projectId);
+  const jobs = query.data?.jobs ?? [];
+  const active = jobs.some(
+    (job) => job.status === "queued" || job.status === "running",
+  );
   return (
     <>
-      <div className="section-title">
-        <div>
-          <h2>Evaluation comparisons</h2>
-          <p>
-            Comparable corpus, questions, and budgets across three strategies.
-          </p>
-        </div>
-        <FlaskConical className="muted" size={23} />
-      </div>
-      {evaluations.length === 0 ? (
-        <Empty
-          icon={FlaskConical}
-          title="Measure before making claims"
-          text="Run the local comparison suite to populate this view. Fixture results measure integration and retrieval behavior, not live model quality."
-        >
-          <code className="command">./scripts/eval.sh</code>
-        </Empty>
-      ) : (
-        evaluations.map((e) => (
-          <div className="evaluation" key={e.id}>
-            <div className="flex-row">
-              <span className="mode-badge">
-                {e.mode.toUpperCase()} EVALUATION
-              </span>
-              <span className="fine-print">
-                {new Date(e.created_at).toLocaleString()}
-              </span>
-            </div>
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Strategy</th>
-                    <th>Recall@5</th>
-                    <th>MRR</th>
-                    <th>Valid citations</th>
-                    <th>Quote support*</th>
-                    <th>Completed</th>
-                    <th>Latency</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {e.results.map((r) => (
-                    <tr key={r.strategy}>
-                      <td>
-                        <strong>{r.strategy}</strong>
-                      </td>
-                      <td>
-                        {r.recall_at_k === null
-                          ? "—"
-                          : (100 * r.recall_at_k).toFixed(0) + "%"}
-                      </td>
-                      <td>{r.mrr?.toFixed(2) ?? "—"}</td>
-                      <td>{(100 * r.citation_validity).toFixed(0)}%</td>
-                      <td>
-                        {r.quote_support === null
-                          ? "—"
-                          : (100 * r.quote_support).toFixed(0) + "%"}
-                      </td>
-                      <td>{(100 * r.completion_rate).toFixed(0)}%</td>
-                      <td>{r.mean_latency_seconds.toFixed(2)}s</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="fine-print">
-              *Exact substring support for fixture quotes. This is not a
-              semantic judge of arbitrary synthesis. See exported raw results
-              for case-level measurements.
+      <section className="benchmark-launcher" aria-labelledby="benchmark-title">
+        <div className="section-title">
+          <div>
+            <div className="eyebrow">EXPERIMENT / MEASURE / INSPECT</div>
+            <h2 id="benchmark-title">Run a reproducible benchmark</h2>
+            <p>
+              A dedicated evaluation worker compares RAG, workflow, and bounded
+              agent runs.
             </p>
-            <details>
-              <summary>Reproducibility manifest</summary>
-              <pre>{JSON.stringify(e.versions, null, 2)}</pre>
-            </details>
           </div>
-        ))
-      )}
+          <FlaskConical size={24} />
+        </div>
+        <form
+          className="benchmark-controls"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!active && enabled && !query.isPending && !query.isError)
+              submit(split);
+          }}
+        >
+          <label>
+            Case split
+            <select
+              value={split}
+              disabled={start.isPending || active}
+              onChange={(event) =>
+                setSplit(event.target.value as EvaluationSplit)
+              }
+            >
+              <option value="development">Development</option>
+              <option value="held-out">Held-out</option>
+              <option value="all">All cases</option>
+            </select>
+          </label>
+          <Button
+            type="submit"
+            disabled={
+              !projectId ||
+              !enabled ||
+              query.isPending ||
+              query.isError ||
+              start.isPending ||
+              active
+            }
+          >
+            {start.isPending ? (
+              <Loader2 size={16} className="spin" />
+            ) : (
+              <Play size={16} />
+            )}
+            Run benchmark
+          </Button>
+        </form>
+        <p className="fine-print">
+          A fresh fixture collection is frozen for each benchmark. No model
+          credentials or paid calls are used. Live model quality and custom
+          collection suites are separate evaluation tracks.
+        </p>
+        {!enabled && (
+          <p role="status">
+            The built-in benchmark is available in local demo instances.
+          </p>
+        )}
+        {!!projectId && query.isPending && (
+          <p role="status">Loading evaluations…</p>
+        )}
+        <ErrorNotice
+          title="Evaluations could not load"
+          error={query.error}
+          onRetry={() => void query.refetch()}
+        />
+        <ErrorNotice error={start.error} onDismiss={start.reset} />
+        <ErrorNotice error={cancel.error} onDismiss={cancel.reset} />
+        <EvaluationJobs
+          jobs={jobs}
+          cancellingId={cancel.isPending ? cancel.variables : undefined}
+          onCancel={(id) => cancel.mutate(id)}
+        />
+      </section>
+      <EvaluationResults evaluations={query.data?.evaluations ?? []} />
     </>
   );
 }
