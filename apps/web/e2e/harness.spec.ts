@@ -12,10 +12,19 @@ import {
 const secret = "synthetic-ui-credential-only";
 const stageKeys = ["plan", "assess", "report"] as const;
 
-async function mockHarness(page: Page) {
+async function mockHarness(
+  page: Page,
+  options: {
+    liveEnabled?: boolean;
+    largeCatalog?: boolean;
+    failRefresh?: boolean;
+  } = {},
+) {
+  const liveEnabled = options.liveEnabled ?? true;
+  let discovered = false;
   const state: HarnessState = {
     server_key_available: false,
-    live_enabled: true,
+    live_enabled: liveEnabled,
     connections: [],
     checks: [],
     revisions: [],
@@ -38,7 +47,7 @@ async function mockHarness(page: Page) {
           { id: "project-b", name: "Other project" },
         ],
         examples: [],
-        live_enabled: true,
+        live_enabled: liveEnabled,
         evaluations_enabled: false,
         provider_connections_enabled: true,
         auth_mode: "demo",
@@ -55,12 +64,15 @@ async function mockHarness(page: Page) {
         ],
         runs: [],
       });
-    if (path.endsWith("/harness") && method === "GET")
+    if (path.endsWith("/harness") && method === "GET") {
+      if (discovered && options.failRefresh)
+        return reply({ detail: "Synthetic settings refresh unavailable" }, 502);
       return reply(
         path.includes("project-b")
           ? { ...state, connections: [], checks: [], revisions: [] }
           : state,
       );
+    }
     if (path.endsWith("/harness/connections")) {
       const body = route.request().postDataJSON();
       expect(body.api_key).toBe(secret);
@@ -81,6 +93,19 @@ async function mockHarness(page: Page) {
         "account-model-b",
         "embedding-model",
       ];
+      if (options.largeCatalog)
+        state.connections[0].catalog = [
+          "gpt-4.1",
+          "gpt-4.1-mini",
+          ...Array.from({ length: 125 }, (_, i) => `other-family-${i}`),
+        ];
+      state.connections[0].catalog_discovery = {
+        endpoint: "https://api.openai.com/v1/models",
+        returned_count: state.connections[0].catalog.length,
+        unique_count: state.connections[0].catalog.length,
+        request_id: "req_ui_catalog",
+      };
+      discovered = true;
       state.connections[0].discovered_at = new Date().toISOString();
       return reply(state.connections[0].catalog);
     }
@@ -348,4 +373,58 @@ test("real local connection storage clears credentials and allows explicit disco
   await expect(form.getByLabel("OpenAI API key", { exact: true })).toHaveValue(
     "",
   );
+});
+
+test("all discovered models stay selectable with live inference disabled, even if settings refresh fails", async ({
+  page,
+}, info) => {
+  const scenario = await mockHarness(page, {
+    liveEnabled: false,
+    largeCatalog: true,
+    failRefresh: true,
+  });
+  const form = page.getByRole("form", { name: "Connect OpenAI", exact: true });
+  await form
+    .getByLabel("Connection name", { exact: true })
+    .fill("Full catalog account");
+  await form.getByLabel("OpenAI API key", { exact: true }).fill(secret);
+  await form
+    .getByRole("button", { name: "Connect OpenAI", exact: true })
+    .click();
+  const card = page.getByRole("region", {
+    name: "Provider Full catalog account",
+    exact: true,
+  });
+  await card
+    .getByRole("button", { name: "Discover available models", exact: true })
+    .click();
+  const model = card.getByRole("combobox", {
+    name: "Available model",
+    exact: true,
+  });
+  await expect(model).toBeEnabled();
+  await expect(model.locator("option")).toHaveCount(128);
+  await model.selectOption("other-family-124");
+  await expect(model).toHaveValue("other-family-124");
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "Synthetic settings refresh unavailable" }),
+  ).toBeVisible();
+  await expect(
+    card.getByRole("button", {
+      name: "Run paid capability check",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  expect(scenario.keys).toHaveLength(0);
+  await page.screenshot({
+    path: info.outputPath("discovered-models-live-disabled.png"),
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
 });

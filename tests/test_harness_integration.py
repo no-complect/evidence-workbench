@@ -77,13 +77,16 @@ def test_catalog_scope_secrets_and_revocation(client, provider, monkeypatch):
             observed.append(url)
             assert headers['Authorization'] == 'Bearer ' + SECRET
             return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {'data': [
-                {'id': 'account-model-a'}, {'id': 'embedding-model'}, {'id': 'bad\nmodel'}]})
+                {'id': 'account-model-a'}, {'id': 'embedding-model'}, {'id': 'model-family-z'}]}, headers={'x-request-id': 'req_catalog_test'})
     monkeypatch.setattr(harness.httpx, 'Client', Client)
     response = client.post(BASE + f'/connections/{cid}/discover')
-    assert response.json() == ['account-model-a', 'embedding-model']
+    assert response.json() == ['account-model-a', 'embedding-model', 'model-family-z']
     state = client.get(BASE).json()
     assert state['checks'] == [] and observed == ['https://api.openai.com/v1/models']
     assert SECRET not in str(state) and 'encrypted_key' not in str(state)
+    metadata = state['connections'][0]['catalog_discovery']
+    assert metadata['returned_count'] == metadata['unique_count'] == 3
+    assert metadata['request_id'] == 'req_catalog_test'
     assert client.get(f'/api/projects/{db.uid()}/harness').status_code == 404
     marker = 'private-short'
     invalid = client.post(BASE + '/connections', json={'name': 'No leak', 'api_key': marker})

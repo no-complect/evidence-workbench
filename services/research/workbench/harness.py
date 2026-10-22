@@ -11,9 +11,11 @@ from .context import POLICY, CAPS
 from .credential_store import encrypt, decrypt
 from .models import Plan, Assessment, Report
 from .providers import OpenAIProvider
+from .provider_catalog import parse_catalog
 
 SCHEMAS = {'plan': Plan, 'assess': Assessment, 'report': Report}
-CONNECTION_COLUMNS = 'id,project_id,name,provider,active,catalog,discovered_at,created_at'
+CATALOG_ENDPOINT = 'https://api.openai.com/v1/models'
+CONNECTION_COLUMNS = 'id,project_id,name,provider,active,catalog,catalog_discovery,discovered_at,created_at'
 
 
 def local_enabled():
@@ -70,20 +72,21 @@ def discover(project, cid, user):
     row = connection(project, cid, user)
     try:
         with httpx.Client(timeout=15, follow_redirects=False, trust_env=False) as client:
-            result = client.get('https://api.openai.com/v1/models',
+            result = client.get(CATALOG_ENDPOINT,
                                 headers={'Authorization': 'Bearer ' + decrypt(row['encrypted_key'])})
             result.raise_for_status()
-            data = result.json()['data']
-            if not isinstance(data, list) or len(data) > 2000:
-                raise ValueError('Invalid catalog')
-            models = sorted({item['id'] for item in data if isinstance(item, dict)
-                             and isinstance(item.get('id'), str)
-                             and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}', item['id'])})
+            models, returned_count = parse_catalog(result.json())
+            request_id = getattr(result, 'headers', {}).get('x-request-id', '')
+            metadata = {
+                'endpoint': CATALOG_ENDPOINT, 'returned_count': returned_count,
+                'unique_count': len(models),
+                'request_id': request_id if re.fullmatch(r'[A-Za-z0-9_-]{1,200}', request_id) else None,
+            }
     except Exception:
         # Never reflect provider responses, request headers or credentials.
         raise HTTPException(502, 'Model discovery failed; check provider access and connectivity') from None
-    db.execute('UPDATE provider_connections SET catalog=%s,discovered_at=now() WHERE id=%s AND active',
-               (db.jsonb(models), cid))
+    db.execute('UPDATE provider_connections SET catalog=%s,catalog_discovery=%s,discovered_at=now() WHERE id=%s AND active',
+               (db.jsonb(models), db.jsonb(metadata), cid))
     return models
 
 

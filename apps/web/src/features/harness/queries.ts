@@ -8,6 +8,7 @@ import type {
   ModelVerification,
 } from "../../../../../packages/contracts/models";
 import { harnessApi } from "./api";
+import type { HarnessState } from "./contracts";
 export const harnessKey = (project: string) =>
   ["workbench", "project", project, "harness"] as const;
 export const harnessOptions = (project: string, enabled: boolean) =>
@@ -29,6 +30,27 @@ export function useConnectionAction(
   return useMutation({
     mutationFn: () => harnessApi[kind](project, id),
     retry: false,
+    onSuccess: (result) => {
+      if (kind === "discover" && Array.isArray(result)) {
+        client.setQueryData<HarnessState>(harnessKey(project), (previous) =>
+          previous
+            ? {
+                ...previous,
+                connections: previous.connections.map((connection) =>
+                  connection.id === id
+                    ? {
+                        ...connection,
+                        catalog: result as string[],
+                        catalog_discovery: null,
+                        discovered_at: null,
+                      }
+                    : connection,
+                ),
+              }
+            : previous,
+        );
+      }
+    },
     onSettled: () =>
       client.invalidateQueries({ queryKey: harnessKey(project), exact: true }),
   });

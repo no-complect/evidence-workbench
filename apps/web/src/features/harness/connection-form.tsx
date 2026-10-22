@@ -107,7 +107,9 @@ export function ConnectionForm({
       <p className="fine-print">
         <KeyRound size={13} /> Credentials stay encrypted on this local server.
         Connecting does not run inference. Embedding collections still use the
-        server’s separately configured embedding profile.
+        server’s separately configured embedding profile. A connection keeps the
+        credential captured when it was created; changing the environment key
+        requires a new connection.
       </p>
       <ErrorNotice error={error} />
       <Button type="submit" disabled={busy || !name.trim()}>

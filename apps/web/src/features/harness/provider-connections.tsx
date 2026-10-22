@@ -210,6 +210,29 @@ function ConnectionCard({
             ` · discovered ${new Date(connection.discovered_at).toLocaleString()}`}
           . Catalog discovery makes no inference calls.
         </p>
+        {connection.catalog_discovery ? (
+          <div className="fine-print" aria-label="Catalog response provenance">
+            <p>
+              OpenAI returned {connection.catalog_discovery.returned_count}{" "}
+              model IDs; {connection.catalog_discovery.unique_count} unique IDs
+              are listed. No model-family or capability filter is applied.
+            </p>
+            <details className={styles.catalog}>
+              <summary>Inspect discovery response details</summary>
+              <p className="mono">{connection.catalog_discovery.endpoint}</p>
+              {connection.catalog_discovery.request_id && (
+                <p className="mono">
+                  Request ID: {connection.catalog_discovery.request_id}
+                </p>
+              )}
+            </details>
+          </div>
+        ) : connection.discovered_at ? (
+          <p className="fine-print">
+            This is a saved catalog. Discover again to confirm the current
+            provider response and its returned count.
+          </p>
+        ) : null}
         {connection.catalog.length > 0 && (
           <details className={styles.catalog}>
             <summary>Inspect discovered model IDs</summary>

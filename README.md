@@ -145,7 +145,13 @@ storage/query caches, or included in model context. Connecting makes no inferenc
 calls. Local provider management is disabled in hosted/production authentication.
 
 Choose **Discover available models** to retrieve the connected account’s actual
-OpenAI catalog. Listing does not prove inference permission or research capability.
+OpenAI catalog. All returned model IDs are listed, without a GPT-family or capability
+filter, and the selector remains usable with live inference disabled. Fresh discoveries
+show the provider-returned count and a safe request ID; older saved catalogs require a
+refresh to establish that provenance. Discovery updates the selector immediately even
+if the subsequent settings refresh fails. Connections capture their key at creation;
+changing the environment key requires a new connection.
+Listing does not prove inference permission or research capability.
 With `LIVE_ENABLED=true`, select a discovered model, enter input/output prices per
 million tokens and a probe budget, then choose **Run paid capability check**. This
 makes up to three calls against the actual planner, reviewer and writer schemas,

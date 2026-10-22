@@ -29,16 +29,17 @@ export function ModelVerification({
   const intent = useRef<SubmissionIntent | null>(null);
   const mutation = useVerification(projectId, connection.id);
   const active = connection.active && liveEnabled;
+  const selectedModel = connection.catalog.includes(modelId) ? modelId : "";
   function verify() {
     setError("");
     const body = {
-      model_id: modelId,
+      model_id: selectedModel,
       input_usd_per_million: Number(inputPrice),
       output_usd_per_million: Number(outputPrice),
       max_cost_usd: Number(cap),
     };
     if (
-      !modelId ||
+      !selectedModel ||
       ![
         body.input_usd_per_million,
         body.output_usd_per_million,
@@ -81,8 +82,12 @@ export function ModelVerification({
           <select
             aria-label="Available model"
             required
-            value={modelId}
-            disabled={!active || mutation.isPending}
+            value={selectedModel}
+            disabled={
+              !connection.active ||
+              !connection.catalog.length ||
+              mutation.isPending
+            }
             onChange={(event) => setModelId(event.target.value)}
           >
             <option value="">Choose a discovered model</option>
@@ -133,14 +138,14 @@ export function ModelVerification({
         </div>
         {!liveEnabled && (
           <p role="status" className="fine-print">
-            Live calls are disabled on the server. Model discovery remains
-            available.
+            Live calls are disabled on the server. You can still discover and
+            select models; only the paid capability check is disabled.
           </p>
         )}
         <ErrorNotice error={error || mutation.error} />
         <Button
           type="submit"
-          disabled={!active || !modelId || mutation.isPending}
+          disabled={!active || !selectedModel || mutation.isPending}
         >
           <ShieldCheck size={15} />
           {mutation.isPending

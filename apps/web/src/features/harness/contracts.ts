@@ -12,6 +12,12 @@ export type Connection = {
   active: boolean;
   catalog: string[];
   discovered_at: string | null;
+  catalog_discovery?: {
+    endpoint: string;
+    returned_count: number;
+    unique_count: number;
+    request_id: string | null;
+  } | null;
 };
 export type Verification = {
   id: string;
