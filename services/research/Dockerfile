@@ -5,6 +5,6 @@ WORKDIR /app
 COPY . .
 RUN uv sync --frozen --no-dev
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
-RUN useradd --create-home --uid 10001 workbench && mkdir -p /data/objects /app/evals/results && chown -R workbench:workbench /data /app/evals/results
+RUN useradd --create-home --uid 10001 workbench && mkdir -p /data/objects /data/credentials /app/evals/results && chmod 700 /data/credentials && chown -R workbench:workbench /data /app/evals/results
 USER workbench
 CMD ["python", "-m", "workbench.worker"]

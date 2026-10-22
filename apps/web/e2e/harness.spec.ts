@@ -230,11 +230,15 @@ test("mocked account catalog → explicit contract check → immutable model tar
   await page
     .getByRole("combobox", { name: "Harness revision", exact: true })
     .selectOption("revision-a");
-  await expect(page.getByLabel("Token budget", { exact: true })).toHaveValue(
-    "48000",
-  );
   await expect(
-    page.getByLabel("Token budget", { exact: true }),
+    page
+      .getByRole("region", { name: "Workflows workspace", exact: true })
+      .getByLabel("Token budget", { exact: true }),
+  ).toHaveValue("48000");
+  await expect(
+    page
+      .getByRole("region", { name: "Workflows workspace", exact: true })
+      .getByLabel("Token budget", { exact: true }),
   ).toHaveAttribute("readonly", "");
   await page
     .getByRole("button", { name: "Start research", exact: true })
@@ -268,11 +272,9 @@ test("mocked account catalog → explicit contract check → immutable model tar
     .getByRole("button", { name: "Start research", exact: true })
     .click();
   await expect(
-    page
-      .getByRole("alert")
-      .filter({
-        hasText: "The selected revision uses a disconnected provider.",
-      }),
+    page.getByRole("alert").filter({
+      hasText: "The selected revision uses a disconnected provider.",
+    }),
   ).toBeVisible();
   expect(
     await page.evaluate(
