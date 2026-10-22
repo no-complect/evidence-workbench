@@ -20,6 +20,6 @@
 | Evidence missing after document replacement | New runs pin new versions; older runs retain their exact original evidence. Re-uploading identical bytes is idempotent. |
 | Vercel cannot reach backend | Its localhost is not your laptop. Deploy API/worker separately and set API_URL to an authenticated HTTPS endpoint. |
 | MCP tool request denied | Configure project ID and shared secret; production also needs the member's current access token. Tool names alone do not grant collection access. |
-| Evaluation panel empty | No evaluations are saved in this local database yet. Run `bash scripts/eval.sh` with the worker running and reopen Evaluations. A historical comparison is included in `docs/examples/`. |
+| Evaluation panel empty | No evaluations are saved in this local database yet. Open **Evaluations** and select **Run benchmark**; both the research `worker` and `eval-worker` services must be running. A historical comparison is included in `docs/examples/`. |
 
 Never paste API keys into issues or screenshots. Worker logs report exception classes; detailed source/context inspection stays behind project authorization.
