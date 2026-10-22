@@ -33,7 +33,11 @@ export function EvaluationJobs({
       {jobs.slice(0, 5).map((job) => (
         <div className="benchmark-job" key={job.id}>
           <div>
-            <strong>{job.request.split} benchmark</strong>
+            <strong>
+              {job.request.custom
+                ? "Collection evaluation"
+                : `${job.request.split} benchmark`}
+            </strong>
             <span className={`status-badge ${job.status}`}>
               {job.cancel_requested && job.status === "running"
                 ? "cancelling"

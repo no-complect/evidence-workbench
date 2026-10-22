@@ -38,7 +38,7 @@ export const initialResearchDraft: ResearchDraft = {
     top_k: "5",
   },
 };
-type DraftAction =
+export type DraftAction =
   | { type: "question"; value: string }
   | { type: "mode"; value: ExecutionMode }
   | { type: "strategy"; value: ResearchStrategy }
@@ -79,6 +79,9 @@ export function researchRequest(draft: ResearchDraft, collection: string) {
     throw new Error("Enter a research question of at least 10 characters");
   const limits = parseLimits(draft.limits);
   return {
+    harness_config: null as
+      | import("../../../../../packages/contracts/models").HarnessConfiguration
+      | null,
     harness_revision_id: null as string | null,
     model_id: null as string | null,
     question: draft.question,

@@ -98,3 +98,18 @@ def test_environment_adapter_accepts_new_model_families_without_pricing_or_prefl
     with pytest.raises(providers.ModelCompatibilityError) as failure:
         providers.OpenAIProvider().invoke('plan', {'trusted_instructions': 'test'}, Plan)
     assert 'synthetic-test-key' not in str(failure.value)
+
+
+def test_context_configuration_changes_assembly_and_pins_the_effective_prompt_hash():
+    from workbench.context import assemble
+    evidence = [{'id': f'00000000-0000-4000-8000-{i:012d}', 'text': (f'Evidence passage {i} about retention requirements. ' * 25),
+                 'metadata': {}, 'scores': {'rrf': 1}, 'source_name': f'source-{i}',
+                 'page': None, 'section': '', 'start_offset': 0, 'end_offset': 1200} for i in range(6)]
+    _, balanced = assemble('report', 'Compare security requirements.', evidence)
+    payload, strict = assemble('report', 'Compare security requirements.', evidence,
+                               configuration={'system_instruction': 'Preserve explicit evidence gaps.', 'context_policy': 'strict'})
+    assert strict['context_cap'] < balanced['context_cap']
+    assert len(strict['selected']) < len(balanced['selected'])
+    assert strict['prompt_hash'] != balanced['prompt_hash']
+    assert 'Preserve explicit evidence gaps.' in payload['trusted_instructions']
+    assert strict['policy_version'].endswith('/strict')

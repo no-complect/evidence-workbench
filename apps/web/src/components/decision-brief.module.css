@@ -1,0 +1,103 @@
+.brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 285px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.main {
+  padding: 30px;
+  min-width: 0;
+}
+.side {
+  padding: 28px 24px;
+  background: #edf2f4;
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+.side h3 {
+  margin: 14px 0 !important;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--foreground);
+  line-height: 1.4;
+}
+.label {
+  font:
+    10px/1.8 ui-monospace,
+    monospace;
+  letter-spacing: 0.12em;
+  color: #526079;
+}
+.side p,
+.side li {
+  font-size: 12px;
+  color: #536077;
+  line-height: 1.85;
+}
+.side ul {
+  padding-left: 17px;
+  margin: 0;
+}
+.side li {
+  margin: 0 0 14px;
+}
+.claim {
+  font-size: 14px;
+  line-height: 1.9;
+  color: #43506a;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+.claim p {
+  margin: 0;
+}
+.claim small {
+  font:
+    9px/1.8 ui-monospace,
+    monospace;
+  color: var(--muted);
+  display: block;
+  margin-top: 8px;
+}
+.main :global(.report-summary) {
+  color: #536077;
+  font-size: 14px;
+}
+.main :global(.report-header) h2 {
+  font-size: 25px;
+  letter-spacing: -0.7px;
+}
+.main :global(.report-meta) {
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+}
+.main h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+@media (max-width: 850px) {
+  .brief {
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+  .main {
+    padding: 25px;
+  }
+  .side {
+    padding: 25px 20px;
+  }
+}
+@media (max-width: 650px) {
+  .brief {
+    grid-template-columns: 1fr;
+  }
+  .side {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .main {
+    padding: 22px;
+  }
+}

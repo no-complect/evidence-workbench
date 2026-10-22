@@ -39,3 +39,10 @@ export type HarnessSnapshot = {
     tool_policy: string;
   };
 };
+
+export type HarnessStudioState = {
+  schemas: Record<Stage, Record<string, unknown>>;
+  prompts: Record<Stage, string>;
+  context_caps: Record<Stage, number>;
+  context_policy: string;
+};

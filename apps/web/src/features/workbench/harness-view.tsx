@@ -1,19 +1,32 @@
+import type { Dispatch } from "react";
+import type { HarnessConfiguration } from "../../../../../packages/contracts/models";
+import type { ResearchDraft, DraftAction } from "./research-state";
+import { HarnessStudio } from "@/features/harness/harness-studio";
 import { Braces, Fingerprint, ShieldCheck } from "lucide-react";
 import type { RunSnapshot } from "@/lib/contracts";
 import { WorkspaceHeading } from "./workspace-shell";
 import { limitFields } from "./research-state";
-import {
-  ModelSelector,
-  type ModelSelectionProps,
-} from "@/features/harness/model-selector";
+import { type ModelSelectionProps } from "@/features/harness/model-selector";
 import { stages } from "@/features/harness/contracts";
 import styles from "./notebook.module.css";
 
 export function HarnessView({
+  projectId,
+  active,
+  research,
+  configuration,
+  onConfigurationChange,
+  onOpenWorkflows,
   snapshot,
   liveEnabled,
   modelSelection,
 }: {
+  projectId: string;
+  active: boolean;
+  research: { draft: ResearchDraft; dispatch: Dispatch<DraftAction> };
+  configuration: HarnessConfiguration;
+  onConfigurationChange: (value: HarnessConfiguration) => void;
+  onOpenWorkflows: () => void;
   snapshot: RunSnapshot | undefined;
   liveEnabled: boolean;
   modelSelection?: ModelSelectionProps;
@@ -23,23 +36,22 @@ export function HarnessView({
   return (
     <>
       <WorkspaceHeading
-        kicker="LLM HARNESS / EXECUTION BOUNDARY"
+        kicker="LLM HARNESS / CONFIGURATION STUDIO"
         title="Make the model boundary explicit."
       >
         Choose a model from the server’s configured provider, then inspect how
         each investigation uses its context and execution limits.
       </WorkspaceHeading>
-      {modelSelection && (
-        <section className={styles.surface} aria-label="Research model">
-          <div className={styles.surfaceHead}>
-            <Braces size={18} />
-            Research model
-          </div>
-          <div className={styles.pad}>
-            <ModelSelector {...modelSelection} />
-          </div>
-        </section>
-      )}
+      <HarnessStudio
+        projectId={projectId}
+        active={active}
+        research={research}
+        configuration={configuration}
+        onChange={onConfigurationChange}
+        modelSelection={modelSelection}
+        contexts={contexts}
+        onOpenWorkflows={onOpenWorkflows}
+      />
       <div className={styles.twoColumns}>
         <section
           className={styles.surface}

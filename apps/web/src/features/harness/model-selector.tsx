@@ -12,6 +12,7 @@ export type ModelSelectionProps = {
   modelId: string;
   onModelChange: (id: string) => void;
   onRefresh: () => void;
+  compact?: boolean;
 };
 export function ModelSelector({
   catalog,
@@ -20,6 +21,7 @@ export function ModelSelector({
   modelId,
   onModelChange,
   onRefresh,
+  compact = false,
 }: ModelSelectionProps) {
   const available = catalog?.models ?? [];
   return (
@@ -75,11 +77,13 @@ export function ModelSelector({
           enable paid workflow execution.
         </p>
       )}
-      <p className="fine-print">
-        All returned IDs are listed. Research requires a chat model that
-        supports structured output; incompatible models report an execution
-        error.
-      </p>
+      {!compact && (
+        <p className="fine-print">
+          All returned IDs are listed. Research requires a chat model that
+          supports structured output; incompatible models report an execution
+          error.
+        </p>
+      )}
     </div>
   );
 }

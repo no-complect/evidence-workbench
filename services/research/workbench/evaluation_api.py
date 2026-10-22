@@ -1,24 +1,18 @@
 """Short HTTP requests enqueue work; the independent evaluation worker executes it."""
 import hashlib
-from typing import Literal
 from uuid import UUID
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import Field
 from . import db
 from .auth import authorize, identity
 from .config import ROOT, settings
 from .evaluate import fingerprint
-from .models import StrictModel
+from .models import EvaluationCreate
+from .evaluation_setup import prepare_custom
 
 router = APIRouter(prefix='/api/projects/{project_id}', tags=['evaluations'])
 PUBLIC_COLUMNS = ('id,project_id,status,request,progress,result_id,cancel_requested,'
                   'error,attempts,created_at,updated_at')
-
-
-class EvaluationCreate(StrictModel):
-    split: Literal['all', 'development', 'held-out'] = 'development'
-    idempotency_key: str = Field(min_length=8, max_length=128)
 
 
 def benchmark_versions():
@@ -53,17 +47,18 @@ def jobs(project_id: UUID, user=Depends(identity)):
 def submit(project_id: UUID, body: EvaluationCreate, user=Depends(identity)):
     authorize(project_id, user)
     s = settings()
-    if s.app_env not in {'local', 'test'} or s.auth_mode != 'demo':
+    if not body.custom and (s.app_env not in {'local', 'test'} or s.auth_mode != 'demo'):
         raise HTTPException(409, 'The built-in fixture benchmark runs in local demo instances')
     prior = db.one(
         f'SELECT {PUBLIC_COLUMNS} FROM evaluation_jobs '
         'WHERE project_id=%s AND user_id=%s AND idempotency_key=%s',
         (project_id, user, body.idempotency_key))
     if prior:
-        if prior['request']['split'] != body.split:
+        if prior['request']['split'] != body.split or prior['request'].get('input') != (body.custom.model_dump(mode='json') if body.custom else None):
             raise HTTPException(409, 'Idempotency key belongs to a different evaluation request')
         return db.serial(prior)
     request = {'split': body.split, **benchmark_versions()}
+    target_collection = prepare_custom(body.custom, project_id, user, s, request)
     try:
         with db.connection() as conn:
             row = conn.execute(
@@ -71,14 +66,14 @@ def submit(project_id: UUID, body: EvaluationCreate, user=Depends(identity)):
                 'idempotency_key) VALUES(%s,%s,%s,%s,%s,%s) '
                 'ON CONFLICT(project_id,user_id,idempotency_key) DO NOTHING '
                 f'RETURNING {PUBLIC_COLUMNS}',
-                (db.uid(), project_id, user, db.uid(), db.jsonb(request), body.idempotency_key)
+                (db.uid(), project_id, user, target_collection, db.jsonb(request), body.idempotency_key)
             ).fetchone()
             if not row:
                 row = conn.execute(
                     f'SELECT {PUBLIC_COLUMNS} FROM evaluation_jobs '
                     'WHERE project_id=%s AND user_id=%s AND idempotency_key=%s',
                     (project_id, user, body.idempotency_key)).fetchone()
-                if row['request']['split'] != body.split:
+                if row['request']['split'] != body.split or row['request'].get('input') != request.get('input'):
                     raise HTTPException(409, 'Idempotency key belongs to another evaluation')
     except psycopg.errors.UniqueViolation as exc:
         raise HTTPException(409, 'This project already has an active evaluation') from exc

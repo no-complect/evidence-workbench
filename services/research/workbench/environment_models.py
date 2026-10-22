@@ -1,5 +1,7 @@
 """Server-environment model discovery; credentials never leave the server."""
 import re
+import json
+import hashlib
 import httpx
 from fastapi import HTTPException
 from .auth import authorize
@@ -30,11 +32,15 @@ def catalog(project, user):
             'request_id': request_id if re.fullmatch(r'[A-Za-z0-9_-]{1,200}', request_id) else None}
 
 
-def snapshot(project, user, model_id, limits, collection):
+def snapshot(project, user, model_id, limits, collection, configuration=None):
     s = settings()
     model_id = model_id or s.openai_model
-    if model_id not in catalog(project, user)['models']:
-        raise HTTPException(409, 'The selected model is not in the current server-key catalog. Refresh models and select again.')
+    configuration = configuration.model_dump() if configuration else {}
+    selected = {stage: configuration.get('stage_models', {}).get(stage) or model_id
+                for stage in ['plan', 'assess', 'report']}
+    available = catalog(project, user)['models']
+    if any(model not in available for model in selected.values()):
+        raise HTTPException(409, 'A selected model is not in the current server-key catalog. Refresh models and select again.')
     # Optional operator estimates apply only to the configured default model.
     # Never silently apply one model's prices to a different model.
     default = model_id == s.openai_model
@@ -42,9 +48,14 @@ def snapshot(project, user, model_id, limits, collection):
               'input_usd_per_million': s.model_input_usd_per_million if default else None,
               'output_usd_per_million': s.model_output_usd_per_million if default else None}
     return {'name': 'Environment model', 'credential_source': 'environment',
-            'targets': {stage: dict(target) for stage in ['plan', 'assess', 'report']},
+            'targets': {stage: {**target, 'model_id': chosen,
+                'input_usd_per_million': s.model_input_usd_per_million if chosen == s.openai_model else None,
+                'output_usd_per_million': s.model_output_usd_per_million if chosen == s.openai_model else None}
+                for stage, chosen in selected.items()},
+            'configuration': configuration,
+            'configuration_hash': hashlib.sha256(json.dumps(configuration, sort_keys=True).encode()).hexdigest(),
             'limits': limits.model_dump(), 'fingerprints': fingerprints(),
             'embedding_usd_per_million': s.embedding_usd_per_million,
             'embedding_config': collection['embedding_config'],
-            'cost_estimates_available': default and all(value is not None for value in
+            'cost_estimates_available': all(model == s.openai_model for model in selected.values()) and all(value is not None for value in
                 [s.model_input_usd_per_million, s.model_output_usd_per_million, s.embedding_usd_per_million])}

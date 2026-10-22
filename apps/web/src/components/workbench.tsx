@@ -3,6 +3,11 @@
 import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ErrorNotice } from "./error-notice";
+import { initialHarnessConfiguration } from "@/features/harness/configuration";
+import {
+  initialResearchDraft,
+  researchReducer,
+} from "@/features/workbench/research-state";
 import { modelCatalogOptions } from "@/features/harness/queries";
 import { ApiError } from "@/lib/api";
 import type { Bootstrap, Project } from "@/lib/contracts";
@@ -95,7 +100,9 @@ function ProjectWorkspace({
     modelCatalogOptions(
       projectId,
       modelsEnabled &&
-        (ui.workspace === "harness" || ui.workspace === "workflows"),
+        (ui.workspace === "harness" ||
+          ui.workspace === "workflows" ||
+          ui.workspace === "evaluations"),
     ),
   );
   const defaultModel = models.data?.default_model ?? "";
@@ -114,6 +121,14 @@ function ProjectWorkspace({
         },
       }
     : undefined;
+  const [configuration, setConfiguration] = useState(
+    initialHarnessConfiguration,
+  );
+  const [researchDraft, researchDispatch] = useReducer(
+    researchReducer,
+    initialResearchDraft,
+  );
+  const research = { draft: researchDraft, dispatch: researchDispatch };
   const uploads = useUploadQueue(projectId);
   const projectQuery = useQuery(projectOptions(projectId));
   const runQuery = useResearchRun(projectId, ui.runId);
@@ -179,6 +194,8 @@ function ProjectWorkspace({
         aria-label="Workflows workspace"
       >
         <ResearchComposer
+          research={research}
+          configuration={configuration}
           modelSelection={modelSelection}
           projectId={projectId}
           collections={projectQuery.data?.collections ?? []}
@@ -205,10 +222,17 @@ function ProjectWorkspace({
             projectId={projectId}
             runId={run.id}
             initialPlan={run.plan}
-            onApproved={() => dispatch({ type: "navigate", tab: "activity" })}
+            onApproved={() => dispatch({ type: "navigate", tab: "execution" })}
           />
         )}
         <RunViews
+          strategy={researchDraft.strategy}
+          onStrategyChange={(value) =>
+            researchDispatch({ type: "strategy", value })
+          }
+          onHarness={() =>
+            dispatch({ type: "workspace", workspace: "harness" })
+          }
           key={`views-${ui.runId}`}
           projectId={projectId}
           snapshot={runQuery.data}
@@ -227,6 +251,14 @@ function ProjectWorkspace({
         aria-label="Harness workspace"
       >
         <HarnessView
+          projectId={projectId}
+          active={ui.workspace === "harness"}
+          research={research}
+          configuration={configuration}
+          onConfigurationChange={setConfiguration}
+          onOpenWorkflows={() =>
+            dispatch({ type: "workspace", workspace: "workflows" })
+          }
           modelSelection={modelSelection}
           snapshot={runQuery.data}
           liveEnabled={bootstrap?.live_enabled ?? false}
@@ -262,6 +294,17 @@ function ProjectWorkspace({
           Inspect individual cases as carefully as aggregate results.
         </WorkspaceHeading>
         <EvaluationsView
+          setup={{
+            collections: projectQuery.data?.collections ?? [],
+            collectionId,
+            onCollectionChange: (id) =>
+              dispatch({ type: "select-collection", collectionId: id }),
+            examples: bootstrap?.examples ?? [],
+            liveEnabled: bootstrap?.live_enabled ?? false,
+            modelId,
+            configuration,
+            limits: researchDraft.limits,
+          }}
           projectId={projectId}
           enabled={bootstrap?.evaluations_enabled ?? false}
           active={ui.workspace === "evaluations"}

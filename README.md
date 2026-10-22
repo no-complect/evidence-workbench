@@ -164,9 +164,36 @@ Tavily/public-page research still requires its server key and per-call estimate.
 Existing saved connection/revision APIs and queued snapshots are retained for
 compatibility, but are not part of the current setup or UI.
 
-OpenAI is the first adapter; other provider APIs and custom judge evaluations are
-not implemented. Provider tests use synthetic responses; paid account access must
-be verified in the operator’s installation.
+Harness opens as a configuration studio: edit an additional system instruction,
+choose balanced or strict context assembly, select optional per-stage models, and
+inspect the actual planner/reviewer/report schemas. **Validate sample** uses the
+same Pydantic contracts as execution, without a model call. The contract selector
+is an inspector; it does not replace the workflow's per-stage output contracts.
+Configuration drafts survive workspace navigation and reset at project/user boundaries.
+Saved runs keep the original configuration and effective prompt hashes.
+
+**Workflows → Execution** shows the real LangGraph structure with reviewed tasks,
+saved stage events, and assembled context in a node inspector. The decision brief
+keeps unresolved findings beside evidence-linked claims. Empty nodes describe the
+workflow definition and are not presented as simulated execution.
+
+**Evaluations** supports the built-in fixture benchmark and a collection-specific
+case editor. A submitted collection comparison freezes source version IDs, explicit
+source/disclosure expectations, per-run limits, and the chosen harness configuration;
+a separate evaluation worker coordinates basic RAG, fixed workflow, and bounded
+research through the research queue. Live cases also pin model targets at submission
+and require an explicit paid-call acknowledgment. Scripted cases are restricted to
+the seeded questions and fixture embedding profile. The browser currently authors
+one case per comparison; the API accepts up to six. Collection retrieval metrics use
+the top five retained evidence passages by RRF score and ID; fixture benchmarks use
+an independent retrieval probe. Source labels are human expectations and disclosure
+checks are lexical. No independent semantic judge is claimed.
+
+OpenAI is the first adapter; other provider APIs are not implemented. Provider tests
+use synthetic responses; paid account access must be verified in the operator’s
+installation. Live comparisons make paid model and retrieval calls within each
+research run's bounded execution. When prices are absent, dollar caps cannot bound
+those unpriced calls.
 
 The hosted configuration uses Supabase Auth, project membership checks, RLS, and private Storage. A read-only MCP server exposes corpus search, evidence lookup, and run status. See [Deployment and configuration](./docs/DEPLOYMENT.md).
 

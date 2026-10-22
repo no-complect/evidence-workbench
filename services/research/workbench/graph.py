@@ -53,7 +53,8 @@ class Runtime:
 
         def call():
             try:
-                payload, trace = assemble(stage, self.run['question'], for_run(self.run), summary)
+                configuration = (self.run.get('harness_snapshot') or {}).get('configuration') or self.run['request'].get('harness_config')
+                payload, trace = assemble(stage, self.run['question'], for_run(self.run), summary, configuration)
             except ContextOverflow as exc:
                 raise budget.BudgetExhausted(str(exc)) from exc
             trace['input_tokens_estimate'] += len(json.dumps(

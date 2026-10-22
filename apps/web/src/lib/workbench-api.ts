@@ -99,10 +99,15 @@ export const workbenchApi = {
     api<Evaluation[]>(`${projectPath(project)}/evaluations`, { signal }),
   evaluationJobs: (project: string, signal?: AbortSignal) =>
     api<EvaluationJob[]>(`${projectPath(project)}/evaluation-jobs`, { signal }),
-  startEvaluation: (project: string, split: EvaluationSplit, key: string) =>
+  startEvaluation: (
+    project: string,
+    split: EvaluationSplit,
+    key: string,
+    custom?: import("../../../../packages/contracts/models").CustomEvaluation,
+  ) =>
     api<EvaluationJob>(
       `${projectPath(project)}/evaluation-jobs`,
-      post({ split, idempotency_key: key }),
+      post({ split, idempotency_key: key, ...(custom ? { custom } : {}) }),
     ),
   cancelEvaluation: (project: string, job: string) =>
     api(`${projectPath(project)}/evaluation-jobs/${job}/cancel`, post()),

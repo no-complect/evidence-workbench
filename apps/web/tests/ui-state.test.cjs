@@ -331,3 +331,21 @@ test("model catalog reads consume abort signals and keep project scopes separate
     client.clear();
   }
 });
+
+test("node inspection includes only that node's saved events and contexts", () => {
+  const { nodeRecords } = load("features/workbench/execution-state.ts");
+  const events = [
+    { id: 1, stage: "plan" },
+    { id: 2, stage: "gather" },
+    { id: 3, stage: "report" },
+  ];
+  const contexts = [
+    { id: "a", stage: "plan" },
+    { id: "b", stage: "report" },
+  ];
+  const selected = nodeRecords("report", events, contexts);
+  assert.equal(selected.events.length, 1);
+  assert.equal(selected.events[0].id, 3);
+  assert.equal(selected.contexts[0].id, "b");
+  assert.equal(nodeRecords("assess", events, contexts).events.length, 0);
+});

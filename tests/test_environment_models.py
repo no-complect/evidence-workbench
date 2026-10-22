@@ -51,7 +51,7 @@ def test_environment_selection_executes_pinned_model_without_connections_probes_
         'embedding_usd_per_million': None})
     for module in [environment_models, runs, graph]:
         monkeypatch.setattr(module, 'settings', lambda: profile)
-    monkeypatch.setattr(environment_models, 'catalog', lambda *args: {'models': ['new-chat-family']})
+    monkeypatch.setattr(environment_models, 'catalog', lambda *args: {'models': ['new-chat-family', 'writer-family']})
     collection = db.uid()
     db.execute("INSERT INTO collections(id,project_id,name,embedding_config) VALUES(%s,%s,'Live environment','openai-small-v1')", (collection, project))
     calls = []
@@ -69,7 +69,8 @@ def test_environment_selection_executes_pinned_model_without_connections_probes_
     monkeypatch.setattr(retrieval, 'query_vector', lambda *args: [0.1] * 1536)
     body = {'collection_id': collection, 'question': 'Investigate synthetic security evidence.',
             'mode': 'live', 'model_id': 'new-chat-family', 'strategy': 'workflow',
-            'approve_plan': False, 'idempotency_key': db.uid()}
+            'approve_plan': False, 'idempotency_key': db.uid(),
+            'harness_config': {'system_instruction': 'Retain the evidence gap.', 'context_policy': 'strict', 'stage_models': {'report': 'writer-family'}}}
     response = client.post(f'/api/projects/{project}/runs', json=body)
     assert response.status_code == 202, response.text
     rid = response.json()['id']
@@ -77,7 +78,9 @@ def test_environment_selection_executes_pinned_model_without_connections_probes_
     pinned = queued['harness_snapshot']
     assert pinned['credential_source'] == 'environment'
     assert pinned['cost_estimates_available'] is False
-    assert all(target['model_id'] == 'new-chat-family' for target in pinned['targets'].values())
+    assert pinned['targets']['plan']['model_id'] == 'new-chat-family'
+    assert pinned['targets']['report']['model_id'] == 'writer-family'
+    assert pinned['configuration']['context_policy'] == 'strict'
     assert SECRET not in str(pinned) and calls == []
     assert db.one('SELECT count(*) AS n FROM provider_connections WHERE project_id=%s', (project,))['n'] == 0
     # A default change after enqueue must not switch the queued model.
@@ -90,9 +93,11 @@ def test_environment_selection_executes_pinned_model_without_connections_probes_
             break
     row = db.scoped_run(rid, project)
     assert row['status'] == 'completed', row['error']
-    assert calls == [('plan', 'new-chat-family'), ('assess', 'new-chat-family'), ('report', 'new-chat-family')]
+    assert calls == [('plan', 'new-chat-family'), ('assess', 'new-chat-family'), ('report', 'writer-family')]
     traces = db.all_rows('SELECT payload FROM contexts WHERE run_id=%s', (rid,))
-    assert len(traces) == 3 and all(t['payload']['model_target']['model_id'] == 'new-chat-family' for t in traces)
+    assert len(traces) == 3
+    assert all(t['payload']['policy_version'].endswith('/strict') for t in traces)
+    assert all('Retain the evidence gap.' in t['payload']['assembled_input']['trusted_instructions'] for t in traces)
     assert SECRET not in str(traces)
     # Idempotent replay uses the saved job even when the provider is unavailable.
     def unavailable(*args): raise RuntimeError('must not rediscover on replay')
@@ -101,3 +106,17 @@ def test_environment_selection_executes_pinned_model_without_connections_probes_
     monkeypatch.setattr(environment_models, 'catalog', lambda *args: {'models': []})
     stale = client.post(f'/api/projects/{project}/runs', json={**body, 'idempotency_key': db.uid()})
     assert stale.status_code == 409
+
+
+def test_harness_studio_exposes_real_schemas_and_validates_without_model_calls(client):
+    base = f'/api/projects/{DEMO_PROJECT}/harness'
+    studio = client.get(base + '/studio')
+    assert studio.status_code == 200
+    assert studio.json()['schemas']['plan']['properties']['tasks']
+    assert 'research planner' in studio.json()['prompts']['plan']
+    good = client.post(base + '/validate-contract', json={'stage': 'report', 'payload': '{"title":"Test","summary":"Conditional","claims":[],"limitations":[]}'})
+    assert good.json() == {'valid': True, 'errors': []}
+    bad = client.post(base + '/validate-contract', json={'stage': 'report', 'payload': '{"unexpected":"private-marker"}'})
+    assert bad.json()['valid'] is False and 'private-marker' not in bad.text
+    assert client.get(f'/api/projects/{db.uid()}/harness/studio').status_code == 404
+    assert client.post(f'/api/projects/{db.uid()}/harness/validate-contract', json={'stage':'plan','payload':'{}'}).status_code == 404

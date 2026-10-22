@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function openWizard(page: Page) {
   await page.goto("/");
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "RAG", exact: true }).click();
   await page

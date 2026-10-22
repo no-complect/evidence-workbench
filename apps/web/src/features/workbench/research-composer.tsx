@@ -1,5 +1,6 @@
 "use client";
-import { useReducer, useRef, useState } from "react";
+import { useRef, useState, type Dispatch } from "react";
+import type { HarnessConfiguration } from "../../../../../packages/contracts/models";
 import {
   ModelSelector,
   type ModelSelectionProps,
@@ -18,8 +19,8 @@ import type { Collection } from "@/lib/contracts";
 import { useStartResearch } from "./mutations";
 import {
   DEFAULT_QUESTION,
-  initialResearchDraft,
-  researchReducer,
+  type ResearchDraft,
+  type DraftAction,
   researchRequest,
   submissionIntent,
   limitFields,
@@ -30,6 +31,8 @@ import {
 
 export function ResearchComposer({
   projectId,
+  research,
+  configuration,
   modelSelection,
   collections,
   collectionId,
@@ -40,6 +43,8 @@ export function ResearchComposer({
   onStarted,
 }: {
   projectId: string;
+  research: { draft: ResearchDraft; dispatch: Dispatch<DraftAction> };
+  configuration: HarnessConfiguration;
   modelSelection?: ModelSelectionProps;
   collections: Collection[];
   collectionId: string;
@@ -49,7 +54,7 @@ export function ResearchComposer({
   onCollectionChange: (id: string) => void;
   onStarted: (id: string) => void;
 }) {
-  const [draft, dispatch] = useReducer(researchReducer, initialResearchDraft);
+  const { draft, dispatch } = research;
   const [showSettings, setShowSettings] = useState(false);
   const [validationError, setValidationError] = useState("");
   const intent = useRef<SubmissionIntent | null>(null);
@@ -77,6 +82,7 @@ export function ResearchComposer({
     mutation.reset();
     try {
       const request = researchRequest(draft, collectionId);
+      request.harness_config = configuration;
       if (mode === "live" && modelSelection) {
         if (!modelSelection.catalog?.models.includes(modelSelection.modelId))
           throw new Error(

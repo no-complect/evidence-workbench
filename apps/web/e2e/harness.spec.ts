@@ -31,6 +31,17 @@ async function mockModels(page: Page, liveEnabled = true) {
         evaluations_enabled: false,
         auth_mode: "demo",
       });
+    if (path.endsWith("/harness/studio"))
+      return reply({
+        schemas: { plan: {}, assess: {}, report: {} },
+        prompts: {
+          plan: "Planner contract",
+          assess: "Reviewer contract",
+          report: "Report contract",
+        },
+        context_caps: { plan: 1800, assess: 5000, report: 6500 },
+        context_policy: "context-v1",
+      });
     if (path.endsWith("/harness/models")) {
       if (fail)
         return reply({ detail: "Model catalog temporarily unavailable" }, 502);
@@ -63,6 +74,7 @@ async function mockModels(page: Page, liveEnabled = true) {
     return reply({ detail: "Unexpected request" }, 404);
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   return {
     failRefresh: () => {
       fail = true;
@@ -169,6 +181,7 @@ test("real environment catalog returns a clear missing-key state without connect
   page,
 }, info) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await page.getByRole("button", { name: "Harness", exact: true }).click();
   const workspace = page.getByRole("region", {
     name: "Harness workspace",

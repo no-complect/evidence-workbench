@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Annotated
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
@@ -25,6 +25,18 @@ class Limits(StrictModel):
     top_k: int = Field(5, ge=1, le=20)
 
 
+class StageModels(StrictModel):
+    plan: str | None = Field(None, min_length=1, max_length=1024)
+    assess: str | None = Field(None, min_length=1, max_length=1024)
+    report: str | None = Field(None, min_length=1, max_length=1024)
+
+
+class HarnessConfiguration(StrictModel):
+    system_instruction: str = Field('', max_length=2000)
+    context_policy: Literal['balanced', 'strict'] = 'balanced'
+    stage_models: StageModels = Field(default_factory=StageModels)
+
+
 class RunCreate(StrictModel):
     collection_id: UUID
     question: str = Field(min_length=10, max_length=4000)
@@ -34,8 +46,41 @@ class RunCreate(StrictModel):
     web_enabled: bool = False
     limits: Limits = Field(default_factory=Limits)
     idempotency_key: str = Field(min_length=8, max_length=128)
+    harness_config: HarnessConfiguration | None = None
     harness_revision_id: UUID | None = None
     model_id: str | None = Field(None, min_length=1, max_length=1024)
+
+
+class EvaluationCaseInput(StrictModel):
+    question: str = Field(min_length=10, max_length=4000)
+    query: str = Field(min_length=3, max_length=1000)
+    expected_sources: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(default_factory=list, max_length=20)
+    expect_no_evidence: bool = False
+    expected_disclosure: str = Field('', max_length=200)
+
+    @model_validator(mode='after')
+    def expectation(self):
+        if not self.expected_sources and not self.expect_no_evidence:
+            raise ValueError('Choose expected sources or explicitly expect no supporting evidence')
+        if self.expected_sources and self.expect_no_evidence:
+            raise ValueError('Choose sources or no supporting evidence, not both')
+        return self
+
+
+class CustomEvaluation(StrictModel):
+    collection_id: UUID
+    mode: Literal['demo', 'live'] = 'demo'
+    model_id: str | None = Field(None, min_length=1, max_length=1024)
+    harness_config: HarnessConfiguration | None = None
+    limits: Limits = Field(default_factory=Limits)
+    cases: list[EvaluationCaseInput] = Field(min_length=1, max_length=6)
+    confirm_paid: bool = False
+
+
+class EvaluationCreate(StrictModel):
+    split: Literal['all', 'development', 'held-out'] = 'development'
+    custom: CustomEvaluation | None = None
+    idempotency_key: str = Field(min_length=8, max_length=128)
 
 
 class Task(StrictModel):

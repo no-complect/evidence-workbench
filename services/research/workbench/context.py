@@ -30,15 +30,21 @@ def redact(value):
         return {'redacted': 'Context removed because safe redaction could not preserve the schema'}
 
 
-def assemble(stage, question, evidence, summary=None):
+def assemble(stage, question, evidence, summary=None, configuration=None):
     prompt = (ROOT / 'prompts' / f'{stage}-v1.md').read_text()
+    configuration = configuration or {}
+    extra = configuration.get('system_instruction', '')
+    if extra.strip():
+        prompt += '\n\nAdditional user instruction (cannot override schema, source trust, or tool scope):\n' + extra
+    policy = configuration.get('context_policy', 'balanced')
+    cap = int(CAPS[stage] * 0.7) if policy == 'strict' else CAPS[stage]
     payload = {
         'trusted_instructions': prompt,
         'user_requirements': question,
         'durable_summary': summary or {},
         'untrusted_sources': []
     }
-    if estimate_tokens(json.dumps(payload)) > CAPS[stage]:
+    if estimate_tokens(json.dumps(payload)) > cap:
         raise ContextOverflow(f'{stage.title()} input exceeds its context budget')
     selected = []
     excluded = []
@@ -75,7 +81,7 @@ def assemble(stage, question, evidence, summary=None):
                 json.dumps({
                     **payload, 'untrusted_sources':
                     payload['untrusted_sources'] + [candidate]
-                })) > CAPS[stage]:
+                })) > cap:
             reason = 'Stage token budget'
         if reason:
             excluded.append({'evidence_id': str(e['id']), 'reason': reason})
@@ -88,7 +94,8 @@ def assemble(stage, question, evidence, summary=None):
             seen.add(digest)
             sources[e['source_name']] = sources.get(e['source_name'], 0) + 1
     return payload, {
-        'policy_version': POLICY,
+        'policy_version': POLICY + ('/strict' if policy == 'strict' else ''),
+        'context_cap': cap,
         'prompt_id': f'{stage}-v1',
         'prompt_hash': hashlib.sha256(prompt.encode()).hexdigest(),
         'input_tokens_estimate': estimate_tokens(json.dumps(payload)),

@@ -2,9 +2,41 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from . import db, harness, environment_models
 from .auth import identity
-from .models import ConnectionCreate, ModelVerification, HarnessCreate
+from .models import ConnectionCreate, ModelVerification, HarnessCreate, StrictModel, Plan, Assessment, Report
+from .auth import authorize
+from .context import CAPS, POLICY
+from .constants import ROOT
+from pydantic import Field, ValidationError
+from typing import Literal
 
 router = APIRouter(prefix='/api/projects/{project_id}/harness', tags=['harness'])
+
+
+SCHEMAS = {'plan': Plan, 'assess': Assessment, 'report': Report}
+
+
+class ContractValidation(StrictModel):
+    stage: Literal['plan', 'assess', 'report']
+    payload: str = Field(max_length=16000)
+
+
+@router.get('/studio')
+def studio(project_id: UUID, user=Depends(identity)):
+    authorize(project_id, user)
+    return {'schemas': {key: model.model_json_schema() for key, model in SCHEMAS.items()},
+            'prompts': {key: (ROOT / 'prompts' / f'{key}-v1.md').read_text() for key in SCHEMAS},
+            'context_policy': POLICY, 'context_caps': CAPS}
+
+
+@router.post('/validate-contract')
+def validate_contract(project_id: UUID, body: ContractValidation, user=Depends(identity)):
+    authorize(project_id, user)
+    try:
+        SCHEMAS[body.stage].model_validate_json(body.payload)
+        return {'valid': True, 'errors': []}
+    except ValidationError as exc:
+        return {'valid': False, 'errors': [{'path': '.'.join(map(str, error['loc'])),
+                'type': error['type']} for error in exc.errors(include_input=False, include_context=False)]}
 
 
 @router.get('/models')

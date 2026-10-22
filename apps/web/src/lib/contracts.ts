@@ -133,7 +133,7 @@ export type EvaluationCase = {
 export type EvaluationJob = {
   id: string;
   status: "queued" | "running" | "completed" | "failed" | "cancelled";
-  request: { split: string };
+  request: { split: string; custom?: unknown };
   progress: {
     completed?: number;
     total?: number;

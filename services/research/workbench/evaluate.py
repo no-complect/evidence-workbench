@@ -29,8 +29,8 @@ def fingerprint():
 
 
 def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
-                   evaluation_id=None, collection_id=None, progress=None, check_active=None):
-    if settings().app_env not in {'local', 'test'} or settings().auth_mode != 'demo':
+                   evaluation_id=None, collection_id=None, progress=None, check_active=None, custom=None):
+    if not custom and (settings().app_env not in {'local', 'test'} or settings().auth_mode != 'demo'):
         raise ValueError('Fixture evaluations run only in local/test demo configuration')
     evaluation_id = evaluation_id or db.uid()
     check_active = check_active or (lambda: None)
@@ -40,6 +40,10 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
     selected = [
         c for c in cases if 'question_index' in c and (split == 'all' or c['split'] == split)
     ]
+    if custom:
+        selected = [{'id': f'custom-{i+1}', 'split': split, 'question': case['question'], 'query': case['query'],
+                     'relevant_sources': case['expected_sources'], 'required_topics': [],
+                     'must_disclose': case.get('expected_disclosure', '')} for i, case in enumerate(custom['cases'])]
     if not selected:
         raise ValueError('No research cases selected')
     corpus_hash = hashlib.sha256((ROOT / 'fixtures/manifest.json').read_bytes()).hexdigest()
@@ -62,22 +66,37 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
         'relevance_granularity': 'manually labeled documents',
         'system_cases': 'Separate integration tests; not silently counted as passed by this harness'
     }
-    # Freeze a dedicated collection from the fixture manifest; never benchmark mutable user uploads.
-    from .ingest import ingest, MANIFEST
-    evaluation_collection = collection_id or db.uid()
-    db.execute(
-        "INSERT INTO collections(id,project_id,name,embedding_config,read_only) VALUES(%s,%s,%s,'demo-v1',true) ON CONFLICT(id) DO NOTHING",
-        (evaluation_collection, project_id, 'Evaluation snapshot ' + evaluation_collection[:8]))
-    for metadata in MANIFEST['documents']:
-        check_active()
-        source = ROOT / 'fixtures/corpus' / metadata['file']
-        ingest(project_id, evaluation_collection, source.name, source.read_bytes(), metadata)
-    versions['collection_id'] = evaluation_collection
-    versions['source_hashes'] = [
-        r['content_hash'] for r in db.all_rows(
-            'SELECT v.content_hash FROM source_versions v JOIN source_documents d ON d.id=v.document_id WHERE d.collection_id=%s ORDER BY d.name',
-            (evaluation_collection, ))
-    ]
+    if custom:
+        evaluation_collection = str(custom['collection_id'])
+        source_hashes = db.all_rows('SELECT id,content_hash FROM source_versions WHERE id=ANY(%s::uuid[]) AND project_id=%s ORDER BY id', (custom['version_ids'], project_id))
+        versions.update({'collection_id': evaluation_collection, 'corpus': 'user-collection-snapshot',
+            'corpus_sha256': hashlib.sha256(json.dumps([(str(r['id']), r['content_hash']) for r in source_hashes]).encode()).hexdigest(),
+            'cases_sha256': hashlib.sha256(json.dumps(custom['cases'], sort_keys=True).encode()).hexdigest(),
+            'source_hashes': [r['content_hash'] for r in source_hashes],
+            'harness_snapshot': custom.get('model_snapshot'),
+            'retrieval_measurement': 'top five retained evidence passages ordered by RRF then ID; document-level labels',
+            'token_accounting': 'per-run token reservations and provider usage when reported',
+            'source_version_ids': custom['version_ids'], 'expectations': custom['cases'],
+            'model': (custom.get('model_snapshot') or {}).get('targets', 'deterministic-fixture-v1'),
+            'harness_configuration': custom.get('harness_config'),
+            'embedding': db.one('SELECT embedding_config FROM collections WHERE id=%s', (evaluation_collection,))['embedding_config']})
+    else:
+        # Freeze a dedicated collection from the fixture manifest; never benchmark mutable user uploads.
+        from .ingest import ingest, MANIFEST
+        evaluation_collection = collection_id or db.uid()
+        db.execute(
+            "INSERT INTO collections(id,project_id,name,embedding_config,read_only) VALUES(%s,%s,%s,'demo-v1',true) ON CONFLICT(id) DO NOTHING",
+            (evaluation_collection, project_id, 'Evaluation snapshot ' + evaluation_collection[:8]))
+        for metadata in MANIFEST['documents']:
+            check_active()
+            source = ROOT / 'fixtures/corpus' / metadata['file']
+            ingest(project_id, evaluation_collection, source.name, source.read_bytes(), metadata)
+        versions['collection_id'] = evaluation_collection
+        versions['source_hashes'] = [
+            r['content_hash'] for r in db.all_rows(
+                'SELECT v.content_hash FROM source_versions v JOIN source_documents d ON d.id=v.document_id WHERE d.collection_id=%s ORDER BY d.name',
+                (evaluation_collection, ))
+        ]
     raw = []
     total = len(STRATEGIES) * len(selected)
     progress({'completed': 0, 'total': total, 'stage': 'cases'})
@@ -85,14 +104,19 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
         for case in selected:
             check_active()
             request = RunCreate(collection_id=evaluation_collection,
-                                question=EXAMPLES[case['question_index']],
+                                question=case['question'] if custom else EXAMPLES[case['question_index']],
+                                mode=custom['mode'] if custom else 'demo',
+                                model_id=custom.get('model_id') if custom else None,
+                                harness_config=custom.get('harness_config') if custom else None,
                                 strategy=strategy,
                                 approve_plan=False,
-                                limits=case.get('limits', {}),
+                                limits=custom['limits'] if custom else case.get('limits', {}),
                                 idempotency_key=f'eval/{evaluation_id}/{strategy}/{case["id"]}')
             started = time.monotonic()
             run = create_run(project_id, request, user_id,
-                             evaluation_job_id=evaluation_id if collection_id else None)
+                             evaluation_job_id=evaluation_id if collection_id else None,
+                             pinned_harness=custom.get('model_snapshot') if custom else None,
+                             version_ids=custom['version_ids'] if custom else None)
             while time.monotonic() - started < 180:
                 check_active()
                 run = db.scoped_run(run['id'], project_id)
@@ -111,12 +135,16 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
             quotes = [(c, eid) for c, eid in cited if c['support'] == 'direct_quote']
             supported = sum(eid in available and c['text'] in available[eid]['text']
                             for c, eid in quotes)
-            retrieval = search(project_id, evaluation_collection, case['query'], 5,
-                               run['corpus_versions'])
-            ranked = [x['chunk']['source_name'] for x in retrieval]
+            if custom:
+                # Evaluate retained retrieval evidence; do not make unbudgeted embedding calls after a run.
+                ranked = [e['source_name'] for e in sorted(evidence, key=lambda e: (-float(e['scores'].get('rrf', 0)), str(e['id'])))[:5]]
+            else:
+                retrieval = search(project_id, evaluation_collection, case['query'], 5,
+                                   run['corpus_versions'])
+                ranked = [x['chunk']['source_name'] for x in retrieval]
             relevant = set(case['relevant_sources'])
-            recall = len(set(ranked) & relevant) / len(relevant)
-            mrr = next((1 / (i + 1) for i, x in enumerate(ranked) if x in relevant), 0.)
+            recall = len(set(ranked) & relevant) / len(relevant) if relevant else None
+            mrr = next((1 / (i + 1) for i, x in enumerate(ranked) if x in relevant), 0.) if relevant else None
             topics = {
                 t
                 for c, eid in cited if eid in available
@@ -126,7 +154,7 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
             checks = {}
             text = json.dumps(run['report'])
             if case.get('must_disclose'):
-                checks['disclosure'] = case['must_disclose'] in text
+                checks['disclosure'] = case['must_disclose'].casefold() in text.casefold()
             if case.get('forbidden_claim'):
                 checks['injection_resisted'] = all(case['forbidden_claim'] not in c['text']
                                                    for c in claims)
@@ -146,7 +174,7 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
                 'checks': checks,
                 'tokens': run['tokens_used'],
                 'latency_seconds': elapsed,
-                'estimated_cost_usd': float(run['cost_used']),
+                'estimated_cost_usd': None if (run.get('harness_snapshot') or {}).get('cost_estimates_available') is False else float(run['cost_used']),
                 'limits': request.limits.model_dump()
             }
             raw.append(item)
@@ -162,9 +190,9 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
             'cases':
             len(rows),
             'recall_at_k':
-            mean([r['recall_at_k'] for r in rows]),
+            mean([r['recall_at_k'] for r in rows if r['recall_at_k'] is not None]),
             'mrr':
-            mean([r['mrr'] for r in rows]),
+            mean([r['mrr'] for r in rows if r['mrr'] is not None]),
             'citation_validity':
             mean([r['citation_validity'] for r in rows if r['citation_validity'] is not None])
             or 0.,
@@ -179,13 +207,13 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
             'mean_latency_seconds':
             mean([r['latency_seconds'] for r in rows]),
             'estimated_cost_usd':
-            sum(r['estimated_cost_usd'] for r in rows)
+            sum(r['estimated_cost_usd'] for r in rows) if all(r['estimated_cost_usd'] is not None for r in rows) else None
         })
     check_active()
     eid = evaluation_id
     db.execute(
         'INSERT INTO evaluation_runs(id,project_id,mode,versions,results,raw) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(id) DO NOTHING',
-        (eid, project_id, 'demo', db.jsonb(versions), db.jsonb(aggregate), db.jsonb(raw)))
+        (eid, project_id, custom['mode'] if custom else 'demo', db.jsonb(versions), db.jsonb(aggregate), db.jsonb(raw)))
     out = ROOT / 'evals/results'
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
@@ -193,7 +221,7 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
         json.dumps(
             {
                 'id': eid,
-                'mode': 'demo',
+                'mode': custom['mode'] if custom else 'demo',
                 'versions': versions,
                 'raw': raw,
                 'aggregate': aggregate
@@ -201,19 +229,21 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
             indent=2) + '\n')
     lines = [
         '# Measured fixture comparison', '',
-        f'Evaluation {eid}; split {split}. Scripted responses, synthetic sources, real Postgres and graph execution.',
+        f'Evaluation {eid}; split {split}; mode {custom["mode"] if custom else "demo"}. See the pinned manifest for corpus, model and measurement definitions.',
         '',
         '| Strategy | Cases | Recall@5 | MRR | Citation existence/access | Quote substring support | Completion | Mean seconds |',
         '|---|---:|---:|---:|---:|---:|---:|---:|'
     ]
     for row in aggregate:
+        recall_text = 'n/a' if row['recall_at_k'] is None else f"{row['recall_at_k']:.3f}"
+        mrr_text = 'n/a' if row['mrr'] is None else f"{row['mrr']:.3f}"
         support = 'n/a' if row['quote_support'] is None else f"{row['quote_support']:.3f}"
         lines.append(
-            f"| {row['strategy']} | {row['cases']} | {row['recall_at_k']:.3f} | {row['mrr']:.3f} | {row['citation_validity']:.3f} | {support} | {row['completion_rate']:.3f} | {row['mean_latency_seconds']:.3f} |"
+            f"| {row['strategy']} | {row['cases']} | {recall_text} | {mrr_text} | {row['citation_validity']:.3f} | {support} | {row['completion_rate']:.3f} | {row['mean_latency_seconds']:.3f} |"
         )
     lines += [
         '',
-        'Recall/MRR use the same independent retrieval probe for each strategy; they do not establish an agent advantage. Completion includes intentional budget-stop cases. Quote checks are lexical support for literal excerpts, not an independent semantic assessment of synthesized claims. Reliability and isolation cases are separate integration tests. No live model quality claims.',
+        'Collection evaluations measure retained run evidence; fixture benchmarks use an independent retrieval probe. Completion includes intentional budget stops. Quote and disclosure checks are lexical, not independent semantic judgments. Reliability and isolation are separate integration tests.',
         '', '```json',
         json.dumps(versions, indent=2), '```'
     ]

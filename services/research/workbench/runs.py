@@ -8,7 +8,7 @@ from .harness import run_snapshot
 from .environment_models import snapshot as environment_snapshot
 
 
-def create_run(project_id, body, user, *, evaluation_job_id=None):
+def create_run(project_id, body, user, *, evaluation_job_id=None, pinned_harness=None, version_ids=None):
     authorize(project_id, user)
     collection = db.one('SELECT * FROM collections WHERE id=%s AND project_id=%s',
                         (body.collection_id, project_id))
@@ -17,7 +17,7 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
     if collection['setup_status'] != 'ready':
         raise HTTPException(409, 'Finish or retry collection preparation before starting research')
     request = body.model_dump(mode='json')
-    for optional in ['harness_revision_id', 'model_id']:
+    for optional in ['harness_revision_id', 'model_id', 'harness_config']:
         if request[optional] is None:
             request.pop(optional)
     prior = db.one('SELECT * FROM research_runs WHERE project_id=%s AND user_id=%s AND idempotency_key=%s',
@@ -29,7 +29,7 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
             if prior['request'] != comparable:
                 raise HTTPException(409, 'Idempotency key already belongs to a different request')
         return prior
-    if body.model_id and body.harness_revision_id:
+    if (body.model_id or body.harness_config) and body.harness_revision_id:
         raise HTTPException(422, 'Choose a model or a legacy revision, not both')
     if body.model_id and body.mode != 'live':
         raise HTTPException(422, 'Model selection applies to live research')
@@ -58,7 +58,7 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
             harness_snapshot['embedding_usd_per_million'] = s.embedding_usd_per_million
             harness_snapshot['embedding_config'] = collection['embedding_config']
         else:
-            harness_snapshot = environment_snapshot(project_id, user, body.model_id, body.limits, collection)
+            harness_snapshot = pinned_harness or environment_snapshot(project_id, user, body.model_id, body.limits, collection, body.harness_config)
         if body.web_enabled and (not s.tavily_api_key or s.web_search_usd_per_call is None):
             raise HTTPException(409,
                                 'Web search needs a key and a configured per-call cost estimate')
@@ -75,7 +75,7 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
         versions = conn.execute(
             'SELECT d.current_version_id AS id FROM source_documents d WHERE d.project_id=%s AND d.collection_id=%s AND d.current_version_id IS NOT NULL ORDER BY d.id',
             (project_id, body.collection_id)).fetchall()
-        snapshot = [str(v['id']) for v in versions]
+        snapshot = list(version_ids) if version_ids is not None else [str(v['id']) for v in versions]
         run = conn.execute(
             'INSERT INTO research_runs(id,project_id,collection_id,user_id,question,mode,strategy,request,corpus_versions,idempotency_key,evaluation_job_id,harness_snapshot) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(project_id,user_id,idempotency_key) DO NOTHING RETURNING *',
             (db.uid(), project_id,

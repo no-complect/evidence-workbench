@@ -2,6 +2,7 @@
 
 import { Database, Download, FileText, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
+import styles from "./decision-brief.module.css";
 import { Empty } from "./empty";
 import type { Run, Evidence } from "@/lib/api";
 
@@ -17,85 +18,102 @@ export function ReportView({
   onExport: () => void;
 }) {
   return run?.report ? (
-    <article className="report">
-      <div className="report-header">
-        <div>
-          <div className="eyebrow">
-            RESEARCH REPORT · {run.mode.toUpperCase()}
-          </div>
-          <h2>{run.report.title}</h2>
-        </div>
-        <Button variant="secondary" size="sm" onClick={onExport}>
-          <Download size={14} />
-          Markdown
-        </Button>
-      </div>
-      {run.report.partial && (
-        <div className="partial-notice">
-          Partial report · execution stopped before all research was complete.
-        </div>
-      )}
-      <p className="report-summary">{run.report.summary}</p>
-      <div className="report-meta">
-        <span>
-          <ShieldCheck size={15} />
-          {run.report.claims.length} cited claims
-        </span>
-        <span>
-          <Database size={15} />
-          {new Set(evidence.map((e) => e.source_name)).size} sources inspected
-        </span>
-        <span>Reranker disabled</span>
-      </div>
-      <h3>Findings & supporting evidence</h3>
-      {run.report.claims.length === 0 && (
-        <p>No supported claims could be made from the available evidence.</p>
-      )}
-      {run.report.claims.map((claim, i) => (
-        <div className="claim" key={i}>
-          <span className="claim-number">{String(i + 1).padStart(2, "0")}</span>
+    <article className={`report ${styles.brief}`}>
+      <div className={styles.main}>
+        <div className="report-header">
           <div>
-            <p>
-              {claim.text}
-              {claim.evidence_ids.map((id) => (
-                <button
-                  className="citation"
-                  key={id}
-                  aria-label={`Open citation ${evidence.findIndex((e) => e.id === id) + 1}`}
-                  onClick={() =>
-                    onSelect(evidence.find((e) => e.id === id) || null)
-                  }
-                >
-                  {evidence.findIndex((e) => e.id === id) + 1}
-                </button>
-              ))}
-            </p>
-            <span className="support-label">
-              {claim.support === "direct_quote"
-                ? "VERIFIED EXACT EXCERPT"
-                : "MODEL-ASSESSED SUPPORT · REVIEW REQUIRED"}
-            </span>
+            <div className="eyebrow">
+              DECISION BRIEF · {run.mode.toUpperCase()}
+            </div>
+            <h2>{run.report.title}</h2>
           </div>
+          <Button variant="secondary" size="sm" onClick={onExport}>
+            <Download size={14} />
+            Markdown
+          </Button>
         </div>
-      ))}
-      <div className="limitations">
-        <h3>Uncertainty & limitations</h3>
-        <ul>
-          {run.report.limitations.map((l, i) => (
-            <li key={i}>{l}</li>
-          ))}
-        </ul>
+        {run.report.partial && (
+          <div className="partial-notice">
+            Partial report · execution stopped before all research was complete.
+          </div>
+        )}
+        <p className="report-summary">{run.report.summary}</p>
+        <div className="report-meta">
+          <span>
+            <ShieldCheck size={15} />
+            {run.report.claims.length} cited claims
+          </span>
+          <span>
+            <Database size={15} />
+            {new Set(evidence.map((e) => e.source_name)).size} sources inspected
+          </span>
+          <span>Reranker disabled</span>
+        </div>
+        <h3>Findings & supporting evidence</h3>
+        {run.report.claims.length === 0 && (
+          <p>No supported claims could be made from the available evidence.</p>
+        )}
+        {run.report.claims.map((claim, i) => (
+          <div className={styles.claim} key={i}>
+            <div>
+              <p>
+                {claim.text}
+                {claim.evidence_ids.map((id) => (
+                  <button
+                    className="citation"
+                    key={id}
+                    aria-label={`Open citation ${evidence.findIndex((e) => e.id === id) + 1}`}
+                    onClick={() =>
+                      onSelect(evidence.find((e) => e.id === id) || null)
+                    }
+                  >
+                    {evidence.findIndex((e) => e.id === id) + 1}
+                  </button>
+                ))}
+              </p>
+              <span className="support-label">
+                {claim.support === "direct_quote"
+                  ? "VERIFIED EXACT EXCERPT"
+                  : "MODEL-ASSESSED SUPPORT · REVIEW REQUIRED"}
+              </span>
+            </div>
+          </div>
+        ))}
+        {run.report.recommendations.length > 0 && (
+          <>
+            <h3>Recommended next steps</h3>
+            <ul>
+              {run.report.recommendations.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
-      {run.report.recommendations.length > 0 && (
-        <>
-          <h3>Recommended next steps</h3>
+      <aside className={styles.side} aria-label="Unresolved findings">
+        <div className={styles.label}>UNRESOLVED</div>
+        <h3>The constraints stay with the conclusion.</h3>
+        {run.report.limitations.length ? (
           <ul>
-            {run.report.recommendations.map((r, i) => (
-              <li key={i}>{r}</li>
+            {run.report.limitations.map((item, i) => (
+              <li key={i}>{item}</li>
             ))}
           </ul>
-        </>
-      )}
+        ) : (
+          <p>
+            No limitations were recorded by this run. Review the source evidence
+            before relying on its recommendations.
+          </p>
+        )}
+        <div className={styles.label} style={{ marginTop: 25 }}>
+          READ THE EVIDENCE
+        </div>
+        <p>
+          Citation controls open the exact pinned passage and its provenance.
+          Exact-quote checks establish text occurrence; synthesized claims still
+          need review.
+        </p>
+      </aside>
     </article>
   ) : (
     <Empty

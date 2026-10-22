@@ -4,7 +4,7 @@ Use --write to generate the file; no backend/database needs to be running.
 import json
 import sys
 from pathlib import Path
-from workbench.models import Limits, Task, Plan, Claim, Report, RunCreate, CollectionSetup, SearchRequest, ModelVerification, HarnessTargets, HarnessCreate
+from workbench.models import Limits, Task, Plan, Claim, Report, StageModels, HarnessConfiguration, EvaluationCaseInput, CustomEvaluation, EvaluationCreate, RunCreate, CollectionSetup, SearchRequest, ModelVerification, HarnessTargets, HarnessCreate
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,7 +31,7 @@ def ts(prop):
 
 def generate():
     lines = ['// Generated from Pydantic by scripts/check-contracts.py --write. Do not edit.']
-    for model in [Limits, Task, Plan, Claim, Report, RunCreate, CollectionSetup, SearchRequest, ModelVerification, HarnessTargets, HarnessCreate]:
+    for model in [Limits, Task, Plan, Claim, Report, StageModels, HarnessConfiguration, EvaluationCaseInput, CustomEvaluation, EvaluationCreate, RunCreate, CollectionSetup, SearchRequest, ModelVerification, HarnessTargets, HarnessCreate]:
         schema = model.model_json_schema()
         fields = '; '.join(f'{name}: {ts(prop)}' for name, prop in schema['properties'].items())
         # Defaults are sent explicitly by the client; response fields are serialized in full.

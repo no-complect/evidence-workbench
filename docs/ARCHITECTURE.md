@@ -69,6 +69,31 @@ management endpoints. They are absent from the current UI and not prerequisites
 for environment-based discovery or research. Legacy snapshots retain their
 credential revocation and fingerprint checks.
 
+## Harness studio and inspectable execution
+
+A project-owned configuration draft is shared by Harness and Workflows, separately
+from scoped server query data. Typed request contracts carry additional system
+instructions, bounded context policy and optional stage models. Live snapshots pin
+the configuration plus its SHA-256; the worker combines run instructions with the
+versioned stage prompt and records the effective prompt hash. Strict context policy
+uses 70% of the balanced stage input cap; the same diversity, deduplication and
+untrusted-source rules apply. Contracts remain fixed per stage. Schema previews and
+sample validation use the actual Pydantic models, with validation locations/types
+returned without echoing submitted values.
+
+The execution graph is a projection of the actual LangGraph nodes. Its inspector
+selects saved events and contexts by stage. Unexecuted nodes remain explicit
+workflow definitions; it does not generate fictitious runtime traces. The decision
+brief renders persisted claims and limitations, with citations opening pinned sources.
+
+Collection evaluations freeze version IDs and labels at enqueue. The coordinator
+passes those versions and a pinned live model snapshot to child runs. Source updates
+cannot replace the evaluation corpus. Child runs retain per-run budgets/cancellation;
+recovery reuses their idempotency keys. Collection retrieval metrics reuse retained
+run evidence, avoiding additional unbudgeted embedding calls after completion.
+Built-in fixtures retain their independent retrieval probe. Disclosure matching is
+lexical, and no independent model-judge quality claim is made.
+
 ## Scheduling, checkpoints and replay
 
 A worker leases eligible jobs using `FOR UPDATE SKIP LOCKED`, increments its attempt count and maintains a 30-second lease with heartbeats. An expired lease makes a job recoverable. A separate session advisory lock prevents an old executor and a replacement from actively executing the same run. Losing a lease stops further work; a replacement that cannot get the advisory lock backs off. Four attempts bound retries, with exponential backoff for timeout/network/429/5xx failures. Invalid inputs, authorization failures, unsupported model profiles and schema errors are not blindly retried.

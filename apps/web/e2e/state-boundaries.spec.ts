@@ -55,6 +55,7 @@ async function mockWorkspace(
     );
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: "Collection", exact: true }),
   ).toHaveValue("a-one");
