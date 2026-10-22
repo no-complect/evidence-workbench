@@ -75,9 +75,15 @@ export function SourcesView({
       <div className="source-note">
         <ShieldCheck size={16} />
         <span>
-          {readOnly ? "This benchmark snapshot is read-only. Create a separate collection to upload your sources." : <>Sources keep immutable versions. New demo uploads use full-text
-          search; only seeded passages have fixture vectors. Scanned PDFs
-          require OCR, which is unavailable.</>}
+          {readOnly ? (
+            "This benchmark snapshot is read-only. Create a separate collection to upload your sources."
+          ) : (
+            <>
+              Sources keep immutable versions. New demo uploads use full-text
+              search; only seeded passages have fixture vectors. Scanned PDFs
+              require OCR, which is unavailable.
+            </>
+          )}
         </span>
       </div>
       {sources.length === 0 ? (

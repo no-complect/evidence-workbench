@@ -1,0 +1,84 @@
+import { api, exportReport } from "./api";
+import type {
+  Bootstrap,
+  Project,
+  ProjectData,
+  Collection,
+  Source,
+  Detail,
+  Run,
+  RunEvent,
+  Plan,
+  Evaluation,
+  EvaluationJob,
+  EvaluationSplit,
+} from "./contracts";
+import type { RunCreate } from "../../../../packages/contracts/models";
+
+const projectPath = (id: string) => `projects/${id}`;
+const post = (body?: unknown): RequestInit => ({
+  method: "POST",
+  ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+});
+
+export const workbenchApi = {
+  bootstrap: (signal?: AbortSignal) => api<Bootstrap>("bootstrap", { signal }),
+  project: (id: string, signal?: AbortSignal) =>
+    api<ProjectData>(projectPath(id), { signal }),
+  sources: (project: string, collection: string, signal?: AbortSignal) =>
+    api<Source[]>(`${projectPath(project)}/collections/${collection}/sources`, {
+      signal,
+    }),
+  run: (project: string, run: string, signal?: AbortSignal) =>
+    api<Detail>(`${projectPath(project)}/runs/${run}`, { signal }),
+  events: (
+    project: string,
+    run: string,
+    cursor: number,
+    signal?: AbortSignal,
+  ) =>
+    api<{ events: RunEvent[]; cursor: number }>(
+      `${projectPath(project)}/runs/${run}/events?after=${cursor}`,
+      { signal },
+    ),
+  createProject: (name: string) => api<Project>("projects", post({ name })),
+  createCollection: (
+    project: string,
+    body: { name: string; embedding_config: string },
+  ) =>
+    api<Pick<Collection, "id" | "name" | "embedding_config">>(
+      `${projectPath(project)}/collections`,
+      post(body),
+    ),
+  upload: (project: string, collection: string, file: File) => {
+    if (file.size > 8 * 1024 * 1024)
+      throw new Error("Files must be 8 MiB or smaller");
+    if (!/\.(md|txt|pdf)$/i.test(file.name))
+      throw new Error("Choose a Markdown, text, or PDF file");
+    const body = new FormData();
+    body.append("file", file);
+    return api(`${projectPath(project)}/collections/${collection}/sources`, {
+      method: "POST",
+      body,
+    });
+  },
+  start: (project: string, request: RunCreate) =>
+    api<Run>(`${projectPath(project)}/runs`, post(request)),
+  approve: (project: string, run: string, plan: Plan) =>
+    api(`${projectPath(project)}/runs/${run}/approve`, post(plan)),
+  cancel: (project: string, run: string) =>
+    api(`${projectPath(project)}/runs/${run}/cancel`, post()),
+  export: (project: string, run: string) =>
+    exportReport(`${projectPath(project)}/runs/${run}/report.md`),
+  evaluations: (project: string, signal?: AbortSignal) =>
+    api<Evaluation[]>(`${projectPath(project)}/evaluations`, { signal }),
+  evaluationJobs: (project: string, signal?: AbortSignal) =>
+    api<EvaluationJob[]>(`${projectPath(project)}/evaluation-jobs`, { signal }),
+  startEvaluation: (project: string, split: EvaluationSplit, key: string) =>
+    api<EvaluationJob>(
+      `${projectPath(project)}/evaluation-jobs`,
+      post({ split, idempotency_key: key }),
+    ),
+  cancelEvaluation: (project: string, job: string) =>
+    api(`${projectPath(project)}/evaluation-jobs/${job}/cancel`, post()),
+};

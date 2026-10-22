@@ -38,6 +38,8 @@ jobs:
       - run: uv run pytest --timeout=180
       - run: npm run test:proxy
         working-directory: apps/web
+      - run: npm run test:ui-state && npm run format:check
+        working-directory: apps/web
       - run: npm run typecheck && npm run build
         working-directory: apps/web
       - run: npx playwright install --with-deps chromium

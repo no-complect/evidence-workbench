@@ -20,11 +20,16 @@ export function Button({
   variant,
   size,
   asChild = false,
+  type = "button",
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof variants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : "button";
   return (
-    <Comp className={cn(variants({ variant, size }), className)} {...props} />
+    <Comp
+      type={asChild ? undefined : type}
+      className={cn(variants({ variant, size }), className)}
+      {...props}
+    />
   );
 }

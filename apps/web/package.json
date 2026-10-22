@@ -8,26 +8,31 @@
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "test:proxy": "node --test tests/api-proxy.test.cjs"
+    "test:proxy": "node --test tests/api-proxy.test.cjs",
+    "test:ui-state": "node --test tests/ui-state.test.cjs",
+    "format": "prettier --write src e2e tests",
+    "format:check": "prettier --check src e2e tests"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.2.3",
+    "@supabase/supabase-js": "^2.57.0",
+    "@tanstack/react-query": "^5.104.5",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "0.577.0",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "@supabase/supabase-js": "^2.57.0",
-    "@radix-ui/react-slot": "^1.2.3",
-    "class-variance-authority": "0.7.1",
-    "clsx": "2.1.1",
-    "tailwind-merge": "3.6.0",
-    "lucide-react": "0.577.0"
+    "tailwind-merge": "3.6.0"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
+    "@playwright/test": "1.62.1",
+    "@tailwindcss/postcss": "4.2.2",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "prettier": "^3.9.10",
     "tailwindcss": "4.2.2",
-    "@tailwindcss/postcss": "4.2.2",
-    "@playwright/test": "1.62.1"
+    "typescript": "^5.9.3"
   }
 }

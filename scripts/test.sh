@@ -5,5 +5,7 @@ command -v uv >/dev/null || { echo 'uv is required for host tests; see README.';
 uv run --frozen pytest -m 'not integration'
 uv run --frozen python scripts/check-contracts.py
 npm --prefix apps/web run test:proxy
+npm --prefix apps/web run test:ui-state
+npm --prefix apps/web run format:check
 npm --prefix apps/web run typecheck
 npm --prefix apps/web run build
