@@ -157,7 +157,7 @@ function ProjectWorkspace({
       )}
       {run && (
         <RunStrip
-          key={run.id}
+          key={`summary-${run.id}`}
           projectId={projectId}
           run={run}
           evidenceCount={runQuery.data?.detail.evidence.length ?? 0}
@@ -165,7 +165,7 @@ function ProjectWorkspace({
       )}
       {run?.status === "awaiting_approval" && run.plan && (
         <PlanReview
-          key={run.id}
+          key={`plan-${run.id}`}
           projectId={projectId}
           runId={run.id}
           initialPlan={run.plan}
@@ -173,7 +173,7 @@ function ProjectWorkspace({
         />
       )}
       <RunViews
-        key={ui.runId}
+        key={`views-${ui.runId}`}
         projectId={projectId}
         collectionId={collectionId}
         readOnly={collection?.read_only ?? false}

@@ -57,6 +57,10 @@ test("seeded question → edited plan → report → citation → context → ex
   await expect(page.locator(".run-strip .status-badge.completed")).toBeVisible({
     timeout: 60000,
   });
+  await expect(page.locator(".run-strip")).toHaveCount(1);
+  await expect(
+    page.getByRole("heading", { name: "A plan before we proceed" }),
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: "Report", exact: true }).click();
   await page.screenshot({
     path: testInfo.outputPath("demo-report.png"),
