@@ -155,6 +155,7 @@
 }
 .event pre {
   max-height: 260px;
+  overflow: auto;
 }
 .actions {
   display: flex;

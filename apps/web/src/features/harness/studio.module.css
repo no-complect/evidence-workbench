@@ -179,6 +179,7 @@
 }
 .context pre {
   max-height: 320px;
+  overflow: auto;
 }
 @media (max-width: 850px) {
   .grid {
