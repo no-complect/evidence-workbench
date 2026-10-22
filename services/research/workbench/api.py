@@ -5,7 +5,8 @@ from fastapi.responses import Response
 from . import db
 from .config import settings
 from .auth import identity, authorize
-from .models import RunCreate, RunSummary, Plan, Named, CollectionCreate, SearchRequest, EXAMPLES
+from .models import RunCreate, RunSummary, Plan, Named, CollectionCreate, CollectionSetup, SearchRequest, EXAMPLES
+from .collection_setup import options as collection_options, prepare as prepare_collection, resume as resume_collection, SetupConflict
 from .ingest import ingest, IngestionError, MAX_BYTES
 from .evidence import for_run, markdown
 from .storage import storage
@@ -101,9 +102,14 @@ def create_collection(project_id: UUID, body: CollectionCreate, user=Depends(ide
 @app.get('/api/projects/{project_id}/collections/{collection_id}/sources')
 def sources(project_id: UUID, collection_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
+    if not db.one('SELECT id FROM collections WHERE id=%s AND project_id=%s', (collection_id, project_id)):
+        raise HTTPException(404, 'Collection not found')
     return serialize(
         db.all_rows(
-            'SELECT d.*, (SELECT count(*) FROM source_versions v WHERE v.document_id=d.id) AS version_count,(SELECT count(*) FROM chunks c WHERE c.version_id IN (SELECT id FROM source_versions WHERE document_id=d.id)) AS chunk_count FROM source_documents d WHERE d.project_id=%s AND d.collection_id=%s ORDER BY d.name',
+            'SELECT d.*, (SELECT count(*) FROM source_versions v WHERE v.document_id=d.id) AS version_count,'
+            '(SELECT count(*) FROM chunks c WHERE c.version_id=d.current_version_id) AS chunk_count,'
+            '(SELECT count(*) FROM chunks c WHERE c.version_id=d.current_version_id AND c.embedding IS NOT NULL) AS vector_chunk_count '
+            'FROM source_documents d WHERE d.project_id=%s AND d.collection_id=%s ORDER BY d.name',
             (project_id, collection_id)))
 
 
@@ -113,12 +119,14 @@ def upload(project_id: UUID,
            file: UploadFile = File(...),
            user=Depends(identity)):
     authorize(project_id, user)
-    collection = db.one('SELECT read_only FROM collections WHERE id=%s AND project_id=%s',
+    collection = db.one('SELECT read_only,setup_status FROM collections WHERE id=%s AND project_id=%s',
                         (collection_id, project_id))
     if not collection:
         raise HTTPException(404, 'Collection not found')
     if collection['read_only']:
         raise HTTPException(409, 'Benchmark snapshots are read-only; create a collection to upload sources')
+    if collection['setup_status'] != 'ready':
+        raise HTTPException(409, 'Finish or retry collection preparation before uploading')
     data = file.file.read(MAX_BYTES + 1)
     try:
         return ingest(project_id, collection_id, file.filename or 'upload.txt', data, {
@@ -133,7 +141,33 @@ def upload(project_id: UUID,
 def search_corpus(project_id: UUID, body: SearchRequest, user=Depends(identity)):
     authorize(project_id, user)
     try:
-        return serialize(search(project_id, body.collection_id, body.query, body.top_k))
+        return serialize(search(project_id, body.collection_id, body.query, body.top_k, method=body.method))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.get('/api/projects/{project_id}/collection-options')
+def setup_options(project_id: UUID, user=Depends(identity)):
+    authorize(project_id, user)
+    return collection_options()
+
+
+@app.post('/api/projects/{project_id}/collection-setups', status_code=201)
+def setup_collection(project_id: UUID, body: CollectionSetup, user=Depends(identity)):
+    try:
+        return serialize(prepare_collection(project_id, user, body))
+    except SetupConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.post('/api/projects/{project_id}/collections/{collection_id}/prepare')
+def retry_collection_preparation(project_id: UUID, collection_id: UUID, user=Depends(identity)):
+    try:
+        return serialize(resume_collection(project_id, str(collection_id), user))
+    except SetupConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
 

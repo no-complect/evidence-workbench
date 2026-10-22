@@ -12,6 +12,8 @@ def create_run(project_id, body, user, *, evaluation_job_id=None):
                         (body.collection_id, project_id))
     if not collection:
         raise HTTPException(404, 'Collection not found')
+    if collection['setup_status'] != 'ready':
+        raise HTTPException(409, 'Finish or retry collection preparation before starting research')
     if body.mode == 'demo':
         if body.question not in EXAMPLES:
             raise HTTPException(

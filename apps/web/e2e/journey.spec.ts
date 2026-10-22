@@ -150,7 +150,7 @@ test("upload ingestion status and arbitrary demo error are visible", async ({
     ),
   });
   await expect(
-    page.getByText("browser-test.txt", { exact: true }),
+    page.getByRole("table").getByText("browser-test.txt", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await page

@@ -204,3 +204,103 @@ test("terminal runs still drain trailing event pages without losing or duplicati
     client.clear();
   }
 });
+
+test("collection review trims intent and keeps starter vectors distinct from live profiles", () => {
+  const wizard = load("features/collections/wizard-state.ts");
+  const draft = {
+    ...wizard.initialCollectionDraft,
+    name: "  Review  ",
+    embedding_config: "openai-small-v1",
+  };
+  assert.equal(wizard.collectionRequest(draft, "key").name, "Review");
+  assert.equal(
+    wizard.collectionRequest(draft, "key").embedding_config,
+    "demo-v1",
+  );
+  assert.equal(
+    wizard.collectionRequest({ ...draft, source_kind: "upload" }, "key")
+      .embedding_config,
+    "openai-small-v1",
+  );
+  for (const change of [
+    { name: "  " },
+    { purpose: "ab" },
+    { purpose: "x".repeat(1001) },
+  ])
+    assert.throws(() =>
+      wizard.collectionRequest({ ...draft, ...change }, "key"),
+    );
+});
+
+test("source validation rejects unreadable or oversized client files before uploading", () => {
+  const files = load("lib/ingestion.ts");
+  assert.equal(
+    files.sourceFileError({ name: "policy.MD", size: files.MAX_SOURCE_BYTES }),
+    null,
+  );
+  for (const file of [
+    { name: "empty.txt", size: 0 },
+    { name: "archive.zip", size: 10 },
+    { name: "a.txt", size: files.MAX_SOURCE_BYTES + 1 },
+    { name: "a".repeat(181), size: 1 },
+  ])
+    assert.ok(files.sourceFileError(file));
+});
+
+test("clearing a batch preserves active uploads and another collection's failures", () => {
+  const upload = load("features/collections/upload-state.ts");
+  const rows = [
+    { id: "done", collectionId: "one", status: "ready" },
+    { id: "active", collectionId: "one", status: "uploading" },
+    { id: "waiting", collectionId: "one", status: "queued" },
+    { id: "other", collectionId: "two", status: "failed", error: "retry me" },
+  ];
+  const next = upload.uploadReducer(rows, {
+    type: "clear",
+    collectionId: "one",
+  });
+  assert.equal(next.map((row) => row.id).join(","), "active,waiting,other");
+  assert.equal(rows.length, 4);
+});
+
+test("retrieval snapshots are scoped, abortable and never automatically repeat model calls", async () => {
+  let signal;
+  const queries = load("features/collections/queries.ts", {
+    "@/features/workbench/queries": {},
+    "@/lib/workbench-api": {
+      workbenchApi: {
+        search: async (_project, _request, abort) => {
+          signal = abort;
+          return [];
+        },
+      },
+    },
+  });
+  const request = {
+    collection_id: "one",
+    query: "security",
+    method: "vector",
+    top_k: 5,
+  };
+  const options = queries.retrievalOptions("project", request);
+  assert.notDeepEqual(
+    options.queryKey,
+    queries.retrievalOptions("other", request).queryKey,
+  );
+  assert.notDeepEqual(
+    options.queryKey,
+    queries.retrievalOptions("project", { ...request, method: "keyword" })
+      .queryKey,
+  );
+  assert.equal(options.retry, false);
+  assert.equal(options.refetchOnWindowFocus, false);
+  assert.equal(options.refetchOnReconnect, false);
+  assert.equal(options.refetchOnMount, false);
+  const client = new QueryClient();
+  try {
+    await client.fetchQuery(options);
+    assert.ok(signal);
+  } finally {
+    client.clear();
+  }
+});

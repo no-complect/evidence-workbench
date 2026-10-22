@@ -33,7 +33,9 @@ def embed_passages(passages, config):
 
 
 def ingest(project_id, collection_id, name, data, metadata=None, embed=True):
-    name = Path(name).name[:180]
+    name = Path(name.replace('\\', '/')).name
+    if not name or len(name) > 180 or any(ord(char) < 32 or ord(char) == 127 for char in name):
+        raise IngestionError('Source filenames must contain 1–180 characters')
     collection = db.one('SELECT * FROM collections WHERE id=%s AND project_id=%s',
                         (collection_id, project_id))
     if not collection:

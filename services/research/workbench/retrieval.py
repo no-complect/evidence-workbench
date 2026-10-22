@@ -37,21 +37,27 @@ def query_vector(query, config):
                             request_timeout=30).embed_query(query)
 
 
-def search(project_id, collection_id, query, top_k=5, version_ids=None):
+def search(project_id, collection_id, query, top_k=5, version_ids=None, method='hybrid'):
+    if method not in {'keyword', 'vector', 'hybrid'}:
+        raise ValueError('Unsupported retrieval method')
     c = db.one('SELECT * FROM collections WHERE id=%s AND project_id=%s',
                (collection_id, project_id))
     if not c:
         raise ValueError('Collection not found in authorized project')
+    if c['setup_status'] != 'ready':
+        raise ValueError('Finish or retry collection preparation before searching')
     config = c['embedding_config']
-    vector = query_vector(query, config)
+    vector = query_vector(query, config) if method != 'keyword' else None
+    if method == 'vector' and vector is None:
+        raise ValueError('No fixture query vector for this wording. Use keyword search or a supported topic example.')
     # Retrieve latest immutable version per document; preserve old evidence for prior runs.
     scope = 'c.project_id=%s AND c.collection_id=%s AND c.embedding_config=%s AND c.version_id=d.current_version_id'
-    base = 'SELECT c.*,d.name AS source_name,v.created_at AS ingested_at FROM chunks c JOIN source_versions v ON v.id=c.version_id JOIN source_documents d ON d.id=v.document_id WHERE '
+    base = 'SELECT c.*,d.name AS source_name,v.created_at AS ingested_at,v.content_hash FROM chunks c JOIN source_versions v ON v.id=c.version_id JOIN source_documents d ON d.id=v.document_id WHERE '
     args = (project_id, collection_id, config)
     if version_ids is not None:
         scope = 'c.project_id=%s AND c.collection_id=%s AND c.embedding_config=%s AND c.version_id=ANY(%s::uuid[])'
         args = (*args, version_ids)
-    fts = db.all_rows(
+    fts = [] if method == 'vector' else db.all_rows(
         base + scope +
         " AND c.search_vector @@ websearch_to_tsquery('english',%s) ORDER BY ts_rank_cd(c.search_vector,websearch_to_tsquery('english',%s)) DESC,c.id LIMIT %s",
         (*args, query, query, top_k * 4))

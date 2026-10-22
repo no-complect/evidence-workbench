@@ -77,10 +77,19 @@ class CollectionCreate(Named):
     embedding_config: Literal['demo-v1', 'openai-small-v1'] = 'demo-v1'
 
 
+class CollectionSetup(CollectionCreate):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    purpose: str = Field(min_length=3, max_length=1000)
+    source_kind: Literal['starter', 'upload']
+    idempotency_key: UUID
+
+
 class SearchRequest(StrictModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
     collection_id: UUID
     query: str = Field(min_length=1, max_length=1000)
     top_k: int = Field(5, ge=1, le=20)
+    method: Literal['keyword', 'vector', 'hybrid'] = 'hybrid'
 
 
 class RunSummary(BaseModel):

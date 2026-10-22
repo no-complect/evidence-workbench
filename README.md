@@ -83,7 +83,8 @@ After the initial build:
 3. Open **Research trail** to follow saved execution events. Open **Evidence board**, select a finding, and inspect its pinned passage or explicit limitation. **Inspect provenance** opens the full source details.
 4. Open **Decision brief**, click a numbered citation, and inspect its source version, section, offsets, and exact text. Click **Markdown** to download the report.
 5. Open **Context** to inspect a recorded model input, prompt version, and evidence inclusion/exclusion decisions.
-6. Open **RAG** and upload [reviewer-notes.txt](./docs/examples/reviewer-notes.txt). Its status should become `ready`. New demo uploads are full-text searchable; arbitrary research questions require live mode.
+6. Open **RAG**, choose **New collection**, and follow **Purpose → Sources → Review → Try it**. Use the synthetic architecture pack to prepare real bundled documents without paid calls, or bring your own files. Search with **Keyword**, **Vector**, or **Hybrid**, then inspect a result’s passage, ranks, version, and content hash. Custom fixture uploads support Keyword search; Vector requires a recognized fixture topic.
+7. Upload [reviewer-notes.txt](./docs/examples/reviewer-notes.txt). Its status should become `ready`. New demo uploads are full-text searchable; arbitrary research questions require live mode.
 
 For a terminal-only investigation:
 
@@ -106,7 +107,7 @@ The optional CLI commands above run inside the evaluation container and submit c
 ## Features to explore
 
 - **Harness:** inspect the selected run's execution limits and saved prompt/context fingerprints. Provider connections, model discovery, and saved harness revisions are not available yet.
-- **RAG:** manage collections and inspect source ingestion, deduplicated uploads, and immutable versions. Markdown, UTF-8 text, and text-based PDF uploads are limited to 8 MiB and PDFs to 200 pages.
+- **RAG:** create collections through a guided walkthrough, inspect per-file ingestion results and retries, and compare real keyword/vector/hybrid retrieval with pinned provenance. Collection preparation can resume after interruption; completed retries reuse the collection without resetting later source updates. Embedding profiles are immutable; changing the embedding model requires a new collection. Markdown, UTF-8 text, and text-based PDF uploads are limited to 8 MiB per file, 20 files per batch, and PDFs to 200 pages. Failed replacements preserve the last usable source version.
 - **Workflows:** run investigations, approve an edited plan, inspect **Decision brief**, **Evidence board**, **Research trail**, and **Context**. Findings retain citations and limitations; passage inspectors expose source identity and unavailable references. Redacted assembled inputs retain prompt hashes, token estimates, and evidence selection decisions. Private chain-of-thought is not requested or displayed.
 - **Evaluations:** queue, cancel, and inspect comparisons of basic RAG, a fixed workflow, and bounded follow-up research.
 

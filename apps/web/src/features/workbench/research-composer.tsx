@@ -50,6 +50,11 @@ export function ResearchComposer({
   const mutation = useStartResearch(projectId);
   const { question, mode, strategy, limits, approval, webEnabled } = draft;
   const busy = mutation.isPending;
+  const collectionReady = collections.some(
+    (item) =>
+      item.id === collectionId &&
+      (!item.setup_status || item.setup_status === "ready"),
+  );
   const setQuestion = (value: string) => dispatch({ type: "question", value });
   const setMode = (value: ExecutionMode) => dispatch({ type: "mode", value });
   const setStrategy = (value: ResearchStrategy) =>
@@ -159,7 +164,11 @@ export function ResearchComposer({
                   Select a collection
                 </option>
                 {collections.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option
+                    key={c.id}
+                    value={c.id}
+                    disabled={!!c.setup_status && c.setup_status !== "ready"}
+                  >
                     {c.name} · {c.document_count} docs
                   </option>
                 ))}
@@ -180,6 +189,7 @@ export function ResearchComposer({
               busy ||
               !projectId ||
               !collectionId ||
+              !collectionReady ||
               question.trim().length < 10 ||
               running
             }
