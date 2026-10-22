@@ -128,6 +128,7 @@ export function EvaluationEditor({
             <label className={styles.field}>
               Suite type
               <select
+                aria-label="Suite type"
                 value={suite}
                 disabled={busy}
                 onChange={(e) => {
@@ -146,6 +147,7 @@ export function EvaluationEditor({
             <label className={styles.field}>
               Dataset split
               <select
+                aria-label="Dataset split"
                 value={split}
                 disabled={busy}
                 onChange={(e) => setSplit(e.target.value as EvaluationSplit)}
@@ -160,6 +162,7 @@ export function EvaluationEditor({
                 <label className={`${styles.field} ${styles.wide}`}>
                   Evaluation collection
                   <select
+                    aria-label="Evaluation collection"
                     value={setup.collectionId}
                     onChange={(e) => {
                       setup.onCollectionChange(e.target.value);
@@ -185,6 +188,7 @@ export function EvaluationEditor({
                 <label className={styles.field}>
                   Evaluation mode
                   <select
+                    aria-label="Evaluation mode"
                     value={mode}
                     onChange={(e) => {
                       setMode(e.target.value as typeof mode);
@@ -203,6 +207,7 @@ export function EvaluationEditor({
                 <label className={styles.field}>
                   Expected supporting source
                   <select
+                    aria-label="Expected supporting source"
                     value={expected === "__none__" ? expected : chosenSource}
                     onChange={(e) => setExpected(e.target.value)}
                   >
@@ -223,6 +228,7 @@ export function EvaluationEditor({
                   Test question
                   {mode === "demo" ? (
                     <select
+                      aria-label="Test question"
                       value={chosenQuestion}
                       onChange={(e) => setQuestion(e.target.value)}
                     >

@@ -42,16 +42,20 @@ export function HarnessView({
         Shape the request, constrain the response, and inspect the context. Each
         investigation keeps its configuration.
       </WorkspaceHeading>
-      <HarnessStudio
-        projectId={projectId}
-        active={active}
-        research={research}
-        configuration={configuration}
-        onChange={onConfigurationChange}
-        modelSelection={modelSelection}
-        contexts={contexts}
-        onOpenWorkflows={onOpenWorkflows}
-      />
+      {!projectId ? (
+        <p role="status">Select a project to configure its harness.</p>
+      ) : (
+        <HarnessStudio
+          projectId={projectId}
+          active={active}
+          research={research}
+          configuration={configuration}
+          onChange={onConfigurationChange}
+          modelSelection={modelSelection}
+          contexts={contexts}
+          onOpenWorkflows={onOpenWorkflows}
+        />
+      )}
       <div className={styles.twoColumns}>
         <section
           className={styles.surface}
