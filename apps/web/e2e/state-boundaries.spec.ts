@@ -135,12 +135,13 @@ test("project changes reset drafts and dialog focus returns to its trigger", asy
   await page
     .getByRole("combobox", { name: "Project", exact: true })
     .selectOption("project-b");
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await expect(question).toHaveValue(initialQuestion);
   await expect(
     page.getByRole("combobox", { name: "Collection", exact: true }),
   ).toHaveValue("b-one");
   await expect(
-    page.getByRole("tab", { name: "Decision brief", exact: true }),
+    page.getByRole("tab", { name: "Execution", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
 });
 
