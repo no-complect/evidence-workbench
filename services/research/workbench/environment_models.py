@@ -16,6 +16,8 @@ def catalog(project, user):
     authorize(project, user)
     s = settings()
     result = {'configured': bool(s.openai_api_key), 'models': [], 'default_model': s.openai_model,
+              'judge_pricing_configured': all(value is not None for value in
+                  [s.model_input_usd_per_million, s.model_output_usd_per_million]),
               'live_enabled': s.live_enabled, 'pricing_configured': all(value is not None for value in
               [s.model_input_usd_per_million, s.model_output_usd_per_million, s.embedding_usd_per_million])}
     if not s.openai_api_key:

@@ -5,22 +5,14 @@ import json
 import time
 from datetime import datetime, timezone
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Literal
 from . import db
-from .api import create_run
+from .runs import create_run
 from .auth import authorize
 from .config import settings, ROOT
 from .context import estimate_tokens
 from .evidence import for_run, verify
 from .evaluate import fingerprint
-from .models import RunCreate, Limits, Report
-
-
-class SemanticJudgment(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    label: Literal['supported', 'contradicted', 'insufficient']
-    reason: str = Field(max_length=600)
+from .models import RunCreate, Limits, Report, SemanticJudgment
 
 
 def evaluate(args):

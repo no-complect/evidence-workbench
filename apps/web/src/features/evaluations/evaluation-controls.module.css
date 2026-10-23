@@ -1,0 +1,54 @@
+.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 24px;
+  line-height: 1.8;
+}
+
+.checkbox > input[type="checkbox"] {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0.25em 0 0;
+  padding: 0;
+}
+
+.checkbox > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.running:disabled {
+  opacity: 1;
+  cursor: progress;
+  animation: evaluation-pulse 2.4s ease-in-out infinite;
+}
+
+.spinner {
+  flex-shrink: 0;
+  animation: evaluation-spin 1.1s linear infinite;
+}
+
+@keyframes evaluation-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(69 81 216 / 0%);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(69 81 216 / 16%);
+  }
+}
+
+@keyframes evaluation-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .running:disabled,
+  .spinner {
+    animation: none;
+  }
+}

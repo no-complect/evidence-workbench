@@ -56,8 +56,9 @@ export function EvaluationMeasurements() {
         <strong>KNOW THE LIMITS</strong>Fixture checks measure integration
         behavior. Retrieval relevance and citation validity are separate from
         factual correctness. Collection suites inspect retained run evidence;
-        fixture benchmarks use an independent retrieval probe. No independent
-        semantic judge is claimed.
+        fixture benchmarks use an independent retrieval probe. Optional live
+        model judgments grade sampled cited claims separately; they are fallible
+        assessments, not independent ground truth.
       </div>
     </section>
   );

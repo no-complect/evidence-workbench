@@ -2,7 +2,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from . import db, harness, environment_models
 from .auth import identity
-from .models import ConnectionCreate, ModelVerification, HarnessCreate, StrictModel, Plan, Assessment, Report
+from .models import ConnectionCreate, ModelVerification, HarnessCreate, StrictModel, Plan, Assessment, Report, SemanticJudgment
 from .auth import authorize
 from .context import CAPS, POLICY
 from .constants import ROOT
@@ -12,11 +12,11 @@ from typing import Literal
 router = APIRouter(prefix='/api/projects/{project_id}/harness', tags=['harness'])
 
 
-SCHEMAS = {'plan': Plan, 'assess': Assessment, 'report': Report}
+SCHEMAS = {'plan': Plan, 'assess': Assessment, 'report': Report, 'judge': SemanticJudgment}
 
 
 class ContractValidation(StrictModel):
-    stage: Literal['plan', 'assess', 'report']
+    stage: Literal['plan', 'assess', 'report', 'judge']
     payload: str = Field(max_length=16000)
 
 

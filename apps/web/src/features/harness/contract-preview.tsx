@@ -4,10 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { FileJson } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorNotice } from "@/components/error-notice";
-import type { Stage } from "./contracts";
+import type { InspectorStage } from "./contracts";
 import { studioOptions, useContractValidation } from "./queries";
 import styles from "./studio.module.css";
-const samples: Record<Stage, unknown> = {
+const samples: Record<InspectorStage, unknown> = {
+  judge: {
+    label: "insufficient",
+    reason: "The cited passage does not establish the stated cost comparison.",
+  },
   report: {
     title: "Deployment review",
     summary: "A conditional recommendation",
@@ -41,10 +45,10 @@ export function ContractPreview({
   active: boolean;
 }) {
   const studio = useQuery(studioOptions(projectId, active));
-  const [stage, setStage] = useState<Stage>("report");
+  const [stage, setStage] = useState<InspectorStage>("report");
   const [json, setJson] = useState(JSON.stringify(samples.report, null, 2));
   const validate = useContractValidation(projectId);
-  function changeStage(next: Stage) {
+  function changeStage(next: InspectorStage) {
     setStage(next);
     setJson(JSON.stringify(samples[next], null, 2));
     validate.reset();
@@ -62,12 +66,14 @@ export function ContractPreview({
         <label className={styles.field}>
           Output contract
           <select
+            aria-label="Output contract"
             value={stage}
-            onChange={(e) => changeStage(e.target.value as Stage)}
+            onChange={(e) => changeStage(e.target.value as InspectorStage)}
           >
             <option value="report">Cited research report</option>
             <option value="plan">Research plan</option>
             <option value="assess">Evidence assessment & routing</option>
+            <option value="judge">Semantic claim judgment</option>
           </select>
         </label>
         <div className={styles.contract}>
@@ -119,7 +125,7 @@ export function ContractPreview({
                     {e.path || "JSON"} · {e.type}
                   </div>
                 ))
-              : "Validation uses the same Pydantic contract as the research worker. It makes no model calls and does not verify factual support."}
+              : "Validation uses the same Pydantic contract as the execution services. It makes no model calls and does not verify factual support."}
           </div>
         </div>
         <details className={styles.context}>
@@ -138,7 +144,7 @@ export function ContractPreview({
       <div className={styles.annotation}>
         <strong>IMMUTABLE EXPERIMENTS</strong>Stage outputs have distinct
         contracts. This inspector selects a schema to inspect; the workflow
-        still enforces the right schema at every node.
+        services enforce the corresponding schema at each model boundary.
       </div>
     </section>
   );

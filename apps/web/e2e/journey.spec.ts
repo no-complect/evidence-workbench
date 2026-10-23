@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 test("benchmark queues in UI and exposes persisted case results", async ({
   page,
-}) => {
+}, info) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
@@ -24,11 +24,97 @@ test("benchmark queues in UI and exposes persisted case results", async ({
     .getByRole("button", { name: "Run benchmark", exact: true })
     .click();
   await expect(page.locator(".benchmark-job")).toBeVisible();
+  const running = page.getByRole("button", {
+    name: "Evaluation in progress",
+    exact: true,
+  });
+  await expect(running).toBeDisabled();
+  await expect(running).toHaveAttribute("aria-busy", "true");
   await expect(page.locator(".benchmark-job .status-badge")).toHaveText(
     "completed",
     { timeout: 90000 },
   );
   await expect(page.locator(".benchmark-job")).toContainText("15 / 15 cases");
+  await expect(
+    page.getByRole("button", { name: "Run benchmark", exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Run benchmark", exact: true }),
+  ).toHaveAttribute("aria-busy", "false");
+  const jobs = page.getByRole("region", {
+    name: "Evaluation jobs",
+    exact: true,
+  });
+  const comparisons = page.getByRole("region", {
+    name: "Evaluation comparisons",
+    exact: true,
+  });
+  const suite = page.getByRole("region", {
+    name: "Evaluation suite",
+    exact: true,
+  });
+  const measurements = page.getByRole("region", {
+    name: "Evaluation measurements",
+    exact: true,
+  });
+  const widths =
+    info.project.name === "desktop" ? [360, 768, 900, 1280, 1920] : [390, 844];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    const [
+      jobBox,
+      comparisonBox,
+      suiteBox,
+      measurementsBox,
+      headingBox,
+      iconBox,
+    ] = await Promise.all([
+      jobs.boundingBox(),
+      comparisons.boundingBox(),
+      suite.boundingBox(),
+      measurements.boundingBox(),
+      comparisons
+        .getByRole("heading", { name: "Evaluation comparisons", exact: true })
+        .boundingBox(),
+      comparisons.locator("header > svg").boundingBox(),
+    ]);
+    expect(
+      comparisonBox!.y - (jobBox!.y + jobBox!.height),
+    ).toBeGreaterThanOrEqual(24);
+    expect(Math.abs(comparisonBox!.x - jobBox!.x)).toBeLessThan(2);
+    expect(Math.abs(iconBox!.y - headingBox!.y)).toBeLessThan(5);
+    const available = await suite.evaluate(
+      (el) => el.parentElement!.clientWidth,
+    );
+    if (available >= 740) {
+      expect(Math.abs(suiteBox!.y - measurementsBox!.y)).toBeLessThan(2);
+      expect(
+        measurementsBox!.x - (suiteBox!.x + suiteBox!.width),
+      ).toBeGreaterThanOrEqual(18);
+    } else {
+      expect(
+        measurementsBox!.y - (suiteBox!.y + suiteBox!.height),
+      ).toBeGreaterThanOrEqual(18);
+    }
+    const time = comparisons.locator("time").first();
+    expect(
+      await time.evaluate(
+        (el) =>
+          el.getBoundingClientRect().right <=
+          el.parentElement!.getBoundingClientRect().right + 1,
+      ),
+    ).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: info.outputPath(`evaluation-layout-${width}.png`),
+      fullPage: true,
+    });
+  }
+  await page.setViewportSize(info.project.use.viewport!);
   await page.getByText("Inspect 15 case results", { exact: true }).click();
   await expect(page.locator(".evaluation")).toContainText("security-synthesis");
   await expect(page.locator(".evaluation")).toContainText(

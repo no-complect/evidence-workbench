@@ -96,6 +96,7 @@ function ProjectWorkspace({
   const [ui, dispatch] = useReducer(workspaceReducer, initialWorkspaceState);
   const projectId = project?.id ?? "";
   const [selectedModelId, setSelectedModelId] = useState("");
+  const [judgeModelId, setJudgeModelId] = useState("");
   const modelsEnabled = bootstrap?.model_catalog_enabled ?? false;
   const models = useQuery(
     modelCatalogOptions(
@@ -269,6 +270,7 @@ function ProjectWorkspace({
         aria-label="Harness workspace"
       >
         <HarnessView
+          judgeSelection={{ modelId: judgeModelId, onChange: setJudgeModelId }}
           projectId={projectId}
           active={ui.workspace === "harness"}
           research={research}
@@ -324,6 +326,10 @@ function ProjectWorkspace({
             examples: bootstrap?.examples ?? [],
             liveEnabled: bootstrap?.live_enabled ?? false,
             modelId,
+            judgeModelId,
+            judgePricesKnown:
+              !!models.data?.judge_pricing_configured &&
+              judgeModelId === models.data.default_model,
             configuration,
             limits: researchDraft.limits,
           }}

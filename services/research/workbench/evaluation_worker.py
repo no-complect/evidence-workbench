@@ -97,7 +97,8 @@ def execute_job(job):
             result_id = run_evaluation(
                 job['request']['split'], project_id=job['project_id'], user_id=job['user_id'],
                 evaluation_id=str(job['id']), collection_id=str(job['collection_id']),
-                progress=progress, check_active=lambda: guard(job), custom=job['request'].get('custom'))
+                progress=progress, check_active=lambda: guard(job), custom=job['request'].get('custom'),
+                judge_lease_owner=job['lease_owner'])
             guard(job)
             updated = db.execute(
                 "UPDATE evaluation_jobs SET status='completed',result_id=%s,updated_at=now() "

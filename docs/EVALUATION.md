@@ -62,8 +62,41 @@ citations, context and events remain available. Returning to Evaluations preserv
 the result inspection. Older result records without question/expectation fields
 still render their original measurements.
 
-The UI does not invoke the operator CLI's semantic judge. Its lexical checks and
-retained-evidence retrieval measurements remain explicitly labeled.
+## Optional semantic grading in UI suites
+
+Select an evaluation judge in Harness, then explicitly enable grading in a live
+collection suite. Paid-call consent covers the current research and judge models,
+configuration, limits and cases; changing that intent clears consent. The API pins
+the judge model, `judge-v1` rubric, schema/adapter hashes and applicable operator
+rates. The worker grades only the first configured number of cited claims per
+investigation after research finishes. It sends redacted claims and their exact
+authorized passages as untrusted data. It stores claim/input hashes, evidence and
+source-version identities, concise grades and usage without retaining raw model
+responses or exposing private chain-of-thought.
+
+The separate claim ledger commits a reservation before inference. Final grades
+are reused on recovery. A reserved call whose outcome was lost becomes explicitly
+ungraded and is not retried automatically; its reservation remains charged. Schema
+failures and provider errors are ungraded, with reported usage accounted when
+available. A grading window starts with the first reservation and survives worker
+restarts. Cancellation prevents subsequent calls; a response already in flight is
+saved before cancellation is honored. The membership-checked judgments endpoint
+keeps saved grades inspectable even when no final comparison result is published.
+
+Suite judge defaults are 24,000 tokens, 120 seconds and a $1 estimated-cost cap at
+pinned rates. The configured claim sample bounds the number of calls. Unknown
+model rates disable dollar estimates/enforcement, not token/sample/time limits;
+the UI states this before authorization. Research per-run limits are separate.
+The reproducibility manifest records judge charges separately from research-cost
+aggregates. Missing usage retains conservative reservations; no billed-dollar
+guarantee is implied by operator estimates.
+
+The UI shares the operator CLI's rubric and output schema, not its orchestration.
+Grades are supported/contradicted/insufficient, with unsampled and ungraded claims
+explicit. Support ratios cover graded samples only. Model grading can be correlated
+with the writer and is not independent ground truth. Deterministic metrics and
+model judgments are never blended into one passing score. CI uses synthetic model
+responses; it does not establish paid-provider quality.
 
 ## Acceptance and CI
 

@@ -2,6 +2,7 @@ import { ArrowUpRight, CheckCircle2, CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { EvaluationCase } from "@/lib/contracts";
 import styles from "./evaluation-results.module.css";
+import { SemanticGrades } from "./semantic-grades";
 
 const checkLabels: Record<string, string> = {
   abstained_without_claims: "Abstention · no claims when evidence is absent",
@@ -91,6 +92,12 @@ export function EvaluationCaseResults({
                 </span>
               </div>
             ))}
+            {row.judging && (
+              <SemanticGrades
+                rows={row.judging.judgments}
+                sample={row.judging}
+              />
+            )}
             <details>
               <summary>Inspect expectations and retrieved sources</summary>
               <div className={styles.expectations}>

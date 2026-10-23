@@ -128,3 +128,21 @@ Reviewed 2026-10-06, then mapped to the code paths in this repository:
 - [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search) and [MCP server development](https://modelcontextprotocol.io/docs/develop/build-server).
 
 Documentation review is not a substitute for runtime verification. Dependency locks and the frontend build are available; see [BUILD_STATUS](BUILD_STATUS.md) for the current check scope and remaining integration/hosted verification.
+
+## Durable semantic grading
+
+Collection evaluations may opt into a separately targeted judge after research
+cases finish. The submission snapshot freezes model, rubric, schema, sampling,
+rates and separate judge limits. The worker's evaluation lease and advisory lock
+fence execution. A transactional per-claim ledger serializes budget reservations;
+the request boundary and final grades are immutable. An external call is reserved
+before invocation and a response is saved before honoring cancellation. Recovery
+reuses final results and marks ambiguous reservations ungraded instead of replaying
+paid calls. Token/time bounds and explicit no-grade reasons survive recovery.
+
+The judge receives only a redacted claim and its exact authorized cited passages.
+Records retain input/claim/rubric/contract hashes and evidence/version identities.
+A membership-checked read API exposes saved grades, including on cancelled jobs.
+Browser queries remain project/job scoped and read-only. Model selection and
+contract validation do not invoke inference. Deterministic evaluation checks,
+fallible model grades and research-versus-judge accounting remain separate.

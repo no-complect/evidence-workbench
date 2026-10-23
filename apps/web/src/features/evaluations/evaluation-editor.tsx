@@ -1,7 +1,8 @@
 "use client";
 import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Play, FlaskConical, Layers } from "lucide-react";
+import { Play, FlaskConical, Layers, Loader2 } from "lucide-react";
+import { JudgingOptions } from "./judging-options";
 import { EvaluationMeasurements } from "./evaluation-measurements";
 import { EvaluationCasesEditor } from "./evaluation-cases-editor";
 import {
@@ -23,6 +24,8 @@ import {
   type ResearchDraft,
 } from "@/features/workbench/research-state";
 import styles from "@/features/harness/studio.module.css";
+import controls from "./evaluation-controls.module.css";
+import layout from "./evaluation-layout.module.css";
 
 export type EvaluationSetup = {
   collections: Collection[];
@@ -31,6 +34,8 @@ export type EvaluationSetup = {
   examples: string[];
   liveEnabled: boolean;
   modelId: string;
+  judgeModelId: string;
+  judgePricesKnown: boolean;
   configuration: HarnessConfiguration;
   limits: ResearchDraft["limits"];
 };
@@ -58,7 +63,9 @@ export function EvaluationEditor({
     caseReducer,
     initialCaseDrafts,
   );
-  const [confirmed, setConfirmed] = useState(false);
+  const [consent, setConsent] = useState<string | null>(null);
+  const [judgeEnabled, setJudgeEnabled] = useState(false);
+  const [judgeClaims, setJudgeClaims] = useState(2);
   const [error, setError] = useState("");
   const custom = suite === "collection";
   const sourceQuery = useQuery({
@@ -67,9 +74,29 @@ export function EvaluationEditor({
   });
   const sources = (sourceQuery.data ?? []).filter((s) => s.current_version_id);
   const investigationCount = caseDrafts.cases.length * 3;
+  const judge =
+    mode === "live" && judgeEnabled && setup?.judgeModelId
+      ? {
+          model_id: setup.judgeModelId,
+          max_claims_per_run: judgeClaims,
+          tokens: 24000,
+          wall_seconds: 120,
+          estimated_cost_usd: 1,
+        }
+      : null;
+  const consentIntent = JSON.stringify({
+    mode,
+    collectionId: setup?.collectionId,
+    model: setup?.modelId,
+    configuration: setup?.configuration,
+    limits: setup?.limits,
+    cases: caseDrafts.cases,
+    judge,
+  });
+  const confirmed = consent === consentIntent;
   function changeCases(action: CaseAction) {
     dispatchCases(action);
-    setConfirmed(false);
+    setConsent(null);
     setError("");
   }
   function submit() {
@@ -85,6 +112,10 @@ export function EvaluationEditor({
         throw new Error(
           "Select a model in Harness and authorize the paid comparison runs.",
         );
+      if (mode === "live" && judgeEnabled && !judge)
+        throw new Error(
+          "Select an evaluation judge in Harness or disable semantic judging.",
+        );
       onSubmit(split, {
         collection_id: setup.collectionId,
         mode,
@@ -92,6 +123,7 @@ export function EvaluationEditor({
         harness_config: setup.configuration,
         limits: parseLimits(setup.limits),
         confirm_paid: mode === "live" && confirmed,
+        judge,
         cases: compileCases(
           caseDrafts,
           sources.map((s) => s.name),
@@ -106,13 +138,13 @@ export function EvaluationEditor({
     }
   }
   return (
-    <div className={styles.grid}>
+    <div className={`${styles.grid} ${layout.setup}`}>
       <section
         className={`${styles.surface} benchmark-launcher`}
         style={{ padding: 0, margin: 0 }}
         aria-label="Evaluation suite"
       >
-        <div className={styles.head}>
+        <div className={`${styles.head} ${layout.setupHeading}`}>
           <span>
             <FlaskConical size={17} />
             Evaluation suite
@@ -195,7 +227,7 @@ export function EvaluationEditor({
                     onChange={(e) => {
                       setMode(e.target.value as typeof mode);
                       changeCases({ type: "mode" });
-                      setConfirmed(false);
+                      setConsent(null);
                     }}
                   >
                     <option value="demo">
@@ -206,25 +238,6 @@ export function EvaluationEditor({
                     </option>
                   </select>
                 </label>
-                {mode === "live" && (
-                  <div className={styles.wide}>
-                    <p className="fine-print">
-                      Model: {setup.modelId || "Choose a model in Harness"}.
-                      This comparison runs {investigationCount} investigations
-                      using your current per-run limits. Source ingestion is
-                      separate. Dollar estimates may be unavailable.
-                    </p>
-                    <label className="check-label">
-                      <input
-                        type="checkbox"
-                        checked={confirmed}
-                        onChange={(e) => setConfirmed(e.target.checked)}
-                      />{" "}
-                      I authorize paid calls for these {investigationCount}{" "}
-                      evaluation runs.
-                    </label>
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -236,6 +249,45 @@ export function EvaluationEditor({
               examples={setup.examples}
               mode={mode}
             />
+          )}
+          {custom && setup && (
+            <JudgingOptions
+              live={mode === "live"}
+              modelId={setup.judgeModelId}
+              enabled={judgeEnabled}
+              onEnabled={setJudgeEnabled}
+              claims={judgeClaims}
+              onClaims={setJudgeClaims}
+              pricesKnown={setup.judgePricesKnown}
+            />
+          )}
+          {custom && mode === "live" && (
+            <div style={{ marginTop: 18 }}>
+              <p className="fine-print">
+                Research model: {setup?.modelId || "Choose a model in Harness"}.{" "}
+                {investigationCount} investigations use your current per-run
+                limits. Ingestion is separate.
+              </p>
+              <label className={controls.checkbox}>
+                <input
+                  type="checkbox"
+                  aria-label="Authorize paid evaluation"
+                  checked={confirmed}
+                  onChange={(e) => {
+                    setConsent(e.target.checked ? consentIntent : null);
+                    setError("");
+                  }}
+                />
+                <span>
+                  I authorize paid calls for these {investigationCount}{" "}
+                  evaluation runs
+                  {judge
+                    ? ` and up to ${investigationCount * judgeClaims} sampled claim judgments`
+                    : ""}
+                  .
+                </span>
+              </label>
+            </div>
           )}
           <div className={styles.note}>
             <Layers size={17} />
@@ -263,8 +315,18 @@ export function EvaluationEditor({
             <Button
               type="submit"
               disabled={!projectId || busy || pending || (!custom && !enabled)}
+              aria-busy={busy}
+              className={busy ? controls.running : undefined}
             >
-              <Play size={14} />
+              {busy ? (
+                <Loader2
+                  size={16}
+                  className={controls.spinner}
+                  aria-hidden="true"
+                />
+              ) : (
+                <Play size={14} aria-hidden="true" />
+              )}
               {busy
                 ? "Evaluation in progress"
                 : custom

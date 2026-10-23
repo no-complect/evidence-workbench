@@ -22,7 +22,7 @@ export const studioOptions = (project: string, enabled: boolean) =>
 export const useContractValidation = (project: string) =>
   useMutation({
     mutationFn: (body: {
-      stage: import("./contracts").Stage;
+      stage: import("./contracts").InspectorStage;
       payload: string;
     }) => studioApi.validate(project, body),
     retry: false,
