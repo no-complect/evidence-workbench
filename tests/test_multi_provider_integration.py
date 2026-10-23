@@ -91,6 +91,8 @@ def test_mixed_research_and_independent_anthropic_judge_are_pinned_and_scoped(cl
     assert len(grades) == 3
     assert all(row['judging']['judgments'][0]['request']['provider'] == 'anthropic' for row in result['raw'])
     assert all(row['judging']['judgments'][0]['tokens_charged'] == 16 for row in result['raw'])
+    traces = db.all_rows('SELECT call_key,payload FROM contexts WHERE project_id=%s', (pid,))
+    assert profile.openai_api_key not in str(traces) and profile.anthropic_api_key not in str(traces)
     assert client.get(f'/api/projects/{db.uid()}/evaluation-jobs/{job["id"]}/judgments').status_code == 404
     assert db.one('SELECT count(*) AS n FROM provider_connections WHERE project_id=%s', (pid,))['n'] == 0
     # Pre-provider OpenAI snapshots retain their exact adapter/target shape and run.

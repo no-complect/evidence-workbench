@@ -74,9 +74,9 @@ class Runtime:
                 target = snapshot['targets'][stage]
                 if snapshot.get('credential_source') == 'environment':
                     validate_adapter(target)
-                    key = environment_credential(target, s)
+                    provider_key = environment_credential(target, s)
                     provider_type = AnthropicProvider if target['provider'] == 'anthropic' else OpenAIProvider
-                    provider = provider_type(target, key)
+                    provider = provider_type(target, provider_key)
                 else:
                     credential = connection(self.run['project_id'], target['connection_id'], self.run['user_id'])
                     provider = OpenAIProvider(target, decrypt(credential['encrypted_key']))

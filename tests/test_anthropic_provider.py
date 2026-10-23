@@ -115,3 +115,37 @@ def test_partial_provider_failure_keeps_successful_catalog_without_prices_or_cre
     with pytest.raises(HTTPException) as exc:
         environment_models.catalog('project', 'user')
     assert exc.value.status_code == 502 and s.anthropic_api_key not in exc.value.detail
+
+
+@pytest.mark.parametrize('mode,selection', [('demo', 'openai-model'), ('live', 'openai-model'), ('live', 'anthropic:account-claude')])
+def test_graph_call_identity_stays_stable_and_never_contains_provider_credentials(monkeypatch, mode, selection):
+    from datetime import datetime, timedelta, timezone
+    from workbench import graph
+    s = Settings(_env_file=None, live_enabled=True, openai_api_key='synthetic-openai-credential',
+                 anthropic_api_key='synthetic-anthropic-credential')
+    monkeypatch.setattr(graph, 'settings', lambda: s)
+    target = target_for(selection, s)
+    run = {'id': 'run', 'project_id': 'project', 'user_id': 'user', 'mode': mode,
+           'question': 'What security controls are required?', 'attempts': 1,
+           'deadline': datetime.now(timezone.utc) + timedelta(seconds=60),
+           'request': {}, 'harness_snapshot': None if mode == 'demo' else {
+               'credential_source': 'environment', 'fingerprints': environment_models.environment_fingerprints(),
+               'targets': {stage: target for stage in ['plan', 'assess', 'report']}}}
+    persisted, reservations = [], []
+    monkeypatch.setattr(graph, 'for_run', lambda run: [])
+    monkeypatch.setattr(graph.db, 'one', lambda *args: None)
+    monkeypatch.setattr(graph.db, 'execute', lambda sql, args: persisted.append(args))
+    monkeypatch.setattr(graph.db, 'event', lambda run, key, *args: persisted.append((key, args)))
+    monkeypatch.setattr(graph.budget, 'check', lambda *args: None)
+    monkeypatch.setattr(graph.budget, 'reserve', lambda run, key, **kwargs: reservations.append(key))
+    monkeypatch.setattr(graph.budget, 'reconcile', lambda *args: None)
+    class Provider:
+        name = 'synthetic-provider'
+        def __init__(self, target=None, key=None): pass
+        def invoke(self, stage, payload, schema, timeout=35):
+            return providers.DemoProvider().invoke(stage, payload, schema)
+    monkeypatch.setattr(graph, 'OpenAIProvider', Provider)
+    monkeypatch.setattr(graph, 'AnthropicProvider', Provider)
+    result = graph.Runtime(run).model('plan', 'plan', Plan)
+    assert result.tasks and reservations == ['plan/attempt-1']
+    assert s.openai_api_key not in str(persisted) and s.anthropic_api_key not in str(persisted)

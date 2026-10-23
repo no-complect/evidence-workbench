@@ -76,8 +76,8 @@ export function ModelSelector({
       {catalog?.providers?.map((provider) =>
         provider.error ? (
           <p role="alert" className="fine-print" key={provider.provider}>
-            {provider.error} Other providers remain selectable. Refresh models
-            to retry.
+            {provider.error} Successfully loaded models remain available.
+            Refresh models to retry.
           </p>
         ) : null,
       )}
