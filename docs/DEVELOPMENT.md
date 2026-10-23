@@ -22,6 +22,7 @@ Run these in separate terminals from the repository root:
 ```bash
 uv run --frozen uvicorn workbench.api:app --host 127.0.0.1 --port 8000 --reload
 uv run --frozen python -m workbench.worker
+uv run --frozen python -m workbench.evaluation_worker
 APP_ENV=local npm --prefix apps/web run dev -- --hostname 127.0.0.1
 ```
 
@@ -75,6 +76,31 @@ Tests use the actual API and database on desktop and mobile. They create researc
 runs and upload synthetic files. Screenshots, traces, and HTML results stay in
 ignored `test-results/` and `playwright-report/` directories. A maintainer may
 review and copy a synthetic screenshot into `docs/examples/` for the README.
+
+## Fresh container verification
+
+With Docker Engine and Compose v2 available, run from the repository root:
+
+```bash
+python3 scripts/verify-compose.py
+```
+
+This builds the shipped images and starts an isolated Compose project with empty
+volumes and random loopback ports. It ignores your `.env`, clears provider keys,
+and uses only synthetic fixtures. Checks go through the Next standalone proxy:
+starter collection setup/retry, pgvector ingestion, worker planning, approval
+resumption after application container replacement, citations/source downloads,
+and an authored evaluation across all three strategies using both workers.
+The runner removes only its own containers and volumes, including on failure.
+It does not modify the normal development stack or delete its data.
+
+After installing frontend dependencies and Playwright Chromium, add `--browser`
+to also run the existing desktop/mobile collection and research/evaluation journeys
+against these containers. CI runs this as the separate **Fresh container journey**
+job. Synthetic logs, service status and the successful result IDs are written to
+`.runtime/compose-verification`; browser artifacts use the normal ignored folders.
+This verifies the local demo topology; hosted Supabase identity/storage, public
+TLS routing and paid-provider behavior require separate checks.
 
 ## Dependency updates
 

@@ -8,6 +8,13 @@ The local reviewer path is in the [README](../README.md#running-the-application)
 
 The local shared secret and database password are explicitly local-demo values. Do not expose this Compose stack publicly. Use `docker compose logs --follow worker api web` to reconnect to logs. Shutdown retains volumes; reset requires a separate destructive flag.
 
+`python3 scripts/verify-compose.py` builds and tests a separate disposable stack,
+using fresh volumes and random loopback ports without loading your environment
+file or provider keys. Add `--browser` after installing the browser test dependencies
+to exercise desktop/mobile journeys. See [Development](DEVELOPMENT.md#fresh-container-verification).
+Normal startup retains ports 3000/8000/55432; `WORKBENCH_WEB_PORT`,
+`WORKBENCH_API_PORT` and `WORKBENCH_DB_PORT` can override host ports.
+
 ## Local host development
 
 Run `uv sync --frozen` and `npm --prefix apps/web ci`. Start pgvector with `docker compose up -d db`, configure `.env` from `.env.example`, then use separate terminals:

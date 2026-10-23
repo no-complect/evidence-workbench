@@ -1,5 +1,25 @@
 # Verification status
 
+## Current container verification
+
+The **Fresh container journey** CI job builds the committed Dockerfiles, starts
+empty project volumes, exercises the standalone web proxy and both worker
+processes, recreates the application containers during pending approval, and runs
+desktop/mobile collection and research/evaluation browser journeys. The reusable
+command is `python3 scripts/verify-compose.py --browser`; see
+[Development](DEVELOPMENT.md#fresh-container-verification) for prerequisites.
+
+Local runner safety tests pass for inherited credential isolation, project-scoped
+cleanup on build/journey failure and immediate terminal-job failure handling.
+Docker is unavailable in the preparation environment; the new container job must
+pass remotely before fresh-container verification can be claimed. This section
+will record the exact verified source and CI run after execution.
+
+At c2e3b34, prior host CI passed 105 Python tests and 56 desktop/mobile browser
+tests, plus type, build, contract, formatting and publication checks. This includes
+real pgvector/worker/MCP/recovery tests; the older unchecked list below is historical.
+Those host results do not validate the newly added container job or hosted services.
+
 ## Earlier verification record — 2026-10-07
 
 The repository includes application source, locked dependencies, a containerized
