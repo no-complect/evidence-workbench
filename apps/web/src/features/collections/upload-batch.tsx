@@ -20,6 +20,7 @@ export function UploadBatch({
           <div className={styles.batchHead}>
             <h3>File preparation</h3>
             <Button
+              help="Clear completed and failed entries from this upload list. Saved sources remain in the collection; active uploads are retained."
               variant="ghost"
               size="sm"
               disabled={queue.busy}
@@ -58,6 +59,7 @@ export function UploadBatch({
                 </div>
                 {row.status === "failed" && (
                   <Button
+                    help="Retry this file. Identical filename and bytes reuse the existing immutable version; extraction errors may require correcting and selecting the file again."
                     variant="secondary"
                     size="sm"
                     disabled={queue.busy}

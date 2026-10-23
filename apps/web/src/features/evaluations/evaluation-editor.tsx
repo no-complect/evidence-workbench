@@ -26,6 +26,7 @@ import {
 import styles from "@/features/harness/studio.module.css";
 import controls from "./evaluation-controls.module.css";
 import layout from "./evaluation-layout.module.css";
+import { HelpTip } from "@/components/ui/tooltip";
 
 export type EvaluationSetup = {
   collections: Collection[];
@@ -148,6 +149,10 @@ export function EvaluationEditor({
           <span>
             <FlaskConical size={17} />
             Evaluation suite
+            <HelpTip
+              label="Evaluation suite"
+              content="Run the same cases through RAG, a fixed workflow and bounded research. Sources, configuration and expectations are pinned at submission so the comparison can be inspected later."
+            />
           </span>
           <small>Pin expectations before execution</small>
         </div>
@@ -314,6 +319,11 @@ export function EvaluationEditor({
           <div className={styles.actions}>
             <Button
               type="submit"
+              help={
+                custom
+                  ? "Queue three strategy investigations per case with the current frozen settings. Scripted mode uses fixtures; live mode makes the explicitly authorized model calls."
+                  : "Queue a reproducible synthetic benchmark across three strategies. The worker executes it independently of the browser; no paid model calls are made."
+              }
               disabled={!projectId || busy || pending || (!custom && !enabled)}
               aria-busy={busy}
               className={busy ? controls.running : undefined}

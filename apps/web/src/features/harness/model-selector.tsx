@@ -1,6 +1,7 @@
 "use client";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { ErrorNotice } from "@/components/error-notice";
 import type { ModelCatalog } from "./contracts";
 import styles from "./harness.module.css";
@@ -28,23 +29,26 @@ export function ModelSelector({
     <div className={styles.form}>
       <label>
         Available model
-        <select
-          aria-label="Available model"
-          value={available.includes(modelId) ? modelId : ""}
-          disabled={!catalog?.configured || !available.length}
-          onChange={(event) => onModelChange(event.target.value)}
-        >
-          <option value="">
-            {fetching ? "Loading models…" : "Choose a model"}
-          </option>
-          {available.map((id) => (
-            <option key={id} value={id}>
-              {id}
+        <Tooltip content="Choose a model discovered through the server's provider key. Discovery does not guarantee chat or structured-output compatibility; selection makes no inference calls.">
+          <select
+            aria-label="Available model"
+            value={available.includes(modelId) ? modelId : ""}
+            disabled={!catalog?.configured || !available.length}
+            onChange={(event) => onModelChange(event.target.value)}
+          >
+            <option value="">
+              {fetching ? "Loading models…" : "Choose a model"}
             </option>
-          ))}
-        </select>
+            {available.map((id) => (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            ))}
+          </select>
+        </Tooltip>
       </label>
       <Button
+        help="Refresh the model IDs available to the server's configured provider key. This discovers models; it does not run inference or change credentials."
         type="button"
         variant="secondary"
         disabled={fetching}

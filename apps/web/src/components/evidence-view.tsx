@@ -10,6 +10,7 @@ import {
   TextQuote,
 } from "lucide-react";
 import { Empty } from "./empty";
+import { Tooltip, HelpTip } from "./ui/tooltip";
 import type { Evidence, Report } from "@/lib/contracts";
 import styles from "./evidence-board.module.css";
 
@@ -68,7 +69,13 @@ export function EvidenceView({
     <>
       <div className="section-title">
         <div>
-          <h2>What the evidence says.</h2>
+          <h2>
+            What the evidence says.
+            <HelpTip
+              label="Evidence board"
+              content="Findings connect report claims to their saved supporting passages. Limitations preserve missing evidence; selecting a card inspects it without running new research."
+            />
+          </h2>
           <p>Select a finding to inspect the passage behind it.</p>
         </div>
         <label className="search-input">
@@ -108,53 +115,61 @@ export function EvidenceView({
                     ? BookOpen
                     : FileText;
               return (
-                <button
-                  type="button"
-                  className={`${styles.card} ${finding.kind === "limitation" ? styles.limitation : ""}`}
+                <Tooltip
                   key={finding.id}
-                  aria-pressed={selected?.id === finding.id}
-                  onClick={() => setSelectedId(finding.id)}
+                  content={
+                    finding.kind === "limitation"
+                      ? "Inspect this stated limitation. It is an explicit evidence gap, not a supported claim."
+                      : "Select this finding to inspect its supporting passage and pinned source version. This does not call a model."
+                  }
                 >
-                  <span className={styles.cardTop}>
-                    <span className={styles.icon}>
-                      <Icon size={18} />
-                    </span>
-                    <span>
-                      {finding.kind === "limitation"
-                        ? "LIMITATION"
-                        : finding.kind === "claim"
-                          ? "FINDING"
-                          : "PASSAGE"}{" "}
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                  </span>
-                  <strong>{finding.text}</strong>
-                  <span className={styles.tags}>
-                    {finding.passages.some(
-                      (passage) => passage.metadata.stale,
-                    ) && <span className="tag stale">Stale source</span>}
-                    {finding.passages.some(
-                      (passage) => passage.metadata.untrusted_instructions,
-                    ) && (
-                      <span className="tag warning">
-                        Untrusted instructions
+                  <button
+                    type="button"
+                    className={`${styles.card} ${finding.kind === "limitation" ? styles.limitation : ""}`}
+                    aria-pressed={selected?.id === finding.id}
+                    onClick={() => setSelectedId(finding.id)}
+                  >
+                    <span className={styles.cardTop}>
+                      <span className={styles.icon}>
+                        <Icon size={18} />
                       </span>
-                    )}
-                  </span>
-                  <span className={styles.sourceChip}>
-                    {finding.kind === "limitation" ? (
-                      <CircleDashed size={13} />
-                    ) : (
-                      <FileText size={13} />
-                    )}
-                    {finding.kind === "limitation"
-                      ? "Keep the uncertainty visible"
-                      : finding.passages.length === 1
-                        ? finding.passages[0].source_name
-                        : `${finding.passages.length} supporting passages`}
-                    <ArrowUpRight size={12} />
-                  </span>
-                </button>
+                      <span>
+                        {finding.kind === "limitation"
+                          ? "LIMITATION"
+                          : finding.kind === "claim"
+                            ? "FINDING"
+                            : "PASSAGE"}{" "}
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                    </span>
+                    <strong>{finding.text}</strong>
+                    <span className={styles.tags}>
+                      {finding.passages.some(
+                        (passage) => passage.metadata.stale,
+                      ) && <span className="tag stale">Stale source</span>}
+                      {finding.passages.some(
+                        (passage) => passage.metadata.untrusted_instructions,
+                      ) && (
+                        <span className="tag warning">
+                          Untrusted instructions
+                        </span>
+                      )}
+                    </span>
+                    <span className={styles.sourceChip}>
+                      {finding.kind === "limitation" ? (
+                        <CircleDashed size={13} />
+                      ) : (
+                        <FileText size={13} />
+                      )}
+                      {finding.kind === "limitation"
+                        ? "Keep the uncertainty visible"
+                        : finding.passages.length === 1
+                          ? finding.passages[0].source_name
+                          : `${finding.passages.length} supporting passages`}
+                      <ArrowUpRight size={12} />
+                    </span>
+                  </button>
+                </Tooltip>
               );
             })}
           </div>
@@ -251,11 +266,13 @@ function PassageInspector({
           </div>
           <footer className={styles.inspectorFooter}>
             <span>Keep the evidence next to the conclusion.</span>
-            <button type="button" onClick={() => onSelect(passage)}>
-              <Fingerprint size={15} />
-              Inspect provenance
-              <ArrowUpRight size={14} />
-            </button>
+            <Tooltip content="Open the exact evidence record, source version, offsets and retrieval metadata saved with this investigation.">
+              <button type="button" onClick={() => onSelect(passage)}>
+                <Fingerprint size={15} />
+                Inspect provenance
+                <ArrowUpRight size={14} />
+              </button>
+            </Tooltip>
           </footer>
         </>
       ) : (

@@ -75,7 +75,11 @@ export function PlanReview({
           Edits are saved when you approve. Research resumes from its
           checkpoint.
         </span>
-        <Button type="submit" disabled={approval.isPending}>
+        <Button
+          help="Save your edited plan and resume the worker from its approval checkpoint. Live research continues using the run's pinned model configuration and limits."
+          type="submit"
+          disabled={approval.isPending}
+        >
           {approval.isPending ? (
             <Loader2 size={14} className="spin" />
           ) : (

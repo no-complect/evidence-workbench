@@ -14,6 +14,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HelpTip, Tooltip } from "@/components/ui/tooltip";
+import { limitHelp } from "./research-help";
 import { ErrorNotice } from "@/components/error-notice";
 import type { Collection } from "@/lib/contracts";
 import { useStartResearch } from "./mutations";
@@ -142,6 +144,10 @@ export function ResearchComposer({
             </label>
           </span>
           <span className="mono">NEW INVESTIGATION</span>
+          <HelpTip
+            label="Research investigation"
+            content="Start from a question and a ready collection. The selected strategy plans, retrieves and synthesizes within configured limits; the saved run retains its evidence and model context."
+          />
         </div>
         <textarea
           id="question"
@@ -199,17 +205,24 @@ export function ResearchComposer({
                 ))}
               </select>
             </label>
-            <button
-              type="button"
-              className={`settings-toggle ${showSettings ? "selected" : ""}`}
-              onClick={() => setShowSettings(!showSettings)}
-              aria-expanded={showSettings}
-            >
-              <Settings2 size={16} /> Research settings
-            </button>
+            <Tooltip content="Choose execution mode, strategy, resource limits and whether to review the plan. Changing a draft does not modify a saved run.">
+              <button
+                type="button"
+                className={`settings-toggle ${showSettings ? "selected" : ""}`}
+                onClick={() => setShowSettings(!showSettings)}
+                aria-expanded={showSettings}
+              >
+                <Settings2 size={16} /> Research settings
+              </button>
+            </Tooltip>
           </div>
           <Button
             type="submit"
+            help={
+              mode === "live"
+                ? "Start a live investigation using the server key, selected models and current limits. Model calls may incur provider charges."
+                : "Start a scripted investigation with synthetic documents. Retrieval, saved execution and citations are real; responses use fixtures and make no paid model calls."
+            }
             disabled={
               busy ||
               !projectId ||
@@ -243,14 +256,18 @@ export function ResearchComposer({
             </label>
             <label>
               Research strategy
-              <select
-                value={strategy}
-                onChange={(e) => setStrategy(e.target.value as typeof strategy)}
-              >
-                <option value="agent">Bounded research</option>
-                <option value="workflow">Fixed workflow</option>
-                <option value="rag">Basic RAG</option>
-              </select>
+              <Tooltip content="Basic RAG retrieves and synthesizes once. Fixed workflow follows predetermined stages. Bounded research can route follow-up searches within the configured limits.">
+                <select
+                  value={strategy}
+                  onChange={(e) =>
+                    setStrategy(e.target.value as typeof strategy)
+                  }
+                >
+                  <option value="agent">Bounded research</option>
+                  <option value="workflow">Fixed workflow</option>
+                  <option value="rag">Basic RAG</option>
+                </select>
+              </Tooltip>
             </label>
             {mode === "live" && modelSelection && (
               <ModelSelector {...modelSelection} />
@@ -272,25 +289,29 @@ export function ResearchComposer({
               .map(([key, label, min, max]) => (
                 <label key={key}>
                   {label}
-                  <input
-                    type="number"
-                    required
-                    min={min}
-                    max={max}
-                    step={key === "estimated_cost_usd" ? 0.01 : 1}
-                    value={limits[key]}
-                    onChange={(e) =>
-                      dispatch({ type: "limit", key, value: e.target.value })
-                    }
-                  />
+                  <Tooltip content={limitHelp[key]}>
+                    <input
+                      type="number"
+                      required
+                      min={min}
+                      max={max}
+                      step={key === "estimated_cost_usd" ? 0.01 : 1}
+                      value={limits[key]}
+                      onChange={(e) =>
+                        dispatch({ type: "limit", key, value: e.target.value })
+                      }
+                    />
+                  </Tooltip>
                 </label>
               ))}
             <label className="check-label">
-              <input
-                type="checkbox"
-                checked={approval}
-                onChange={(e) => setApproval(e.target.checked)}
-              />{" "}
+              <Tooltip content="Pause after planning so you can edit and approve the research tasks. Approval saves your edits and resumes the worker from its checkpoint.">
+                <input
+                  type="checkbox"
+                  checked={approval}
+                  onChange={(e) => setApproval(e.target.checked)}
+                />
+              </Tooltip>{" "}
               Review plan before research
             </label>
             <label className="check-label">

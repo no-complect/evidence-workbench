@@ -35,7 +35,11 @@ export function RagWorkspace({
         kicker="RAG / COLLECTIONS & RETRIEVAL"
         title="Give the answer a foundation."
         action={
-          <Button disabled={!projectId || uploads.busy} onClick={onCreate}>
+          <Button
+            help="Walk through purpose, sources, preparation and a retrieval test. Use bundled synthetic documents or upload your own."
+            disabled={!projectId || uploads.busy}
+            onClick={onCreate}
+          >
             <Plus size={16} />
             New collection
           </Button>
@@ -114,6 +118,7 @@ function PreparationNotice({
           "This collection is still being prepared or its last preparation was interrupted."}
       </p>
       <Button
+        help="Resume this collection's interrupted preparation. Previously prepared source versions are reused rather than duplicated."
         variant="secondary"
         size="sm"
         disabled={resume.isPending}

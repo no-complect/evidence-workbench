@@ -4,6 +4,7 @@ import { Database, Download, FileText, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
 import styles from "./decision-brief.module.css";
 import { Empty } from "./empty";
+import { Tooltip } from "./ui/tooltip";
 import type { Run, Evidence } from "@/lib/api";
 
 export function ReportView({
@@ -27,7 +28,12 @@ export function ReportView({
             </div>
             <h2>{run.report.title}</h2>
           </div>
-          <Button variant="secondary" size="sm" onClick={onExport}>
+          <Button
+            help="Request the saved report export for this investigation. Exporting does not rerun research or call a model."
+            variant="secondary"
+            size="sm"
+            onClick={onExport}
+          >
             <Download size={14} />
             Markdown
           </Button>
@@ -59,16 +65,20 @@ export function ReportView({
               <p>
                 {claim.text}
                 {claim.evidence_ids.map((id) => (
-                  <button
-                    className="citation"
+                  <Tooltip
                     key={id}
-                    aria-label={`Open citation ${evidence.findIndex((e) => e.id === id) + 1}`}
-                    onClick={() =>
-                      onSelect(evidence.find((e) => e.id === id) || null)
-                    }
+                    content="Open the cited passage and its saved provenance. Citation resolution alone does not prove that this passage supports the claim."
                   >
-                    {evidence.findIndex((e) => e.id === id) + 1}
-                  </button>
+                    <button
+                      className="citation"
+                      aria-label={`Open citation ${evidence.findIndex((e) => e.id === id) + 1}`}
+                      onClick={() =>
+                        onSelect(evidence.find((e) => e.id === id) || null)
+                      }
+                    >
+                      {evidence.findIndex((e) => e.id === id) + 1}
+                    </button>
+                  </Tooltip>
                 ))}
               </p>
               <span className="support-label">

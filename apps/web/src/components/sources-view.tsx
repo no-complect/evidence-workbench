@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { Database, FileText, Loader2, ShieldCheck, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { Empty } from "./empty";
+import { HelpTip } from "./ui/tooltip";
 import type { Source } from "@/lib/api";
 
 export function SourcesView({
@@ -23,11 +24,18 @@ export function SourcesView({
     <>
       <div className="section-title">
         <div>
-          <h2>Source collection</h2>
+          <h2>
+            Source collection
+            <HelpTip
+              label="Source collection"
+              content="Documents are extracted into passages and retain immutable versions. Reuploading identical bytes reuses a version; replacing a source does not change evidence already pinned to saved runs."
+            />
+          </h2>
           <p>Markdown, plain text, and text-based PDFs · up to 8 MiB.</p>
         </div>
         <div className="flex-row">
           <Button
+            help="Upload Markdown, UTF-8 text or a text-based PDF to this collection. Live indexing may call the configured embedding provider. Scanned PDFs need OCR, which is unavailable."
             size="sm"
             onClick={() => uploadRef.current?.click()}
             disabled={!canUpload || busy}
@@ -80,9 +88,27 @@ export function SourcesView({
               <tr>
                 <th>Document</th>
                 <th>Status</th>
-                <th>Chunks</th>
-                <th>Vectors</th>
-                <th>Versions</th>
+                <th>
+                  Chunks
+                  <HelpTip
+                    label="Source chunks"
+                    content="Number of indexed passages extracted from the current source version. A source can have searchable text even when it has no vectors."
+                  />
+                </th>
+                <th>
+                  Vectors
+                  <HelpTip
+                    label="Source vectors"
+                    content="Passages with embeddings available for vector search. Custom fixture-mode uploads have keyword-searchable text but no generated vectors."
+                  />
+                </th>
+                <th>
+                  Versions
+                  <HelpTip
+                    label="Source versions"
+                    content="Immutable content revisions retained for this document. Identical reuploads reuse a version instead of creating a duplicate."
+                  />
+                </th>
               </tr>
             </thead>
             <tbody>

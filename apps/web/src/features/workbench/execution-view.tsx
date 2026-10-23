@@ -10,6 +10,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, HelpTip } from "@/components/ui/tooltip";
 import type { RunSnapshot } from "@/lib/contracts";
 import type { ResearchStrategy } from "./research-state";
 import { executionNodes, nodeRecords } from "./execution-state";
@@ -88,25 +89,29 @@ export function ExecutionView({
                     <div className={styles.line} aria-hidden="true" />
                   )}
                   <div className={styles.row}>
-                    <button
-                      type="button"
-                      className={styles.node}
-                      aria-pressed={selected === node.id}
-                      onClick={() => setSelected(node.id)}
+                    <Tooltip
+                      content={`Inspect the ${node.label.toLowerCase()} boundary and its saved events and contexts. Selecting this node does not execute or replay the stage.`}
                     >
-                      <Icon size={19} />
-                      <span>
-                        <strong>{node.label}</strong>
-                        <small>
-                          {node.id === "plan" &&
-                          run?.status === "awaiting_approval"
-                            ? "Waiting for your approval"
-                            : data.events.length
-                              ? `${data.events.length} saved events`
-                              : node.subtitle}
-                        </small>
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        className={styles.node}
+                        aria-pressed={selected === node.id}
+                        onClick={() => setSelected(node.id)}
+                      >
+                        <Icon size={19} />
+                        <span>
+                          <strong>{node.label}</strong>
+                          <small>
+                            {node.id === "plan" &&
+                            run?.status === "awaiting_approval"
+                              ? "Waiting for your approval"
+                              : data.events.length
+                                ? `${data.events.length} saved events`
+                                : node.subtitle}
+                          </small>
+                        </span>
+                      </button>
+                    </Tooltip>
                   </div>
                   {node.id === "gather" && tasks.length > 0 && (
                     <>
@@ -141,6 +146,10 @@ export function ExecutionView({
         <section className={styles.inspector} aria-label="Node inspector">
           <div className={styles.head}>
             Node inspector
+            <HelpTip
+              label="Node inspector"
+              content="Inspect saved events and assembled inputs for the selected stage. Missing records are not presented as completed work; this panel does not replay model calls."
+            />
             <small>{run ? "Saved run trace" : "Workflow definition"}</small>
           </div>
           <div className={styles.body}>
