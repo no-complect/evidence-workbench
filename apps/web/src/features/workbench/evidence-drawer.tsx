@@ -34,6 +34,7 @@ export function EvidenceDrawer({
         </span>
         <Button
           autoFocus
+          data-autofocus
           variant="ghost"
           size="icon"
           aria-label="Close evidence"

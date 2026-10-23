@@ -1,6 +1,12 @@
 "use client";
 
-import { useRef, useState, type ReactElement, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import * as Primitive from "@radix-ui/react-tooltip";
 import { CircleHelp } from "lucide-react";
 import styles from "./tooltip.module.css";
@@ -23,6 +29,11 @@ export function Tooltip({
   openOnClick?: boolean;
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
+  const focusFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(focusFrame.current), []);
+  function cancelFocusOpen() {
+    cancelAnimationFrame(focusFrame.current);
+  }
   const [state, setState] = useState<{
     open: boolean;
     container?: HTMLElement;
@@ -39,14 +50,28 @@ export function Tooltip({
       <Primitive.Trigger
         ref={trigger}
         asChild
-        onClick={
-          openOnClick
-            ? (event) => {
-                event.preventDefault();
-                changeOpen(true);
-              }
-            : undefined
-        }
+        onFocus={(event) => {
+          // Focus can scroll an offscreen control. Open after that scroll so
+          // Radix's scroll-dismiss listener does not immediately hide its help.
+          event.preventDefault();
+          cancelFocusOpen();
+          focusFrame.current = requestAnimationFrame(() => {
+            focusFrame.current = requestAnimationFrame(() => {
+              if (document.activeElement === trigger.current) changeOpen(true);
+            });
+          });
+        }}
+        onBlur={cancelFocusOpen}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") cancelFocusOpen();
+        }}
+        onClick={(event) => {
+          cancelFocusOpen();
+          if (openOnClick) {
+            event.preventDefault();
+            changeOpen(true);
+          }
+        }}
       >
         {children}
       </Primitive.Trigger>

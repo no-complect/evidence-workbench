@@ -148,7 +148,8 @@ test("evaluation metric help explains meaning and stays within a narrow viewport
   await page.goto("/");
   await page.getByRole("button", { name: "Evaluations", exact: true }).click();
   const help = page.getByRole("button", { name: "About MRR", exact: true });
-  await help.scrollIntoViewIfNeeded();
+  // Focusing an offscreen metric must keep its explanation open after scrolling.
+  await page.evaluate(() => scrollTo(0, 0));
   await help.focus();
   await expect(help).toHaveAccessibleDescription(/rank 2 scores 0.5/);
   const popup = await expectTooltipInsideViewport(page);
