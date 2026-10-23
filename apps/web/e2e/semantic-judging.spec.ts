@@ -70,7 +70,11 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
       context_policy: "cited-passages-only/redacted-v1",
     },
     result: ungraded
-      ? { reason: "Judge token budget exhausted" }
+      ? {
+          reason: "Judge token budget exhausted",
+          estimated_cost_usd: 0,
+          cost_source: "no call",
+        }
       : {
           label,
           reason: "The cited passage states this synthetic requirement.",
@@ -249,7 +253,16 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
     .getByLabel("Claims sampled per investigation", { exact: true })
     .selectOption("1");
   await expect(consent).not.toBeChecked();
+  await page
+    .getByLabel("Claims sampled per investigation", { exact: true })
+    .selectOption("2");
   await consent.check();
+  await expect(
+    page.getByText(
+      "Select a model in Harness and authorize the paid comparison runs.",
+      { exact: true },
+    ),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Harness", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Evaluation judge model", exact: true })
@@ -267,7 +280,7 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
   await expect(page.locator(".benchmark-job .completed")).toBeVisible();
   expect(submitted?.custom.judge).toEqual({
     model_id: "judge-c",
-    max_claims_per_run: 1,
+    max_claims_per_run: 2,
     tokens: 24000,
     wall_seconds: 120,
     estimated_cost_usd: 1,
@@ -277,7 +290,7 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
   const grading = page
     .getByRole("region", { name: "Model judgments", exact: true })
     .first();
-  await expect(grading).toContainText("1 claims outside the sample");
+  await expect(grading).toContainText("claims outside the sample: 1");
   await grading.getByText("Claim 1 · supported", { exact: true }).click();
   await expect(grading).toContainText("judge-c");
   await grading.getByText("Claim 2 · Ungraded", { exact: true }).click();

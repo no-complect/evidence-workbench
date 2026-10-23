@@ -13,7 +13,7 @@ export function SemanticGrades({
       <h4>Model judgments · sampled claims</h4>
       <p className="fine-print">
         {sample
-          ? `${sample.graded} of ${sample.sampled} sampled claims graded; ${sample.unsampled} claims outside the sample.`
+          ? `${sample.graded} of ${sample.sampled} sampled claims graded; claims outside the sample: ${sample.unsampled}.`
           : `${rows.filter((row) => row.status === "graded").length} saved grades across ${rows.length} claim records.`}{" "}
         Model grades are fallible and may share the writer’s biases. They are
         not independent ground truth.

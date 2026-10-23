@@ -271,9 +271,10 @@ export function EvaluationEditor({
                   type="checkbox"
                   aria-label="Authorize paid evaluation"
                   checked={confirmed}
-                  onChange={(e) =>
-                    setConsent(e.target.checked ? consentIntent : null)
-                  }
+                  onChange={(e) => {
+                    setConsent(e.target.checked ? consentIntent : null);
+                    setError("");
+                  }}
                 />
                 I authorize paid calls for these {investigationCount} evaluation
                 runs
