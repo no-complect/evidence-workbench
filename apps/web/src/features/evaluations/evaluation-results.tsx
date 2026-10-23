@@ -1,11 +1,14 @@
 import { FlaskConical } from "lucide-react";
+import { EvaluationCaseResults } from "./evaluation-case-results";
 import { Empty } from "@/components/empty";
 import type { Evaluation } from "@/lib/contracts";
 
 export function EvaluationResults({
   evaluations,
+  onOpenRun,
 }: {
   evaluations: Evaluation[];
+  onOpenRun: (runId: string) => void;
 }) {
   return (
     <>
@@ -81,37 +84,7 @@ export function EvaluationResults({
             {!!e.raw?.length && (
               <details>
                 <summary>Inspect {e.raw.length} case results</summary>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Case</th>
-                        <th>Strategy</th>
-                        <th>Status</th>
-                        <th>Checks</th>
-                        <th>Retrieved sources</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {e.raw.map((row) => (
-                        <tr key={`${row.strategy}/${row.case}`}>
-                          <td>{row.case}</td>
-                          <td>{row.strategy}</td>
-                          <td>{row.status}</td>
-                          <td>
-                            {Object.entries(row.checks)
-                              .map(
-                                ([name, passed]) =>
-                                  `${name}: ${passed ? "pass" : "fail"}`,
-                              )
-                              .join(" · ") || "No extra case assertions"}
-                          </td>
-                          <td>{row.ranked_sources.join(", ")}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <EvaluationCaseResults rows={e.raw} onOpenRun={onOpenRun} />
               </details>
             )}
             <details>

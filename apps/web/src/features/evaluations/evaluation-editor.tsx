@@ -1,8 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Play, FlaskConical, Layers } from "lucide-react";
 import { EvaluationMeasurements } from "./evaluation-measurements";
+import { EvaluationCasesEditor } from "./evaluation-cases-editor";
+import {
+  caseReducer,
+  initialCaseDrafts,
+  compileCases,
+  type CaseAction,
+} from "./case-state";
 import { Button } from "@/components/ui/button";
 import { ErrorNotice } from "@/components/error-notice";
 import type { Collection, EvaluationSplit } from "@/lib/contracts";
@@ -47,9 +54,10 @@ export function EvaluationEditor({
   const [suite, setSuite] = useState("fixture");
   const [split, setSplit] = useState<EvaluationSplit>("development");
   const [mode, setMode] = useState<"demo" | "live">("demo");
-  const [question, setQuestion] = useState("");
-  const [expected, setExpected] = useState("");
-  const [disclosure, setDisclosure] = useState("");
+  const [caseDrafts, dispatchCases] = useReducer(
+    caseReducer,
+    initialCaseDrafts,
+  );
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState("");
   const custom = suite === "collection";
@@ -57,10 +65,13 @@ export function EvaluationEditor({
     ...sourceOptions(projectId, setup?.collectionId ?? ""),
     enabled: active && custom && !!setup?.collectionId,
   });
-  const sources = sourceQuery.data ?? [];
-  const chosenSource = sources.some((s) => s.name === expected) ? expected : "";
-  const defaultQuestion = setup?.examples[1] ?? setup?.examples[0] ?? "";
-  const chosenQuestion = question || defaultQuestion;
+  const sources = (sourceQuery.data ?? []).filter((s) => s.current_version_id);
+  const investigationCount = caseDrafts.cases.length * 3;
+  function changeCases(action: CaseAction) {
+    dispatchCases(action);
+    setConfirmed(false);
+    setError("");
+  }
   function submit() {
     setError("");
     if (busy || pending) return;
@@ -70,15 +81,9 @@ export function EvaluationEditor({
         return;
       }
       if (!setup?.collectionId) throw new Error("Select a ready collection.");
-      if (!chosenSource && expected !== "__none__")
-        throw new Error(
-          "Choose an expected source or explicitly expect no supporting evidence.",
-        );
-      if (chosenQuestion.trim().length < 10)
-        throw new Error("Enter a test question of at least 10 characters.");
       if (mode === "live" && (!confirmed || !setup.modelId))
         throw new Error(
-          "Select a model in Harness and authorize the three paid comparison runs.",
+          "Select a model in Harness and authorize the paid comparison runs.",
         );
       onSubmit(split, {
         collection_id: setup.collectionId,
@@ -87,15 +92,12 @@ export function EvaluationEditor({
         harness_config: setup.configuration,
         limits: parseLimits(setup.limits),
         confirm_paid: mode === "live" && confirmed,
-        cases: [
-          {
-            question: chosenQuestion,
-            query: chosenQuestion.slice(0, 1000),
-            expected_sources: chosenSource ? [chosenSource] : [],
-            expect_no_evidence: expected === "__none__",
-            expected_disclosure: disclosure,
-          },
-        ],
+        cases: compileCases(
+          caseDrafts,
+          sources.map((s) => s.name),
+          setup.examples,
+          mode,
+        ),
       });
     } catch (e) {
       setError(
@@ -166,7 +168,7 @@ export function EvaluationEditor({
                     value={setup.collectionId}
                     onChange={(e) => {
                       setup.onCollectionChange(e.target.value);
-                      setExpected("");
+                      changeCases({ type: "collection" });
                     }}
                   >
                     <option value="" disabled>
@@ -192,7 +194,7 @@ export function EvaluationEditor({
                     value={mode}
                     onChange={(e) => {
                       setMode(e.target.value as typeof mode);
-                      setQuestion("");
+                      changeCases({ type: "mode" });
                       setConfirmed(false);
                     }}
                   >
@@ -204,63 +206,13 @@ export function EvaluationEditor({
                     </option>
                   </select>
                 </label>
-                <label className={styles.field}>
-                  Expected supporting source
-                  <select
-                    aria-label="Expected supporting source"
-                    value={expected === "__none__" ? expected : chosenSource}
-                    onChange={(e) => setExpected(e.target.value)}
-                  >
-                    <option value="">Choose a source</option>
-                    <option value="__none__">
-                      No supporting evidence expected
-                    </option>
-                    {sources
-                      .filter((s) => s.current_version_id)
-                      .map((s) => (
-                        <option key={s.id} value={s.name}>
-                          {s.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label className={`${styles.field} ${styles.wide}`}>
-                  Test question
-                  {mode === "demo" ? (
-                    <select
-                      aria-label="Test question"
-                      value={chosenQuestion}
-                      onChange={(e) => setQuestion(e.target.value)}
-                    >
-                      {setup.examples.map((q) => (
-                        <option key={q}>{q}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <textarea
-                      value={chosenQuestion}
-                      maxLength={4000}
-                      onChange={(e) => setQuestion(e.target.value)}
-                      rows={3}
-                    />
-                  )}
-                </label>
-                <label className={`${styles.field} ${styles.wide}`}>
-                  Expected disclosure text · optional
-                  <input
-                    value={disclosure}
-                    maxLength={200}
-                    onChange={(e) => setDisclosure(e.target.value)}
-                    placeholder="A phrase that should appear when evidence is missing"
-                  />
-                </label>
                 {mode === "live" && (
                   <div className={styles.wide}>
                     <p className="fine-print">
                       Model: {setup.modelId || "Choose a model in Harness"}.
-                      This comparison runs three investigations using your
-                      current per-run limits. Source ingestion is separate.
-                      Dollar estimates may be unavailable.
+                      This comparison runs {investigationCount} investigations
+                      using your current per-run limits. Source ingestion is
+                      separate. Dollar estimates may be unavailable.
                     </p>
                     <label className="check-label">
                       <input
@@ -268,13 +220,23 @@ export function EvaluationEditor({
                         checked={confirmed}
                         onChange={(e) => setConfirmed(e.target.checked)}
                       />{" "}
-                      I authorize paid calls for these three evaluation runs.
+                      I authorize paid calls for these {investigationCount}{" "}
+                      evaluation runs.
                     </label>
                   </div>
                 )}
               </>
             )}
           </div>
+          {custom && setup && (
+            <EvaluationCasesEditor
+              state={caseDrafts}
+              onChange={changeCases}
+              sources={sources}
+              examples={setup.examples}
+              mode={mode}
+            />
+          )}
           <div className={styles.note}>
             <Layers size={17} />
             <div>

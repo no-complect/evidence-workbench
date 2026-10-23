@@ -162,6 +162,10 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
                                                    for c in claims)
             item = {
                 'case': case['id'],
+                'question': request.question,
+                'expected_sources': case['relevant_sources'],
+                'expected_disclosure': case.get('must_disclose', ''),
+                'expect_no_evidence': case.get('expect_no_evidence', False),
                 'split': case['split'],
                 'strategy': strategy,
                 'run_id': str(run['id']),

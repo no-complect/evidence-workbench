@@ -312,6 +312,10 @@ function ProjectWorkspace({
           Inspect individual cases as carefully as aggregate results.
         </WorkspaceHeading>
         <EvaluationsView
+          onOpenRun={(runId) => {
+            dispatch({ type: "select-run", runId });
+            document.getElementById("workspace")?.focus();
+          }}
           setup={{
             collections: projectQuery.data?.collections ?? [],
             collectionId,
