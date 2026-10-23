@@ -194,6 +194,97 @@ test("research retries reuse an uncertain request key until the request changes"
   expect(keys[2]).not.toBe(keys[0]);
 });
 
+test("evaluation activity animates only while busy and respects reduced motion", async ({
+  page,
+}, info) => {
+  let status = "idle";
+  let submissions = 0;
+  const job = () => ({
+    id: "feedback-job",
+    status,
+    request: { split: "development" },
+    progress: { completed: 0, total: 15 },
+    result_id: null,
+    cancel_requested: false,
+    error: status === "failed" ? "Synthetic worker failure" : null,
+    created_at: "2026-10-23T19:00:00Z",
+  });
+  await mockWorkspace(page, async (route, path) => {
+    if (path === "projects/project-a/evaluation-jobs/feedback-job/cancel") {
+      status = "cancelled";
+      await answer(route, job());
+      return true;
+    }
+    if (path !== "projects/project-a/evaluation-jobs") return false;
+    if (route.request().method() === "POST") {
+      submissions++;
+      status = "queued";
+      await answer(route, job(), 202);
+    } else await answer(route, status === "idle" ? [] : [job()]);
+    return true;
+  });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+  const start = page.getByRole("button", {
+    name: "Run benchmark",
+    exact: true,
+  });
+  await start.click();
+  const running = page.getByRole("button", {
+    name: "Evaluation in progress",
+    exact: true,
+  });
+  await expect(running).toBeDisabled();
+  await expect(running).toHaveAttribute("aria-busy", "true");
+  await expect
+    .poll(() =>
+      running.evaluate((el) =>
+        el.getAnimations().some((a) => Number(a.currentTime) > 0),
+      ),
+    )
+    .toBe(true);
+  await expect
+    .poll(() =>
+      running
+        .locator("svg")
+        .evaluate((el) => getComputedStyle(el).animationName),
+    )
+    .not.toBe("none");
+  expect(submissions).toBe(1);
+  await page
+    .getByRole("region", { name: "Evaluation suite", exact: true })
+    .screenshot({ path: info.outputPath("evaluation-running.png") });
+  status = "running";
+  await expect(page.locator(".benchmark-job .status-badge")).toHaveText(
+    "running",
+  );
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect
+    .poll(() => running.evaluate((el) => getComputedStyle(el).animationName))
+    .toBe("none");
+  await expect
+    .poll(() =>
+      running
+        .locator("svg")
+        .evaluate((el) => getComputedStyle(el).animationName),
+    )
+    .toBe("none");
+  await expect(running).toBeDisabled();
+  status = "failed";
+  await expect(start).toBeEnabled({ timeout: 15000 });
+  await expect(start).toHaveAttribute("aria-busy", "false");
+  expect(await start.evaluate((el) => el.getAnimations().length)).toBe(0);
+  await start.click();
+  await expect(running).toBeDisabled();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.locator(".benchmark-job .status-badge")).toHaveText(
+    "cancelled",
+  );
+  await expect(start).toBeEnabled();
+  await expect(start).toHaveAttribute("aria-busy", "false");
+  expect(submissions).toBe(2);
+});
+
 test("successful evaluation polling does not erase a start error", async ({
   page,
 }) => {

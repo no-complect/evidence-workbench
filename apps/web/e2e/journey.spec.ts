@@ -24,11 +24,23 @@ test("benchmark queues in UI and exposes persisted case results", async ({
     .getByRole("button", { name: "Run benchmark", exact: true })
     .click();
   await expect(page.locator(".benchmark-job")).toBeVisible();
+  const running = page.getByRole("button", {
+    name: "Evaluation in progress",
+    exact: true,
+  });
+  await expect(running).toBeDisabled();
+  await expect(running).toHaveAttribute("aria-busy", "true");
   await expect(page.locator(".benchmark-job .status-badge")).toHaveText(
     "completed",
     { timeout: 90000 },
   );
   await expect(page.locator(".benchmark-job")).toContainText("15 / 15 cases");
+  await expect(
+    page.getByRole("button", { name: "Run benchmark", exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Run benchmark", exact: true }),
+  ).toHaveAttribute("aria-busy", "false");
   await page.getByText("Inspect 15 case results", { exact: true }).click();
   await expect(page.locator(".evaluation")).toContainText("security-synthesis");
   await expect(page.locator(".evaluation")).toContainText(

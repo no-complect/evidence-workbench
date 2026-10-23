@@ -1,7 +1,7 @@
 "use client";
 import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Play, FlaskConical, Layers } from "lucide-react";
+import { Play, FlaskConical, Layers, Loader2 } from "lucide-react";
 import { JudgingOptions } from "./judging-options";
 import { EvaluationMeasurements } from "./evaluation-measurements";
 import { EvaluationCasesEditor } from "./evaluation-cases-editor";
@@ -314,8 +314,18 @@ export function EvaluationEditor({
             <Button
               type="submit"
               disabled={!projectId || busy || pending || (!custom && !enabled)}
+              aria-busy={busy}
+              className={busy ? controls.running : undefined}
             >
-              <Play size={14} />
+              {busy ? (
+                <Loader2
+                  size={16}
+                  className={controls.spinner}
+                  aria-hidden="true"
+                />
+              ) : (
+                <Play size={14} aria-hidden="true" />
+              )}
               {busy
                 ? "Evaluation in progress"
                 : custom
