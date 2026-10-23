@@ -45,6 +45,8 @@ export function EvaluationsView({
       <ErrorNotice error={cancel.error} onDismiss={cancel.reset} />
       <div style={{ marginTop: 23 }}>
         <EvaluationJobs
+          projectId={projectId}
+          active={active}
           jobs={jobs}
           cancellingId={cancel.isPending ? cancel.variables : undefined}
           onCancel={(id) => cancel.mutate(id)}

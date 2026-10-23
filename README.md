@@ -192,7 +192,19 @@ Collection retrieval metrics use
 the top five retained evidence passages by RRF score and ID; fixture benchmarks use
 an independent retrieval probe. Source labels are human expectations and disclosure
 checks are lexical. Cases labeled as having no supporting evidence check whether
-the report abstains from claims. No independent semantic judge is claimed.
+the report abstains from claims. Optional live semantic grading uses a separately
+selected evaluation judge from Harness. It grades sampled claims against their
+exact cited passages and records model/rubric/contract hashes and source identities.
+These are fallible model judgments, separate from deterministic checks and not
+independent ground truth. Unsampled, budget-stopped and uncertain calls stay explicit.
+
+Grading has separate suite-wide token, time and estimated-cost limits. Dollar
+estimates and the dollar cap are unavailable for models without pinned operator
+rates; token/sample/time limits still apply. A durable ledger reserves each call
+before inference. Recovery reuses final grades and never automatically repeats an
+ambiguous reserved call. Saved grades remain inspectable on cancelled jobs. Judge
+charges are recorded separately from research cost aggregates; missing usage keeps
+the reservation. Selection and contract validation make no inference calls.
 
 OpenAI is the first adapter; other provider APIs are not implemented. Provider tests
 use synthetic responses; paid account access must be verified in the operator’s

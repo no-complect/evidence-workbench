@@ -8,7 +8,7 @@ from .auth import authorize, identity
 from .config import ROOT, settings
 from .evaluate import fingerprint
 from .models import EvaluationCreate
-from .evaluation_setup import prepare_custom
+from .evaluation_setup import prepare_custom, evaluation_input
 
 router = APIRouter(prefix='/api/projects/{project_id}', tags=['evaluations'])
 PUBLIC_COLUMNS = ('id,project_id,status,request,progress,result_id,cancel_requested,'
@@ -54,7 +54,7 @@ def submit(project_id: UUID, body: EvaluationCreate, user=Depends(identity)):
         'WHERE project_id=%s AND user_id=%s AND idempotency_key=%s',
         (project_id, user, body.idempotency_key))
     if prior:
-        if prior['request']['split'] != body.split or prior['request'].get('input') != (body.custom.model_dump(mode='json') if body.custom else None):
+        if prior['request']['split'] != body.split or prior['request'].get('input') != evaluation_input(body.custom):
             raise HTTPException(409, 'Idempotency key belongs to a different evaluation request')
         return db.serial(prior)
     request = {'split': body.split, **benchmark_versions()}
@@ -104,3 +104,10 @@ def cancel(project_id: UUID, job_id: UUID, user=Depends(identity)):
                 "AND status NOT IN ('completed','failed','partial','cancelled')",
                 (job_id, project_id))
     return {'status': 'cancellation_requested' if row else job['status']}
+
+
+@router.get('/evaluation-jobs/{job_id}/judgments')
+def judgments(project_id: UUID, job_id: UUID, user=Depends(identity)):
+    get_job(project_id, job_id, user)
+    from .judging import public_rows
+    return public_rows(job_id, project_id)

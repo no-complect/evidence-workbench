@@ -29,7 +29,7 @@ def fingerprint():
 
 
 def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
-                   evaluation_id=None, collection_id=None, progress=None, check_active=None, custom=None):
+                   evaluation_id=None, collection_id=None, progress=None, check_active=None, custom=None, judge_lease_owner=None):
     if not custom and (settings().app_env not in {'local', 'test'} or settings().auth_mode != 'demo'):
         raise ValueError('Fixture evaluations run only in local/test demo configuration')
     evaluation_id = evaluation_id or db.uid()
@@ -187,6 +187,22 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
             progress({'completed': len(raw), 'total': total, 'stage': 'cases',
                       'strategy': strategy, 'case': case['id']})
             print(f'{strategy:8} {case["id"]:25} {run["status"]:10} {elapsed:.2f}s', flush=True)
+    if custom and custom.get('judge_snapshot'):
+        from .judging import grade_run
+        pinned = custom['judge_snapshot']
+        versions['semantic_judge'] = pinned
+        for i, row in enumerate(raw):
+            check_active()
+            progress({'completed': len(raw), 'total': total, 'stage': 'judging',
+                      'judged_runs': i, 'strategy': row['strategy'], 'case': row['case']})
+            row['judging'] = grade_run(evaluation_id, project_id, judge_lease_owner,
+                db.scoped_run(row['run_id'], project_id), pinned, check_active)
+        charged = db.one('SELECT coalesce(sum(tokens_charged),0) AS tokens,'
+            'coalesce(sum(cost_charged),0) AS cost FROM evaluation_judgments '
+            'WHERE evaluation_job_id=%s AND project_id=%s', (evaluation_id, project_id))
+        versions['judge_accounting'] = {'tokens_charged': int(charged['tokens']),
+            'estimated_cost_usd': float(charged['cost']) if pinned['cost_estimates_available'] else None,
+            'scope': 'separate from research cost aggregates; missing usage and uncertain calls retain reservations'}
     aggregate = []
     for strategy in STRATEGIES:
         rows = [r for r in raw if r['strategy'] == strategy]

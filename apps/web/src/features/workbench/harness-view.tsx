@@ -7,7 +7,7 @@ import type { RunSnapshot } from "@/lib/contracts";
 import { WorkspaceHeading } from "./workspace-shell";
 import { limitFields } from "./research-state";
 import { type ModelSelectionProps } from "@/features/harness/model-selector";
-import { stages } from "@/features/harness/contracts";
+import { stages, type JudgeSelection } from "@/features/harness/contracts";
 import styles from "./notebook.module.css";
 
 export function HarnessView({
@@ -20,6 +20,7 @@ export function HarnessView({
   snapshot,
   liveEnabled,
   modelSelection,
+  judgeSelection,
 }: {
   projectId: string;
   active: boolean;
@@ -30,6 +31,7 @@ export function HarnessView({
   snapshot: RunSnapshot | undefined;
   liveEnabled: boolean;
   modelSelection?: ModelSelectionProps;
+  judgeSelection: JudgeSelection;
 }) {
   const run = snapshot?.detail.run;
   const contexts = snapshot?.detail.contexts ?? [];
@@ -46,6 +48,7 @@ export function HarnessView({
         <p role="status">Select a project to configure its harness.</p>
       ) : (
         <HarnessStudio
+          judgeSelection={judgeSelection}
           projectId={projectId}
           active={active}
           research={research}

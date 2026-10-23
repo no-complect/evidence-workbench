@@ -1,5 +1,10 @@
 import type { Limits } from "@/lib/contracts";
 export type Stage = "plan" | "assess" | "report";
+export type InspectorStage = Stage | "judge";
+export type JudgeSelection = {
+  modelId: string;
+  onChange: (id: string) => void;
+};
 export const stages: [Stage, string][] = [
   ["plan", "Planner"],
   ["assess", "Reviewer"],
@@ -11,6 +16,7 @@ export type ModelCatalog = {
   default_model: string;
   live_enabled: boolean;
   pricing_configured: boolean;
+  judge_pricing_configured?: boolean;
   returned_count?: number;
   request_id?: string | null;
 };
@@ -41,8 +47,8 @@ export type HarnessSnapshot = {
 };
 
 export type HarnessStudioState = {
-  schemas: Record<Stage, Record<string, unknown>>;
-  prompts: Record<Stage, string>;
+  schemas: Record<InspectorStage, Record<string, unknown>>;
+  prompts: Record<InspectorStage, string>;
   context_caps: Record<Stage, number>;
   context_policy: string;
 };

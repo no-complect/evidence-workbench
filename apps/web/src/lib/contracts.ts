@@ -140,16 +140,58 @@ export type EvaluationCase = {
   quote_support?: number | null;
   tokens?: number;
   estimated_cost_usd?: number | null;
+  judging?: CaseJudging;
+};
+export type SemanticGrade = {
+  id: string;
+  run_id: string;
+  claim_index: number;
+  status: "reserved" | "graded" | "ungraded";
+  request: {
+    model_id: string;
+    claim_preview: string;
+    evidence_ids: string[];
+    source_version_ids: string[];
+    input_sha256: string;
+    prompt_sha256: string;
+    schema_sha256: string;
+    context_policy: string;
+  };
+  result: {
+    label?: "supported" | "contradicted" | "insufficient";
+    reason?: string;
+    estimated_cost_usd?: number | null;
+    cost_source?: string;
+    usage?: {
+      input_tokens: number;
+      output_tokens: number;
+      total_tokens: number;
+    } | null;
+  };
+  tokens_charged: number;
+  token_bound: number;
+};
+export type CaseJudging = {
+  model_id: string;
+  claims: number;
+  sampled: number;
+  unsampled: number;
+  graded: number;
+  ungraded: number;
+  semantic_support: number | null;
+  judgments: SemanticGrade[];
 };
 export type EvaluationJob = {
   id: string;
   status: "queued" | "running" | "completed" | "failed" | "cancelled";
-  request: { split: string; custom?: unknown };
+  request: { split: string; custom?: Record<string, unknown> | null };
   progress: {
     completed?: number;
     total?: number;
     strategy?: string;
     case?: string;
+    stage?: string;
+    judged_runs?: number;
   };
   result_id: string | null;
   cancel_requested: boolean;

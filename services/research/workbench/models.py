@@ -67,6 +67,19 @@ class EvaluationCaseInput(StrictModel):
         return self
 
 
+class SemanticJudgment(StrictModel):
+    label: Literal['supported', 'contradicted', 'insufficient']
+    reason: str = Field(min_length=1, max_length=600)
+
+
+class JudgeConfiguration(StrictModel):
+    model_id: str = Field(min_length=1, max_length=1024)
+    max_claims_per_run: int = Field(2, ge=1, le=5)
+    tokens: int = Field(24000, ge=1000, le=200000)
+    wall_seconds: int = Field(120, ge=5, le=300)
+    estimated_cost_usd: float = Field(1.0, ge=0, le=25, allow_inf_nan=False)
+
+
 class CustomEvaluation(StrictModel):
     collection_id: UUID
     mode: Literal['demo', 'live'] = 'demo'
@@ -75,6 +88,7 @@ class CustomEvaluation(StrictModel):
     limits: Limits = Field(default_factory=Limits)
     cases: list[EvaluationCaseInput] = Field(min_length=1, max_length=6)
     confirm_paid: bool = False
+    judge: JudgeConfiguration | None = None
 
 
 class EvaluationCreate(StrictModel):

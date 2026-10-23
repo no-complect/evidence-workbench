@@ -99,6 +99,11 @@ export const workbenchApi = {
     api<Evaluation[]>(`${projectPath(project)}/evaluations`, { signal }),
   evaluationJobs: (project: string, signal?: AbortSignal) =>
     api<EvaluationJob[]>(`${projectPath(project)}/evaluation-jobs`, { signal }),
+  evaluationJudgments: (project: string, job: string, signal?: AbortSignal) =>
+    api<import("./contracts").SemanticGrade[]>(
+      `${projectPath(project)}/evaluation-jobs/${job}/judgments`,
+      { signal },
+    ),
   startEvaluation: (
     project: string,
     split: EvaluationSplit,

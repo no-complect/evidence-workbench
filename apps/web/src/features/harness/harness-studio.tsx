@@ -18,7 +18,7 @@ import type {
 } from "@/features/workbench/research-state";
 import { ModelSelector, type ModelSelectionProps } from "./model-selector";
 import { ContractPreview } from "./contract-preview";
-import { stages } from "./contracts";
+import { stages, type JudgeSelection } from "./contracts";
 import styles from "./studio.module.css";
 
 export function HarnessStudio({
@@ -30,6 +30,7 @@ export function HarnessStudio({
   modelSelection,
   contexts,
   onOpenWorkflows,
+  judgeSelection,
 }: {
   projectId: string;
   active: boolean;
@@ -37,6 +38,7 @@ export function HarnessStudio({
   onChange: (next: HarnessConfiguration) => void;
   research: { draft: ResearchDraft; dispatch: Dispatch<DraftAction> };
   modelSelection?: ModelSelectionProps;
+  judgeSelection: JudgeSelection;
   contexts: Context[];
   onOpenWorkflows: () => void;
 }) {
@@ -157,7 +159,27 @@ export function HarnessStudio({
                 </select>
               </label>
             ))}
+            <label className={styles.field}>
+              Evaluation judge
+              <select
+                aria-label="Evaluation judge model"
+                value={judgeSelection.modelId}
+                disabled={!modelSelection?.catalog?.configured}
+                onChange={(e) => judgeSelection.onChange(e.target.value)}
+              >
+                <option value="">Off · deterministic checks only</option>
+                {modelSelection?.catalog?.models.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
+          <p className="fine-print">
+            The judge is separate from the research reviewer. Selecting it makes
+            no calls; enable and authorize grading in Evaluations.
+          </p>
           <div className={styles.note}>
             <Fingerprint size={17} />
             <div>
