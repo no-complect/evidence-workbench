@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.use({ actionTimeout: 15000 });
+
 test("real presets persist, compare, apply and leave completed runs pinned", async ({
   page,
 }, info) => {
@@ -19,7 +21,9 @@ test("real presets persist, compare, apply and leave completed runs pinned", asy
   });
   expect(collection.status()).toBe(201);
   await page.goto("/");
-  await page.getByLabel("Project", { exact: true }).selectOption(pid);
+  await page
+    .getByRole("combobox", { name: "Project", exact: true })
+    .selectOption(pid);
   const presets = page.getByRole("region", {
     name: "Saved harness presets",
     exact: true,
@@ -30,10 +34,10 @@ test("real presets persist, compare, apply and leave completed runs pinned", asy
   });
   await instruction.fill("Preserve source gaps. Cite every supported finding.");
   await page
-    .getByLabel("Context policy", { exact: true })
+    .getByRole("combobox", { name: "Context policy", exact: true })
     .selectOption("strict");
   await page
-    .getByLabel("Maximum research iterations", { exact: true })
+    .getByRole("combobox", { name: "Maximum research iterations", exact: true })
     .selectOption("3");
   await presets
     .getByLabel("Preset name", { exact: true })
@@ -43,16 +47,16 @@ test("real presets persist, compare, apply and leave completed runs pinned", asy
     .click();
   await expect(presets.getByRole("status")).toContainText("Preset saved");
   const firstId = await presets
-    .getByLabel("Saved preset", { exact: true })
+    .getByRole("combobox", { name: "Saved preset", exact: true })
     .inputValue();
   await instruction.fill(
     "Highlight conflicting evidence and disclose uncertainty.",
   );
   await page
-    .getByLabel("Context policy", { exact: true })
+    .getByRole("combobox", { name: "Context policy", exact: true })
     .selectOption("balanced");
   await page
-    .getByLabel("Maximum research iterations", { exact: true })
+    .getByRole("combobox", { name: "Maximum research iterations", exact: true })
     .selectOption("1");
   await expect(presets).toContainText("3 of 14 settings differ");
   await presets
@@ -63,16 +67,18 @@ test("real presets persist, compare, apply and leave completed runs pinned", asy
     .click();
   await expect(presets.getByRole("status")).toContainText("Preset saved");
   const secondId = await presets
-    .getByLabel("Saved preset", { exact: true })
+    .getByRole("combobox", { name: "Saved preset", exact: true })
     .inputValue();
   expect(firstId).not.toBe(secondId);
   await page.reload();
-  await page.getByLabel("Project", { exact: true }).selectOption(pid);
+  await page
+    .getByRole("combobox", { name: "Project", exact: true })
+    .selectOption(pid);
   await presets
-    .getByLabel("Saved preset", { exact: true })
+    .getByRole("combobox", { name: "Saved preset", exact: true })
     .selectOption(firstId);
   await presets
-    .getByLabel("Compare baseline with", { exact: true })
+    .getByRole("combobox", { name: "Compare baseline with", exact: true })
     .selectOption(secondId);
   await expect(presets).toContainText("3 of 14 settings differ");
   const table = presets.getByRole("table");
@@ -105,7 +111,10 @@ test("real presets persist, compare, apply and leave completed runs pinned", asy
     "Preserve source gaps. Cite every supported finding.",
   );
   await expect(
-    page.getByLabel("Harness execution profile", { exact: true }),
+    page.getByRole("combobox", {
+      name: "Harness execution profile",
+      exact: true,
+    }),
   ).toHaveValue("demo");
   await page
     .getByRole("button", {
@@ -135,7 +144,7 @@ test("real presets persist, compare, apply and leave completed runs pinned", asy
   });
   await page.getByRole("button", { name: "Harness", exact: true }).click();
   await presets
-    .getByLabel("Saved preset", { exact: true })
+    .getByRole("combobox", { name: "Saved preset", exact: true })
     .selectOption(secondId);
   await presets
     .getByRole("button", { name: "Apply to draft", exact: true })
@@ -191,7 +200,9 @@ test("uncertain save retries once, unavailable model IDs stay visible and projec
     return route.continue();
   });
   await page.goto("/");
-  await page.getByLabel("Project", { exact: true }).selectOption(pid);
+  await page
+    .getByRole("combobox", { name: "Project", exact: true })
+    .selectOption(pid);
   const presets = page.getByRole("region", {
     name: "Saved harness presets",
     exact: true,
@@ -232,9 +243,11 @@ test("uncertain save retries once, unavailable model IDs stay visible and projec
   });
   const unavailableId = (await unavailable.json()).id;
   await page.reload();
-  await page.getByLabel("Project", { exact: true }).selectOption(pid);
+  await page
+    .getByRole("combobox", { name: "Project", exact: true })
+    .selectOption(pid);
   await presets
-    .getByLabel("Saved preset", { exact: true })
+    .getByRole("combobox", { name: "Saved preset", exact: true })
     .selectOption(unavailableId);
   await expect(presets).toContainText(
     "Not in the current model catalog: retired-model",
@@ -249,22 +262,24 @@ test("uncertain save retries once, unavailable model IDs stay visible and projec
   await expect(
     page.getByRole("combobox", { name: "Available model", exact: true }),
   ).toHaveValue("retired-model");
-  await expect(page.getByLabel("Writer model", { exact: true })).toHaveValue(
-    "retired-writer",
-  );
   await expect(
-    page.getByLabel("Evaluation judge model", { exact: true }),
+    page.getByRole("combobox", { name: "Writer model", exact: true }),
+  ).toHaveValue("retired-writer");
+  await expect(
+    page.getByRole("combobox", { name: "Evaluation judge model", exact: true }),
   ).toHaveValue("retired-judge");
   expect(writes).toEqual([]);
-  await page.getByLabel("Project", { exact: true }).selectOption(other);
+  await page
+    .getByRole("combobox", { name: "Project", exact: true })
+    .selectOption(other);
   await expect(presets.getByLabel("Preset name", { exact: true })).toHaveValue(
     "",
   );
   await expect(presets).toContainText("No presets yet");
-  await expect(presets.getByLabel("Saved preset", { exact: true })).toHaveCount(
-    0,
-  );
   await expect(
-    page.getByLabel("Evaluation judge model", { exact: true }),
+    presets.getByRole("combobox", { name: "Saved preset", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "Evaluation judge model", exact: true }),
   ).toHaveValue("");
 });
