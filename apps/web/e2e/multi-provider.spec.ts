@@ -143,7 +143,11 @@ test("provider selections carry into research and partial discovery failures pre
   await page
     .getByRole("button", { name: "Start research", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText("Synthetic stop");
+  await expect(
+    page
+      .getByRole("region", { name: "Workflows workspace", exact: true })
+      .getByRole("alert"),
+  ).toContainText("Synthetic stop");
   expect(writes).toHaveLength(1);
   expect(writes[0].body.model_id).toBe("anthropic:account-research");
   expect(writes[0].body.harness_config).toMatchObject({
@@ -162,11 +166,10 @@ test("provider selections carry into research and partial discovery failures pre
     harness.getByRole("combobox", { name: "Planner model", exact: true }),
   ).toHaveValue("openai-research");
   await expect(
-    harness.getByRole("option", {
-      name: "openai-research · unavailable",
-      exact: true,
-    }),
-  ).toHaveCount(1);
+    harness
+      .getByRole("combobox", { name: "Planner model", exact: true })
+      .locator("option:checked"),
+  ).toHaveText("openai-research · unavailable");
   expect(writes).toHaveLength(1);
   await page.screenshot({
     path: info.outputPath("multi-provider-partial-discovery.png"),
@@ -191,7 +194,7 @@ test("Anthropic-only discovery stays selectable while the live embedding require
     harness
       .getByRole("combobox", { name: "Harness execution profile", exact: true })
       .locator('option[value="live"]'),
-  ).toBeDisabled();
+  ).toHaveJSProperty("disabled", true);
   await expect(
     harness.getByRole("combobox", {
       name: "Harness execution profile",
@@ -238,7 +241,11 @@ test("independent Anthropic judge selection reaches the explicitly authorized ev
   await page
     .getByRole("button", { name: "Run collection evaluation", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText("Synthetic stop");
+  await expect(
+    page
+      .getByRole("region", { name: "Evaluations workspace", exact: true })
+      .getByRole("alert"),
+  ).toContainText("Synthetic stop");
   expect(writes).toHaveLength(1);
   expect(writes[0].body.custom).toMatchObject({
     model_id: "openai-research",
