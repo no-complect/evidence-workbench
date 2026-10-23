@@ -117,12 +117,16 @@ export type Evaluation = {
     completion_rate: number;
     mean_tokens: number;
     mean_latency_seconds: number;
-    estimated_cost_usd: number;
+    estimated_cost_usd: number | null;
   }[];
 };
 
 export type EvaluationCase = {
   case: string;
+  question?: string;
+  expected_sources?: string[];
+  expected_disclosure?: string;
+  expect_no_evidence?: boolean;
   split: string;
   strategy: string;
   run_id: string;
@@ -130,6 +134,12 @@ export type EvaluationCase = {
   checks: Record<string, boolean>;
   ranked_sources: string[];
   latency_seconds: number;
+  recall_at_k?: number | null;
+  mrr?: number | null;
+  citation_validity?: number | null;
+  quote_support?: number | null;
+  tokens?: number;
+  estimated_cost_usd?: number | null;
 };
 export type EvaluationJob = {
   id: string;

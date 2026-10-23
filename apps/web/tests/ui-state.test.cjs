@@ -26,6 +26,84 @@ function load(relative, dependencies = {}) {
 }
 const ui = load("features/workbench/workspace-state.ts");
 const research = load("features/workbench/research-state.ts");
+const cases = load("features/evaluations/case-state.ts");
+
+test("evaluation cases reject stale source expectations and require an explicit evidence gap", () => {
+  const examples = ["What evidence supports this decision?"];
+  let state = cases.caseReducer(cases.initialCaseDrafts, {
+    type: "edit",
+    id: 1,
+    field: "expected",
+    value: "old.md",
+  });
+  assert.throws(
+    () => cases.compileCases(state, ["current.md"], examples, "demo"),
+    /Case 1/,
+  );
+  state = cases.caseReducer(state, {
+    type: "edit",
+    id: 1,
+    field: "expected",
+    value: cases.NO_EVIDENCE,
+  });
+  const compiled = cases.compileCases(state, ["current.md"], examples, "demo");
+  assert.equal(compiled[0].expect_no_evidence, true);
+  assert.equal(compiled[0].expected_sources.length, 0);
+  assert.equal(compiled[0].question, examples[0]);
+});
+
+test("removing and adding evaluation cases preserves remaining expectations without reusing identities", () => {
+  let state = cases.caseReducer(cases.initialCaseDrafts, { type: "add" });
+  state = cases.caseReducer(state, {
+    type: "edit",
+    id: 2,
+    field: "expected",
+    value: "keep.md",
+  });
+  state = cases.caseReducer(state, { type: "remove", id: 1 });
+  state = cases.caseReducer(state, { type: "add" });
+  assert.equal(state.cases[0].expected, "keep.md");
+  assert.equal(state.cases[1].id, 3);
+  assert.equal(state.cases[1].expected, "");
+  for (let i = 0; i < 10; i++)
+    state = cases.caseReducer(state, { type: "add" });
+  assert.equal(state.cases.length, 6);
+});
+
+test("changing evaluation mode requires a new live question and changing collection clears source expectations", () => {
+  let state = cases.caseReducer(cases.initialCaseDrafts, {
+    type: "edit",
+    id: 1,
+    field: "expected",
+    value: "current.md",
+  });
+  state = cases.caseReducer(state, { type: "mode" });
+  assert.throws(
+    () =>
+      cases.compileCases(
+        state,
+        ["current.md"],
+        ["A valid fixture question"],
+        "live",
+      ),
+    /enter a question/,
+  );
+  state = cases.caseReducer(state, {
+    type: "edit",
+    id: 1,
+    field: "question",
+    value: "An independently authored live question?",
+  });
+  assert.equal(
+    cases.compileCases(state, ["current.md"], [], "live")[0].question,
+    "An independently authored live question?",
+  );
+  state = cases.caseReducer(state, { type: "collection" });
+  assert.throws(
+    () => cases.compileCases(state, ["another.md"], [], "live"),
+    /choose a current source/,
+  );
+});
 
 test("changing the selected run closes stale evidence and updates navigation atomically", () => {
   const previous = {

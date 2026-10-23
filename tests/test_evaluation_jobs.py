@@ -192,6 +192,9 @@ def test_collection_evaluation_freezes_sources_expectations_and_configuration(cl
     assert result['versions']['source_version_ids'] == [original_version]
     assert len(result['raw']) == 6 and result['versions']['expectations'][0]['expected_sources'] == ['security.md']
     assert all(r['status'] == 'completed' for r in result['raw'])
+    assert all(r['question'] == EXAMPLES[1] for r in result['raw'])
+    assert all(r['expected_sources'] == ['security.md'] for r in result['raw'] if r['case'] == 'custom-1')
+    assert all(r['expect_no_evidence'] is True for r in result['raw'] if r['case'] == 'custom-2')
     assert all(r['checks']['abstained_without_claims'] is False for r in result['raw'] if r['case'] == 'custom-2')
     assert any('Original retention' in c['text'] for r in children for c in r['report']['claims'])
     assert client.post(path,json={**body,'idempotency_key':db.uid(),'custom':{**custom,'mode':'live'}}).status_code == 409

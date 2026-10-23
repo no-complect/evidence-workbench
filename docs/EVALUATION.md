@@ -45,6 +45,26 @@ The judge uses the same configured GPT-4.1 model family and the versioned `judge
 
 Results go into **`evals/results/live/`**, separate from fixtures, and are not blended into the demo comparison UI. Model grades are fallible and correlated with the writer; they are not human ground truth. There are no precomputed live relevance labels, so the harness does not invent recall@k, MRR or live coverage numbers. A reviewer should annotate held-out real data and audit judge agreement before using these measurements for product decisions.
 
+## Collection suites in the UI
+
+Choose a collection-specific evaluation to author one to six cases. Each case
+has a question and either an expected source or an explicit no-evidence expectation;
+an optional disclosure phrase is checked lexically. The three strategies run each
+case, so six cases create eighteen investigations. Live submission displays the
+run count and requires paid-call acknowledgment; editing cases clears that consent.
+Corpus versions, expectations, model targets and per-run limits freeze at submission.
+
+Expand the saved case results to inspect the question, expected evidence, retrieval
+measurements, citation/quote checks and failed assertions. Execution completion and
+quality checks are separate: a completed evaluation can contain failing cases.
+**Open case** selects the exact child investigation in Workflows, where its report,
+citations, context and events remain available. Returning to Evaluations preserves
+the result inspection. Older result records without question/expectation fields
+still render their original measurements.
+
+The UI does not invoke the operator CLI's semantic judge. Its lexical checks and
+retained-evidence retrieval measurements remain explicitly labeled.
+
 ## Acceptance and CI
 
 `tests/test_integration.py` covers the real SQL/vector/graph path, source/citation authorization, approval replay, arbitrary demo rejection, iteration and budget stops, concurrent reservations, cancellation, bounded retry, expired leases and checkpoint recovery in separate OS processes. `tests/test_mcp.py` uses the real MCP SDK client. Playwright tests use the real UI/API: submit → edit plan → approve → wait → inspect citation → inspect context → export, plus ingestion and demo limitations on desktop/mobile.

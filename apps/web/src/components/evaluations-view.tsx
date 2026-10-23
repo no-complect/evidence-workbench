@@ -12,11 +12,13 @@ export function EvaluationsView({
   enabled,
   active = true,
   setup,
+  onOpenRun,
 }: {
   projectId: string;
   enabled: boolean;
   active?: boolean;
   setup?: EvaluationSetup;
+  onOpenRun: (runId: string) => void;
 }) {
   const { query, start, cancel, submit } = useEvaluations(projectId, active);
   const jobs = query.data?.jobs ?? [];
@@ -48,7 +50,10 @@ export function EvaluationsView({
           onCancel={(id) => cancel.mutate(id)}
         />
       </div>
-      <EvaluationResults evaluations={query.data?.evaluations ?? []} />
+      <EvaluationResults
+        evaluations={query.data?.evaluations ?? []}
+        onOpenRun={onOpenRun}
+      />
     </>
   );
 }

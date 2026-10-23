@@ -184,7 +184,11 @@ a separate evaluation worker coordinates basic RAG, fixed workflow, and bounded
 research through the research queue. Live cases also pin model targets at submission
 and require an explicit paid-call acknowledgment. Scripted cases are restricted to
 the seeded questions and fixture embedding profile. The browser currently authors
-one case per comparison; the API accepts up to six. Collection retrieval metrics use
+one to six cases per comparison, with three strategy runs per case. Each result
+shows the submitted question, expected evidence and measured checks; Open case
+selects the exact saved investigation for report, citation and context inspection.
+Failed quality checks remain visible even when the evaluation worker completes.
+Collection retrieval metrics use
 the top five retained evidence passages by RRF score and ID; fixture benchmarks use
 an independent retrieval probe. Source labels are human expectations and disclosure
 checks are lexical. Cases labeled as having no supporting evidence check whether

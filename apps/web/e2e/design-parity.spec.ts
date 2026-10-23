@@ -99,7 +99,7 @@ test("Harness studio → contract validation → real graph inspector → decisi
   ).toBeTruthy();
 });
 
-test("collection evaluation editor queues its own pinned comparison in the evaluation worker", async ({
+test("collection suite → failed checks → exact child report and citation", async ({
   page,
 }, info) => {
   const project = await page.request.post("/api/backend/projects", {
@@ -131,6 +131,16 @@ test("collection evaluation editor queues its own pinned comparison in the evalu
   await page
     .getByLabel("Expected supporting source", { exact: true })
     .selectOption({ label: "04-security.md" });
+  await page
+    .getByRole("button", { name: "Add test case", exact: true })
+    .click();
+  await page
+    .getByLabel("Expected supporting source 2", { exact: true })
+    .selectOption("__none__");
+  await page
+    .getByLabel("Expected disclosure text 2", { exact: true })
+    .fill("This exact disclosure is deliberately absent.");
+  await expect(page.getByText(/6 investigations total/)).toBeVisible();
   await page.screenshot({
     path: info.outputPath("evaluation-editor.png"),
     fullPage: true,
@@ -141,10 +151,16 @@ test("collection evaluation editor queues its own pinned comparison in the evalu
   await expect(
     page.locator(".benchmark-job .status-badge.completed"),
   ).toBeVisible({ timeout: 90000 });
-  await expect(page.locator(".benchmark-job")).toContainText("3 / 3 cases");
-  await page.getByText("Inspect 3 case results", { exact: true }).click();
+  await expect(page.locator(".benchmark-job")).toContainText("6 / 6 cases");
+  await page.getByText("Inspect 6 case results", { exact: true }).click();
   await expect(page.locator(".evaluation")).toContainText("custom-1");
   await expect(page.locator(".evaluation")).toContainText("source_version_ids");
+  const gapCase = page.getByRole("article", {
+    name: "custom-2 · rag",
+    exact: true,
+  });
+  await expect(gapCase).toContainText("Failed");
+  await expect(gapCase).toContainText("Expected disclosure text appears");
   await page.screenshot({
     path: info.outputPath("evaluation-comparison.png"),
     fullPage: true,
@@ -154,4 +170,44 @@ test("collection evaluation editor queues its own pinned comparison in the evalu
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
+  const response = await page.request.get(
+    `/api/backend/projects/${pid}/evaluations`,
+  );
+  const saved = (await response.json())[0];
+  const child = saved.raw.find(
+    (row: { case: string; strategy: string }) =>
+      row.case === "custom-1" && row.strategy === "rag",
+  );
+  await page
+    .getByRole("button", { name: "Open case custom-1 rag", exact: true })
+    .click();
+  await expect(
+    page.getByRole("combobox", { name: "Saved investigation", exact: true }),
+  ).toHaveValue(child.run_id);
+  await expect(
+    page.getByRole("heading", {
+      name: /enterprise ai assistant.*evidence review/i,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: /Open citation/ })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Evidence details" }),
+  ).toBeVisible();
+  await expect(page.locator(".provenance")).toContainText("Version");
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Context", exact: true }).click();
+  await expect(
+    page
+      .getByRole("region", { name: "Workflows workspace", exact: true })
+      .locator(".code-header"),
+  ).toContainText("Assembled input");
+  await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+  await expect(gapCase).toBeVisible();
+  await page.screenshot({
+    path: info.outputPath("evaluation-case-return.png"),
+    fullPage: true,
+  });
 });
