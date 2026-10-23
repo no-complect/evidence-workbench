@@ -3,6 +3,7 @@ import { ErrorNotice } from "./error-notice";
 import { useEvaluations } from "@/features/evaluations/use-evaluations";
 import { EvaluationJobs } from "@/features/evaluations/evaluation-jobs";
 import { EvaluationResults } from "@/features/evaluations/evaluation-results";
+import layout from "@/features/evaluations/evaluation-layout.module.css";
 import {
   EvaluationEditor,
   type EvaluationSetup,
@@ -26,7 +27,7 @@ export function EvaluationsView({
     (job) => job.status === "queued" || job.status === "running",
   );
   return (
-    <>
+    <div className={layout.workspace}>
       <EvaluationEditor
         projectId={projectId}
         enabled={enabled}
@@ -36,26 +37,30 @@ export function EvaluationsView({
         onSubmit={submit}
         setup={setup}
       />
-      <ErrorNotice
-        title="Evaluations could not load"
-        error={query.error}
-        onRetry={() => void query.refetch()}
-      />
-      <ErrorNotice error={start.error} onDismiss={start.reset} />
-      <ErrorNotice error={cancel.error} onDismiss={cancel.reset} />
-      <div style={{ marginTop: 23 }}>
-        <EvaluationJobs
-          projectId={projectId}
-          active={active}
-          jobs={jobs}
-          cancellingId={cancel.isPending ? cancel.variables : undefined}
-          onCancel={(id) => cancel.mutate(id)}
+      <div className={layout.feedback}>
+        <ErrorNotice
+          title="Evaluations could not load"
+          error={query.error}
+          onRetry={() => void query.refetch()}
         />
+        <ErrorNotice error={start.error} onDismiss={start.reset} />
+        <ErrorNotice error={cancel.error} onDismiss={cancel.reset} />
       </div>
+      {jobs.length > 0 && (
+        <section aria-label="Evaluation jobs">
+          <EvaluationJobs
+            projectId={projectId}
+            active={active}
+            jobs={jobs}
+            cancellingId={cancel.isPending ? cancel.variables : undefined}
+            onCancel={(id) => cancel.mutate(id)}
+          />
+        </section>
+      )}
       <EvaluationResults
         evaluations={query.data?.evaluations ?? []}
         onOpenRun={onOpenRun}
       />
-    </>
+    </div>
   );
 }

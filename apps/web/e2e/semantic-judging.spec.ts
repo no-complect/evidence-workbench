@@ -22,7 +22,7 @@ async function expectCheckboxLayout(page: Page, name: string) {
   expect(bounds.withinLabel).toBeTruthy();
 }
 
-test("real judge contract validates without inference and scripted grading stays disabled", async ({
+test("real judge contract validates without inference and scripted suites omit model grading controls", async ({
   page,
 }, info) => {
   await page.goto("/");
@@ -59,19 +59,16 @@ test("real judge contract validates without inference and scripted grading stays
       name: "Enable semantic judging",
       exact: true,
     }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("region", {
       name: "Semantic evaluation settings",
       exact: true,
     }),
-  ).toContainText("Scripted cases retain deterministic checks only");
-  await expectCheckboxLayout(page, "Enable semantic judging");
+  ).toHaveCount(0);
   await page
-    .getByRole("region", { name: "Semantic evaluation settings", exact: true })
-    .screenshot({
-      path: info.outputPath("disabled-judge-checkbox.png"),
-    });
+    .getByRole("region", { name: "Evaluation suite", exact: true })
+    .screenshot({ path: info.outputPath("scripted-evaluation-options.png") });
 });
 
 test("provider-double UI: judge selection, configuration-bound consent and saved claim grades", async ({
@@ -248,9 +245,6 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
     return reply({ detail: "Unexpected synthetic test request" }, 404);
   });
   await page.goto("/");
-  await page
-    .getByRole("combobox", { name: "Evaluation judge model", exact: true })
-    .selectOption("judge-b");
   expect(submitted).toBeUndefined();
   await page.getByRole("button", { name: "Evaluations", exact: true }).click();
   await page
@@ -259,6 +253,23 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
   await page
     .getByLabel("Evaluation mode", { exact: true })
     .selectOption("live");
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Enable semantic judging",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "Model grading is optional. Select an evaluation judge in Harness to enable it.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Harness", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Evaluation judge model", exact: true })
+    .selectOption("judge-b");
+  await page.getByRole("button", { name: "Evaluations", exact: true }).click();
   await page
     .getByLabel("Test question", { exact: true })
     .fill("Which retention requirement is supported?");

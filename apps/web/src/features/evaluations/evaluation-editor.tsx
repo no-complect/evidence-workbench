@@ -25,6 +25,7 @@ import {
 } from "@/features/workbench/research-state";
 import styles from "@/features/harness/studio.module.css";
 import controls from "./evaluation-controls.module.css";
+import layout from "./evaluation-layout.module.css";
 
 export type EvaluationSetup = {
   collections: Collection[];
@@ -137,13 +138,13 @@ export function EvaluationEditor({
     }
   }
   return (
-    <div className={styles.grid}>
+    <div className={`${styles.grid} ${layout.setup}`}>
       <section
         className={`${styles.surface} benchmark-launcher`}
         style={{ padding: 0, margin: 0 }}
         aria-label="Evaluation suite"
       >
-        <div className={styles.head}>
+        <div className={`${styles.head} ${layout.setupHeading}`}>
           <span>
             <FlaskConical size={17} />
             Evaluation suite

@@ -2,6 +2,7 @@ import { FlaskConical } from "lucide-react";
 import { EvaluationCaseResults } from "./evaluation-case-results";
 import { Empty } from "@/components/empty";
 import type { Evaluation } from "@/lib/contracts";
+import layout from "./evaluation-layout.module.css";
 
 export function EvaluationResults({
   evaluations,
@@ -11,16 +12,16 @@ export function EvaluationResults({
   onOpenRun: (runId: string) => void;
 }) {
   return (
-    <>
-      <div className="section-title">
+    <section className={layout.comparisons} aria-label="Evaluation comparisons">
+      <header className={layout.comparisonHeading}>
         <div>
           <h2>Evaluation comparisons</h2>
           <p>
             Comparable corpus, questions, and budgets across three strategies.
           </p>
         </div>
-        <FlaskConical className="muted" size={23} />
-      </div>
+        <FlaskConical className="muted" size={23} aria-hidden="true" />
+      </header>
       {evaluations.length === 0 ? (
         <Empty
           icon={FlaskConical}
@@ -30,13 +31,13 @@ export function EvaluationResults({
       ) : (
         evaluations.map((e) => (
           <div className="evaluation" key={e.id}>
-            <div className="flex-row">
+            <div className={layout.metadata}>
               <span className="mode-badge">
                 {e.mode.toUpperCase()} EVALUATION
               </span>
-              <span className="fine-print">
+              <time className="fine-print" dateTime={e.created_at}>
                 {new Date(e.created_at).toLocaleString()}
-              </span>
+              </time>
             </div>
             <div className="table-scroll">
               <table>
@@ -94,6 +95,6 @@ export function EvaluationResults({
           </div>
         ))
       )}
-    </>
+    </section>
   );
 }

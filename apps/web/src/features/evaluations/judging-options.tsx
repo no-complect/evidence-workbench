@@ -19,29 +19,30 @@ export function JudgingOptions({
   onClaims: (value: number) => void;
   pricesKnown: boolean;
 }) {
+  if (!live) return null;
+
   return (
     <section className={styles.note} aria-label="Semantic evaluation settings">
       <Scale size={17} />
       <div style={{ minWidth: 0, flex: 1 }}>
         <strong>Separate model judgment</strong>
-        <label className={controls.checkbox}>
-          <input
-            type="checkbox"
-            aria-label="Enable semantic judging"
-            checked={live && enabled}
-            disabled={!live || !modelId}
-            onChange={(e) => onEnabled(e.target.checked)}
-          />
-          <span>Grade sampled cited claims with the evaluation judge.</span>
-        </label>
+        {modelId ? (
+          <label className={controls.checkbox}>
+            <input
+              type="checkbox"
+              aria-label="Enable semantic judging"
+              checked={enabled}
+              onChange={(e) => onEnabled(e.target.checked)}
+            />
+            <span>Grade sampled cited claims with the evaluation judge.</span>
+          </label>
+        ) : null}
         <p className="fine-print">
-          {!live
-            ? "Available in live evaluations. Scripted cases retain deterministic checks only."
-            : modelId
-              ? `Judge: ${modelId}. This model choice is separate from the writer.`
-              : "Select an evaluation judge in Harness to enable grading."}
+          {modelId
+            ? `Judge: ${modelId}. This model choice is separate from the writer.`
+            : "Model grading is optional. Select an evaluation judge in Harness to enable it."}
         </p>
-        {live && enabled && (
+        {modelId && enabled && (
           <>
             <label className={styles.field}>
               Claims sampled per investigation
