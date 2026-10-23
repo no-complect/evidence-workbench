@@ -8,15 +8,36 @@ import {
   Workflow,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { Project, RunListItem } from "@/lib/contracts";
 import type { EngineeringWorkspace, WorkspaceAction } from "./workspace-state";
 import styles from "./notebook.module.css";
 
 const workspaces = [
-  { id: "harness", label: "Harness", icon: Braces },
-  { id: "rag", label: "RAG", icon: Database },
-  { id: "workflows", label: "Workflows", icon: Workflow },
-  { id: "evaluations", label: "Evaluations", icon: FlaskConical },
+  {
+    id: "harness",
+    label: "Harness",
+    icon: Braces,
+    help: "Configure instructions, context policy, models and output contracts for future runs. Editing these settings makes no model calls.",
+  },
+  {
+    id: "rag",
+    label: "RAG",
+    icon: Database,
+    help: "Prepare source collections and test retrieval before asking a model to synthesize an answer.",
+  },
+  {
+    id: "workflows",
+    label: "Workflows",
+    icon: Workflow,
+    help: "Run an investigation and inspect its plan, execution, evidence, report and assembled context.",
+  },
+  {
+    id: "evaluations",
+    label: "Evaluations",
+    icon: FlaskConical,
+    help: "Compare RAG, fixed workflow and bounded research using frozen sources and expectations.",
+  },
 ] as const;
 
 export function WorkspaceNavigation({
@@ -28,16 +49,17 @@ export function WorkspaceNavigation({
 }) {
   return (
     <nav className={styles.navigation} aria-label="Engineering workspaces">
-      {workspaces.map(({ id, label, icon: Icon }) => (
-        <button
-          type="button"
-          key={id}
-          aria-pressed={workspace === id}
-          onClick={() => onChange(id)}
-        >
-          <Icon size={17} />
-          {label}
-        </button>
+      {workspaces.map(({ id, label, icon: Icon, help }) => (
+        <Tooltip key={id} content={help}>
+          <button
+            type="button"
+            aria-pressed={workspace === id}
+            onClick={() => onChange(id)}
+          >
+            <Icon size={17} />
+            {label}
+          </button>
+        </Tooltip>
       ))}
       <span className={styles.navNote}>INSPECT / EXPERIMENT / EVALUATE</span>
     </nav>
@@ -81,6 +103,7 @@ export function ProjectBar({
           </select>
         </label>
         <Button
+          help="Create a separate project with its own collections, investigations and evaluation history."
           variant="ghost"
           size="sm"
           disabled={!connected}
@@ -117,6 +140,7 @@ export function ProjectBar({
           </select>
         </label>
         <Button
+          help="Start a new draft without deleting the selected saved investigation."
           variant="ghost"
           size="sm"
           onClick={() => onAction({ type: "new-investigation" })}

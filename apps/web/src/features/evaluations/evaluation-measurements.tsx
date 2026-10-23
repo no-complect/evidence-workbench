@@ -1,5 +1,6 @@
 import { ShieldCheck, ScanSearch, Quote, AlertCircle } from "lucide-react";
 import styles from "@/features/harness/studio.module.css";
+import { HelpTip } from "@/components/ui/tooltip";
 const measures = [
   [
     ScanSearch,
@@ -26,7 +27,13 @@ const measures = [
 export function EvaluationMeasurements() {
   return (
     <section className={styles.surface} aria-label="Evaluation measurements">
-      <div className={styles.head}>What gets measured</div>
+      <div className={styles.head}>
+        What gets measured
+        <HelpTip
+          label="Evaluation measurements"
+          content="Retrieval, citation resolution, exact quotations and disclosure checks measure different properties. None alone establishes factual correctness. Optional model judgments are fallible and reported separately."
+        />
+      </div>
       <div className={styles.pad}>
         {measures.map(([Icon, title, description]) => (
           <div

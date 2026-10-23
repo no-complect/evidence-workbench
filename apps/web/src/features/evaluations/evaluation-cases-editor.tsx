@@ -116,6 +116,7 @@ export function EvaluationCasesEditor({
         );
       })}
       <Button
+        help="Add another question and expected source or disclosure. Each case runs through all three strategies, increasing the investigation count and live-call budget."
         type="button"
         variant="secondary"
         disabled={state.cases.length >= MAX_CASES}

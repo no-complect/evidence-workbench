@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Layers3, Terminal } from "lucide-react";
 
 import { Empty } from "./empty";
+import { HelpTip } from "./ui/tooltip";
 import type { Context } from "@/lib/api";
 
 export function ContextView({ contexts }: { contexts: Context[] }) {
@@ -12,7 +13,13 @@ export function ContextView({ contexts }: { contexts: Context[] }) {
     <>
       <div className="section-title">
         <div>
-          <h2>Context inspector</h2>
+          <h2>
+            Context inspector
+            <HelpTip
+              label="Context inspector"
+              content="Inspect the redacted inputs actually assembled for a saved model call, including selected and excluded evidence, policy version, prompt hash and token bounds. This is not private chain-of-thought."
+            />
+          </h2>
           <p>
             Redacted assembled inputs and selection decisions. No private
             chain-of-thought.
@@ -44,13 +51,25 @@ export function ContextView({ contexts }: { contexts: Context[] }) {
               <strong>{chosenContext.payload.policy_version}</strong>
             </div>
             <div>
-              <span>Input token bound</span>
+              <span>
+                Input token bound
+                <HelpTip
+                  label="Input token bound"
+                  content="A conservative estimate used to bound assembled input before execution. It is not provider-reported usage; output tokens are reserved separately."
+                />
+              </span>
               <strong>
                 {chosenContext.payload.input_tokens_estimate.toLocaleString()}
               </strong>
             </div>
             <div>
-              <span>Selected / excluded</span>
+              <span>
+                Selected / excluded
+                <HelpTip
+                  label="Context evidence selection"
+                  content="Passages admitted to or excluded from this model call's finite context. Inspect the saved reasons to see how relevance, diversity and limits affected selection."
+                />
+              </span>
               <strong>
                 {chosenContext.payload.selected.length} /{" "}
                 {chosenContext.payload.excluded.length}

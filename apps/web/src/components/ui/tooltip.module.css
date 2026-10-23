@@ -1,0 +1,56 @@
+.content {
+  z-index: 500;
+  max-width: min(320px, calc(100vw - 24px));
+  max-height: var(--radix-tooltip-content-available-height);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  padding: 11px 14px;
+  border: 1px solid #59616a;
+  border-radius: 7px;
+  background: #3e454d;
+  color: #fff;
+  box-shadow: 0 5px 18px #18253b26;
+  font:
+    13px/1.65 Arial,
+    Helvetica,
+    sans-serif;
+  animation: appear 120ms ease-out;
+}
+
+.arrow {
+  fill: #3e454d;
+}
+
+.help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 5px;
+  vertical-align: middle;
+  color: var(--muted);
+}
+
+.help:hover,
+.help:focus-visible {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content {
+    animation: none;
+  }
+}

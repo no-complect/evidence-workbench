@@ -3,6 +3,8 @@ import { EvaluationCaseResults } from "./evaluation-case-results";
 import { Empty } from "@/components/empty";
 import type { Evaluation } from "@/lib/contracts";
 import layout from "./evaluation-layout.module.css";
+import { HelpTip } from "@/components/ui/tooltip";
+import { metricHelp } from "./metric-help";
 
 export function EvaluationResults({
   evaluations,
@@ -44,12 +46,12 @@ export function EvaluationResults({
                 <thead>
                   <tr>
                     <th>Strategy</th>
-                    <th>Recall@5</th>
-                    <th>MRR</th>
-                    <th>Valid citations</th>
-                    <th>Quote support*</th>
-                    <th>Completed</th>
-                    <th>Latency</th>
+                    {Object.entries(metricHelp).map(([label, content]) => (
+                      <th key={label}>
+                        {label}
+                        <HelpTip label={label} content={content} />
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>

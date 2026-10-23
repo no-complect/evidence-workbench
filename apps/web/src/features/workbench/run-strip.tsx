@@ -46,6 +46,7 @@ export function RunStrip({
           </span>
           {!isTerminalRun(run.status) && (
             <Button
+              help="Request a worker stop at the next safe boundary. Already gathered evidence and checkpoints remain saved; an in-flight provider call may still complete."
               size="sm"
               variant="ghost"
               onClick={() => cancel.mutate()}

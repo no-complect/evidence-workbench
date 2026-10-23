@@ -67,6 +67,7 @@ export function EvaluationJobs({
             </div>
             {(job.status === "queued" || job.status === "running") && (
               <Button
+                help="Request cancellation. An in-flight call may finish and be saved before the worker stops; completed case results and saved grades remain inspectable."
                 variant="secondary"
                 size="sm"
                 disabled={cancellingId === job.id || job.cancel_requested}

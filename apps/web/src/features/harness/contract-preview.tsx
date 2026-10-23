@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileJson } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HelpTip } from "@/components/ui/tooltip";
 import { ErrorNotice } from "@/components/error-notice";
 import type { InspectorStage } from "./contracts";
 import { studioOptions, useContractValidation } from "./queries";
@@ -59,6 +60,10 @@ export function ContractPreview({
         <span>
           <FileJson size={16} />
           Contract preview
+          <HelpTip
+            label="Contract preview"
+            content="Inspect and validate the output structure expected by each stage. Schema validation makes no model calls and does not establish factual correctness."
+          />
         </span>
         <small>Server-validated schema</small>
       </div>
@@ -92,6 +97,7 @@ export function ContractPreview({
         </div>
         <div className={styles.actions}>
           <Button
+            help="Send this JSON to the server's stage schema validator. No inference is performed; valid structure does not prove that an answer is supported."
             variant="secondary"
             disabled={validate.isPending || !projectId}
             onClick={() => validate.mutate({ stage, payload: json })}
@@ -99,6 +105,7 @@ export function ContractPreview({
             {validate.isPending ? "Validating…" : "Validate sample"}
           </Button>
           <Button
+            help="Replace the editable example with deliberately invalid JSON structure so you can inspect validation failures."
             variant="ghost"
             onClick={() => {
               setJson('{"unexpected":true}');

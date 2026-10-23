@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { HelpTip } from "@/components/ui/tooltip";
 import type { Evidence } from "@/lib/contracts";
 
 export function EvidenceDrawer({
@@ -26,6 +27,10 @@ export function EvidenceDrawer({
         <span>
           <BookOpen size={18} />
           Source evidence
+          <HelpTip
+            label="Source provenance"
+            content="This is the exact saved passage used by the run, with its version and offsets. Retrieval scores describe ranking, not calibrated confidence or factual correctness."
+          />
         </span>
         <Button
           autoFocus

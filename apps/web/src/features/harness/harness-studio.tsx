@@ -9,6 +9,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HelpTip, Tooltip } from "@/components/ui/tooltip";
 import { ContextView } from "@/components/context-view";
 import type { Context } from "@/lib/contracts";
 import type { HarnessConfiguration } from "../../../../../packages/contracts/models";
@@ -49,35 +50,41 @@ export function HarnessStudio({
           <span>
             <SlidersHorizontal size={16} />
             Harness configuration
+            <HelpTip
+              label="Harness configuration"
+              content="These settings apply to future investigations. Saved runs keep their pinned instructions, model targets, source versions and limits."
+            />
           </span>
           <small>Applied to the next investigation</small>
         </div>
         <div className={styles.pad}>
           <label className={styles.field}>
             Execution profile
-            <select
-              aria-label="Harness execution profile"
-              value={research.draft.mode}
-              onChange={(e) =>
-                research.dispatch({
-                  type: "mode",
-                  value: e.target.value as "demo" | "live",
-                })
-              }
-            >
-              <option value="demo">
-                Deterministic fixture · no paid calls
-              </option>
-              <option
-                value="live"
-                disabled={
-                  !modelSelection?.catalog?.live_enabled ||
-                  !modelSelection.catalog.configured
+            <Tooltip content="Fixture execution uses synthetic responses with real persisted retrieval and workflow state. Live execution uses the server's provider key and may incur charges; changing this setting does not start a run.">
+              <select
+                aria-label="Harness execution profile"
+                value={research.draft.mode}
+                onChange={(e) =>
+                  research.dispatch({
+                    type: "mode",
+                    value: e.target.value as "demo" | "live",
+                  })
                 }
               >
-                Live · server environment key
-              </option>
-            </select>
+                <option value="demo">
+                  Deterministic fixture · no paid calls
+                </option>
+                <option
+                  value="live"
+                  disabled={
+                    !modelSelection?.catalog?.live_enabled ||
+                    !modelSelection.catalog.configured
+                  }
+                >
+                  Live · server environment key
+                </option>
+              </select>
+            </Tooltip>
           </label>
           {modelSelection && <ModelSelector {...modelSelection} compact />}
           <div className={styles.fields}>
@@ -98,19 +105,21 @@ export function HarnessStudio({
             </label>
             <label className={styles.field}>
               Context policy
-              <select
-                value={configuration.context_policy}
-                onChange={(e) =>
-                  onChange({
-                    ...configuration,
-                    context_policy: e.target
-                      .value as HarnessConfiguration["context_policy"],
-                  })
-                }
-              >
-                <option value="balanced">Balanced · source diversity</option>
-                <option value="strict">Strict · smaller context</option>
-              </select>
+              <Tooltip content="Controls how evidence is selected for model input. Balanced favors source diversity; Strict uses a smaller context. Excluded passages and reasons are saved for inspection.">
+                <select
+                  value={configuration.context_policy}
+                  onChange={(e) =>
+                    onChange({
+                      ...configuration,
+                      context_policy: e.target
+                        .value as HarnessConfiguration["context_policy"],
+                    })
+                  }
+                >
+                  <option value="balanced">Balanced · source diversity</option>
+                  <option value="strict">Strict · smaller context</option>
+                </select>
+              </Tooltip>
             </label>
             <label className={styles.field}>
               Maximum research iterations
@@ -136,44 +145,50 @@ export function HarnessStudio({
             {stages.map(([key, label]) => (
               <label className={styles.field} key={key}>
                 {label}
-                <select
-                  aria-label={`${label} model`}
-                  disabled={!modelSelection?.catalog?.configured}
-                  value={configuration.stage_models[key] ?? ""}
-                  onChange={(e) =>
-                    onChange({
-                      ...configuration,
-                      stage_models: {
-                        ...configuration.stage_models,
-                        [key]: e.target.value || null,
-                      },
-                    })
-                  }
+                <Tooltip
+                  content={`Override the model for ${label.toLowerCase()} only, or inherit the selected model. This changes future runs and makes no inference call.`}
                 >
-                  <option value="">Use selected model</option>
+                  <select
+                    aria-label={`${label} model`}
+                    disabled={!modelSelection?.catalog?.configured}
+                    value={configuration.stage_models[key] ?? ""}
+                    onChange={(e) =>
+                      onChange({
+                        ...configuration,
+                        stage_models: {
+                          ...configuration.stage_models,
+                          [key]: e.target.value || null,
+                        },
+                      })
+                    }
+                  >
+                    <option value="">Use selected model</option>
+                    {modelSelection?.catalog?.models.map((id) => (
+                      <option key={id} value={id}>
+                        {id}
+                      </option>
+                    ))}
+                  </select>
+                </Tooltip>
+              </label>
+            ))}
+            <label className={styles.field}>
+              Evaluation judge
+              <Tooltip content="An optional model that grades sampled cited claims after evaluation research finishes. Selecting it makes no calls; grading requires a separate opt-in and paid authorization in Evaluations.">
+                <select
+                  aria-label="Evaluation judge model"
+                  value={judgeSelection.modelId}
+                  disabled={!modelSelection?.catalog?.configured}
+                  onChange={(e) => judgeSelection.onChange(e.target.value)}
+                >
+                  <option value="">Off · deterministic checks only</option>
                   {modelSelection?.catalog?.models.map((id) => (
                     <option key={id} value={id}>
                       {id}
                     </option>
                   ))}
                 </select>
-              </label>
-            ))}
-            <label className={styles.field}>
-              Evaluation judge
-              <select
-                aria-label="Evaluation judge model"
-                value={judgeSelection.modelId}
-                disabled={!modelSelection?.catalog?.configured}
-                onChange={(e) => judgeSelection.onChange(e.target.value)}
-              >
-                <option value="">Off · deterministic checks only</option>
-                {modelSelection?.catalog?.models.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              </select>
+              </Tooltip>
             </label>
           </div>
           <p className="fine-print">
@@ -225,7 +240,10 @@ export function HarnessStudio({
             )}
           </details>
           <div className={styles.actions}>
-            <Button onClick={onOpenWorkflows}>
+            <Button
+              help="Open Workflows with this draft configuration. You still choose when to start research."
+              onClick={onOpenWorkflows}
+            >
               Investigate with this configuration <ArrowRight size={14} />
             </Button>
           </div>

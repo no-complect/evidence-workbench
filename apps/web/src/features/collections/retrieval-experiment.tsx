@@ -5,6 +5,7 @@ import { Fingerprint, Search, TextQuote } from "lucide-react";
 import type { SearchRequest } from "../../../../../packages/contracts/models";
 import type { Collection } from "@/lib/contracts";
 import { Button } from "@/components/ui/button";
+import { HelpTip, Tooltip } from "@/components/ui/tooltip";
 import { ErrorNotice } from "@/components/error-notice";
 import { retrievalOptions } from "./queries";
 import notebook from "@/features/workbench/notebook.module.css";
@@ -49,6 +50,10 @@ export function RetrievalExperiment({
           <div className={notebook.surfaceHead}>
             <Search size={17} />
             Find supporting passages
+            <HelpTip
+              label="Find supporting passages"
+              content="Search indexed passages without generating an answer. Inspect both retrieval relevance and source provenance before using the evidence in research."
+            />
           </div>
           <div className={notebook.pad}>
             <form
@@ -80,18 +85,25 @@ export function RetrievalExperiment({
               <div className={styles.searchControls}>
                 <label className={styles.field}>
                   Retrieval method
-                  <select
-                    value={method}
-                    onChange={(event) =>
-                      setMethod(event.target.value as SearchRequest["method"])
-                    }
-                  >
-                    <option value="keyword">Keyword</option>
-                    <option value="vector">Vector</option>
-                    <option value="hybrid">Hybrid</option>
-                  </select>
+                  <Tooltip content="Keyword matches text. Vector compares embeddings; Hybrid combines keyword and vector ranks. Live vector and hybrid queries may call the embedding provider; keyword search makes no model calls.">
+                    <select
+                      value={method}
+                      onChange={(event) =>
+                        setMethod(event.target.value as SearchRequest["method"])
+                      }
+                    >
+                      <option value="keyword">Keyword</option>
+                      <option value="vector">Vector</option>
+                      <option value="hybrid">Hybrid</option>
+                    </select>
+                  </Tooltip>
                 </label>
                 <Button
+                  help={
+                    method === "keyword"
+                      ? "Search indexed text and return ranked passages. This does not call a model or synthesize an answer."
+                      : "Retrieve passages using this collection's vector index. Live vector and hybrid queries call the configured embedding provider; fixture collections use fixture vectors."
+                  }
                   type="submit"
                   disabled={!ready || query.isFetching || !question.trim()}
                 >
@@ -161,6 +173,10 @@ export function RetrievalExperiment({
           <div className={notebook.surfaceHead}>
             <TextQuote size={17} />
             Passage inspector
+            <HelpTip
+              label="Passage inspector"
+              content="Inspect the selected passage as stored in its immutable source version. Rank is a retrieval signal, not confidence that the passage supports an answer."
+            />
           </div>
           <div className={notebook.pad}>
             {chosen ? (
@@ -189,6 +205,7 @@ export function RetrievalExperiment({
                   </p>
                 )}
                 <Button
+                  help="Show the exact source version, content hash, passage offsets and embedding profile behind this retrieval result."
                   variant="ghost"
                   size="sm"
                   aria-expanded={provenance}

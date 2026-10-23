@@ -1,6 +1,7 @@
 import { Scale } from "lucide-react";
 import styles from "@/features/harness/studio.module.css";
 import controls from "./evaluation-controls.module.css";
+import { HelpTip } from "@/components/ui/tooltip";
 
 export function JudgingOptions({
   live,
@@ -25,7 +26,13 @@ export function JudgingOptions({
     <section className={styles.note} aria-label="Semantic evaluation settings">
       <Scale size={17} />
       <div style={{ minWidth: 0, flex: 1 }}>
-        <strong>Separate model judgment</strong>
+        <strong>
+          Separate model judgment
+          <HelpTip
+            label="Separate model judgment"
+            content="Opt into additional model calls that assess sampled cited claims as supported, contradicted or insufficient. Unsampled and ungraded claims stay explicit; a judge grade is not independent ground truth."
+          />
+        </strong>
         {modelId ? (
           <label className={controls.checkbox}>
             <input

@@ -6,6 +6,7 @@ import type { Collection } from "@/lib/contracts";
 import { MAX_BATCH_FILES, sourceFileError } from "@/lib/ingestion";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { HelpTip } from "@/components/ui/tooltip";
 import { ErrorNotice } from "@/components/error-notice";
 import {
   submissionIntent,
@@ -113,6 +114,10 @@ export function CollectionWizard({
         <h2>
           <FolderPlus size={20} />
           Create an evidence collection
+          <HelpTip
+            label="Collection setup"
+            content="Choose a purpose and bundled or uploaded documents, review the material, then test retrieval. You do not need to generate a dataset first."
+          />
         </h2>
         <button
           type="button"
@@ -339,6 +344,11 @@ export function CollectionWizard({
               </Button>
               <Button
                 type="submit"
+                help={
+                  step === 2
+                    ? "Save the collection and prepare its documents. Synthetic packs make no paid calls; live upload indexing uses the selected embedding provider."
+                    : "Continue the walkthrough while preserving the collection draft. Preparation begins only after you review and confirm the sources."
+                }
                 disabled={busy || (step > 0 && !options.isSuccess)}
               >
                 {prepare.isPending && <Loader2 size={15} className="spin" />}
@@ -392,7 +402,11 @@ export function CollectionWizard({
               Files needing correction can be selected again. Your prepared
               collection remains saved.
             </span>
-            <Button disabled={busy} onClick={() => onFinished(createdId)}>
+            <Button
+              help="Close the walkthrough and select this saved collection. Files needing correction can be uploaded again later."
+              disabled={busy}
+              onClick={() => onFinished(createdId)}
+            >
               Finish setup
               <CheckCheck size={15} />
             </Button>

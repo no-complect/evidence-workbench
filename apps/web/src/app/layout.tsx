@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { QueryProvider } from "@/components/query-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 export const metadata: Metadata = {
   title: "Evidence Workbench",
   description:
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <QueryProvider>{children}</QueryProvider>
+        <TooltipProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </TooltipProvider>
       </body>
     </html>
   );

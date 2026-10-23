@@ -48,6 +48,7 @@ export function EvaluationCaseResults({
                 </p>
               </div>
               <Button
+                help="Open the exact saved investigation for this case and strategy, including its report, citations, execution events and assembled context."
                 variant="secondary"
                 size="sm"
                 aria-label={`Open case ${row.case} ${row.strategy}`}
