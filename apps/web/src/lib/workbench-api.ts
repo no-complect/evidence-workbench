@@ -12,8 +12,16 @@ import type {
   Evaluation,
   EvaluationJob,
   EvaluationSplit,
+  CollectionOptions,
+  UploadResult,
+  SearchHit,
 } from "./contracts";
-import type { RunCreate } from "../../../../packages/contracts/models";
+import { sourceFileError } from "./ingestion";
+import type {
+  CollectionSetup,
+  SearchRequest,
+  RunCreate,
+} from "../../../../packages/contracts/models";
 
 const projectPath = (id: string) => `projects/${id}`;
 const post = (body?: unknown): RequestInit => ({
@@ -50,17 +58,34 @@ export const workbenchApi = {
       `${projectPath(project)}/collections`,
       post(body),
     ),
+  collectionOptions: (project: string, signal?: AbortSignal) =>
+    api<CollectionOptions>(`${projectPath(project)}/collection-options`, {
+      signal,
+    }),
+  prepareCollection: (project: string, body: CollectionSetup) =>
+    api<Collection>(`${projectPath(project)}/collection-setups`, post(body)),
+  resumeCollection: (project: string, collection: string) =>
+    api<Collection>(
+      `${projectPath(project)}/collections/${collection}/prepare`,
+      post(),
+    ),
+  search: (project: string, body: SearchRequest, signal?: AbortSignal) =>
+    api<SearchHit[]>(`${projectPath(project)}/search`, {
+      ...post(body),
+      signal,
+    }),
   upload: (project: string, collection: string, file: File) => {
-    if (file.size > 8 * 1024 * 1024)
-      throw new Error("Files must be 8 MiB or smaller");
-    if (!/\.(md|txt|pdf)$/i.test(file.name))
-      throw new Error("Choose a Markdown, text, or PDF file");
+    const error = sourceFileError(file);
+    if (error) throw new Error(error);
     const body = new FormData();
     body.append("file", file);
-    return api(`${projectPath(project)}/collections/${collection}/sources`, {
-      method: "POST",
-      body,
-    });
+    return api<UploadResult>(
+      `${projectPath(project)}/collections/${collection}/sources`,
+      {
+        method: "POST",
+        body,
+      },
+    );
   },
   start: (project: string, request: RunCreate) =>
     api<Run>(`${projectPath(project)}/runs`, post(request)),
@@ -74,10 +99,15 @@ export const workbenchApi = {
     api<Evaluation[]>(`${projectPath(project)}/evaluations`, { signal }),
   evaluationJobs: (project: string, signal?: AbortSignal) =>
     api<EvaluationJob[]>(`${projectPath(project)}/evaluation-jobs`, { signal }),
-  startEvaluation: (project: string, split: EvaluationSplit, key: string) =>
+  startEvaluation: (
+    project: string,
+    split: EvaluationSplit,
+    key: string,
+    custom?: import("../../../../packages/contracts/models").CustomEvaluation,
+  ) =>
     api<EvaluationJob>(
       `${projectPath(project)}/evaluation-jobs`,
-      post({ split, idempotency_key: key }),
+      post({ split, idempotency_key: key, ...(custom ? { custom } : {}) }),
     ),
   cancelEvaluation: (project: string, job: string) =>
     api(`${projectPath(project)}/evaluation-jobs/${job}/cancel`, post()),

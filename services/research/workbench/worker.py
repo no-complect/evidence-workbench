@@ -11,6 +11,7 @@ from langgraph.types import Command
 from . import db
 from .config import settings
 from .graph import build_graph, partial_report
+from .providers import ModelCompatibilityError
 from .budget import BudgetExhausted, Cancelled, LeaseLost
 
 log = logging.getLogger('workbench.worker')
@@ -124,6 +125,8 @@ def execute_run(run):
             retry = transient(exc) and run['attempts'] < 4
             status = 'retrying' if retry else 'failed'
             error = f'Transient {type(exc).__name__}; retry scheduled' if retry else f'Execution failed ({type(exc).__name__}); inspect configuration and source validity'
+            if isinstance(exc, ModelCompatibilityError):
+                error = 'The selected model could not complete this research contract. Check its inference access and structured-output support, or select another chat model.'
             db.execute(
                 "UPDATE research_runs SET status=%s,error=%s,available_at=now()+(%s*interval '1 second'),updated_at=now() WHERE id=%s AND lease_owner=%s",
                 (status, error, 2**run['attempts'], run['id'], run['lease_owner']))

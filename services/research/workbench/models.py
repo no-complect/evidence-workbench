@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Annotated
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 DEFAULT_QUESTION = 'Compare three approaches to deploying an enterprise AI assistant. Investigate security, operating costs, retrieval quality, and maintenance. Support recommendations with evidence and identify unresolved questions.'
 EXAMPLES = [
@@ -25,6 +25,18 @@ class Limits(StrictModel):
     top_k: int = Field(5, ge=1, le=20)
 
 
+class StageModels(StrictModel):
+    plan: str | None = Field(None, min_length=1, max_length=1024)
+    assess: str | None = Field(None, min_length=1, max_length=1024)
+    report: str | None = Field(None, min_length=1, max_length=1024)
+
+
+class HarnessConfiguration(StrictModel):
+    system_instruction: str = Field('', max_length=2000)
+    context_policy: Literal['balanced', 'strict'] = 'balanced'
+    stage_models: StageModels = Field(default_factory=StageModels)
+
+
 class RunCreate(StrictModel):
     collection_id: UUID
     question: str = Field(min_length=10, max_length=4000)
@@ -33,6 +45,41 @@ class RunCreate(StrictModel):
     approve_plan: bool = True
     web_enabled: bool = False
     limits: Limits = Field(default_factory=Limits)
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    harness_config: HarnessConfiguration | None = None
+    harness_revision_id: UUID | None = None
+    model_id: str | None = Field(None, min_length=1, max_length=1024)
+
+
+class EvaluationCaseInput(StrictModel):
+    question: str = Field(min_length=10, max_length=4000)
+    query: str = Field(min_length=3, max_length=1000)
+    expected_sources: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(default_factory=list, max_length=20)
+    expect_no_evidence: bool = False
+    expected_disclosure: str = Field('', max_length=200)
+
+    @model_validator(mode='after')
+    def expectation(self):
+        if not self.expected_sources and not self.expect_no_evidence:
+            raise ValueError('Choose expected sources or explicitly expect no supporting evidence')
+        if self.expected_sources and self.expect_no_evidence:
+            raise ValueError('Choose sources or no supporting evidence, not both')
+        return self
+
+
+class CustomEvaluation(StrictModel):
+    collection_id: UUID
+    mode: Literal['demo', 'live'] = 'demo'
+    model_id: str | None = Field(None, min_length=1, max_length=1024)
+    harness_config: HarnessConfiguration | None = None
+    limits: Limits = Field(default_factory=Limits)
+    cases: list[EvaluationCaseInput] = Field(min_length=1, max_length=6)
+    confirm_paid: bool = False
+
+
+class EvaluationCreate(StrictModel):
+    split: Literal['all', 'development', 'held-out'] = 'development'
+    custom: CustomEvaluation | None = None
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
@@ -77,10 +124,19 @@ class CollectionCreate(Named):
     embedding_config: Literal['demo-v1', 'openai-small-v1'] = 'demo-v1'
 
 
+class CollectionSetup(CollectionCreate):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    purpose: str = Field(min_length=3, max_length=1000)
+    source_kind: Literal['starter', 'upload']
+    idempotency_key: UUID
+
+
 class SearchRequest(StrictModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
     collection_id: UUID
     query: str = Field(min_length=1, max_length=1000)
     top_k: int = Field(5, ge=1, le=20)
+    method: Literal['keyword', 'vector', 'hybrid'] = 'hybrid'
 
 
 class RunSummary(BaseModel):
@@ -97,3 +153,36 @@ class RunSummary(BaseModel):
     tokens_used: int
     tools_used: int
     cost_used: float
+
+
+class ConnectionCreate(Named):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    use_environment: bool = False
+    api_key: SecretStr | None = Field(None, min_length=16, max_length=512)
+
+    @model_validator(mode='after')
+    def credential_source(self):
+        if self.use_environment == bool(self.api_key):
+            raise ValueError('Choose exactly one credential source')
+        return self
+
+
+class ModelVerification(StrictModel):
+    model_id: str = Field(pattern=r'^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')
+    input_usd_per_million: float = Field(gt=0, le=1000, allow_inf_nan=False)
+    output_usd_per_million: float = Field(gt=0, le=10000, allow_inf_nan=False)
+    max_cost_usd: float = Field(0.05, gt=0, le=1, allow_inf_nan=False)
+    idempotency_key: UUID
+
+
+class HarnessTargets(StrictModel):
+    plan: UUID
+    assess: UUID
+    report: UUID
+
+
+class HarnessCreate(Named):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    targets: HarnessTargets
+    limits: Limits = Field(default_factory=Limits)
+    idempotency_key: UUID

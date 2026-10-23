@@ -1,5 +1,6 @@
 "use client";
 
+import type { CustomEvaluation } from "../../../../../packages/contracts/models";
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { workbenchApi } from "@/lib/workbench-api";
@@ -18,8 +19,15 @@ export function useEvaluations(projectId: string, active = true) {
   });
   const intent = useRef<SubmissionIntent | null>(null);
   const start = useMutation({
-    mutationFn: ({ split, key }: { split: EvaluationSplit; key: string }) =>
-      workbenchApi.startEvaluation(projectId, split, key),
+    mutationFn: ({
+      split,
+      key,
+      custom,
+    }: {
+      split: EvaluationSplit;
+      key: string;
+      custom?: CustomEvaluation;
+    }) => workbenchApi.startEvaluation(projectId, split, key, custom),
     onSuccess: async (job) => {
       client.setQueryData<EvaluationSnapshot>(
         workspaceKeys.evaluations(projectId),
@@ -60,15 +68,15 @@ export function useEvaluations(projectId: string, active = true) {
       });
     },
   });
-  function submit(split: EvaluationSplit) {
+  function submit(split: EvaluationSplit, custom?: CustomEvaluation) {
     if (start.isPending) return;
     intent.current = submissionIntent(
       intent.current,
-      { projectId, split },
+      { projectId, split, custom: custom ?? null },
       () => crypto.randomUUID(),
     );
     start.mutate(
-      { split, key: intent.current.key },
+      { split, key: intent.current.key, ...(custom ? { custom } : {}) },
       {
         onSuccess: () => {
           intent.current = null;

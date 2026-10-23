@@ -10,6 +10,23 @@ Application migrations are ordered SQL files in `db/migrations`, recorded in `sc
 
 `projects` and `project_memberships` define access. Collections select an immutable embedding configuration. Documents have a stable identity within a collection, and content hashes identify immutable versions. Chunks preserve section, page (PDF only), and character offsets within a page or text document. Long paragraphs are split at 1,600 characters; chunk boundaries and hashes are deterministic. A document points to its current version; reuploading old bytes can explicitly reactivate an existing immutable version. Runs pin the current version of each document **at submission**, so later ingestion cannot change their corpus. Existing citations retain old versions.
 
+Collection setup stores a normalized purpose/source/profile intent and preparation
+status. Its project/user/request-key identity reuses the same collection on retry.
+A collection advisory lock serializes starter preparation; committed document
+versions survive interruption. Ready retries return without reseeding user changes.
+A database trigger prevents changing the setup intent or embedding profile.
+Incomplete setup blocks uploads, retrieval and research until preparation resumes.
+
+The browser owns local file intent in a project-scoped sequential upload queue.
+Each row reports its actual response or validation/indexing error; it does not
+simulate pipeline progress. Failed replacement ingestion leaves the previous
+current version available. Source counts and vector coverage describe that current
+version, while version counts retain history. Retrieval experiments submit explicit
+snapshots, use scoped abortable queries and disable automatic embedding-call retries
+and refetches. Keyword retrieval makes no model call; Vector and Hybrid use the
+collection's embedding profile. Component ranks and reciprocal-rank scores are
+retrieval measurements, not calibrated confidence.
+
 `research_runs` is the durable queue and run projection. `research_tasks`, `evidence`, `claims`, and `citations` retain structured results. Composite foreign keys protect project/run relationships. `run_events` gives ordered cursors; `contexts` retains redacted assembled model inputs; `usage_records` records reservations and reconciled usage. `effects` stores replayable node results outside graph state. `evaluation_runs` stores measured demo aggregates; raw files contain per-case data. Large source bytes live in a local volume or a private Supabase bucket.
 
 Production APIs verify both a shared backend secret and the user's Supabase access token through `/auth/v1/user`; every route verifies membership before retrieving source, run, context or citation data. Next.js passes the token without exposing worker/service-role credentials. Supabase JS reads authorized projects through RLS in the browser. The RLS migration exposes project-scoped reads only; client writes use the validating API. Workers have privileged database access but apply explicit project/collection predicates. A run references its submitter and collection. MCP tools call the same API and cannot mutate data.
@@ -21,6 +38,61 @@ The shipped local demo explicitly sets `APP_ENV=local`, `AUTH_MODE=demo`, and lo
 `chunks.embedding` is a genuine pgvector column. Separate partial HNSW expression indexes support 16-dimensional fixture vectors and 1536-dimensional OpenAI vectors. Model identity, dimensions, and configuration version are stored in `embedding_configs`; chunk checks constrain dimensions, and queries filter project, collection, config and pinned source versions before ranking. Full-text retrieval uses an English `tsvector` GIN index and `websearch_to_tsquery`; vector retrieval uses cosine distance. Reciprocal-rank fusion uses `sum(1/(60+rank))`; top-k is bounded to 1–20. `DisabledReranker` is an explicit adapter, never reported as an applied reranker.
 
 The LangChain integration is a small `BaseRetriever` wrapper returning `Document` objects, with the SQL repository as the authorization boundary. Demo queries select a versioned topic fixture; they do not claim arbitrary semantic embeddings. Unseeded demo uploads have NULL vectors and remain full-text searchable. Reindexing means choosing a new collection/configuration and ingesting again. No API mutates embedding identity in place. Web fetches create immutable source versions with URL/time metadata and bounded text chunks; they enter that run directly and are full-text searchable later, without an additional unbudgeted embedding call.
+
+## Environment model boundary
+
+The API discovers all IDs from the fixed official OpenAI models endpoint using its
+server `OPENAI_API_KEY`; authorization checks project membership before discovery.
+No credential is sent to the browser or copied into new database connections.
+The selector is available independently of the live-execution opt-in. Discovery
+checks catalog access only, without paid probes or an inferred family allowlist.
+Provider errors use safe generic messages and redirects/proxy inheritance are off.
+
+The project-keyed UI owns selection intent; the project-scoped query cache owns
+catalog data and consumes abort signals. Harness and Workflows share the same
+selection. Each live run pins its chosen model for planner, reviewer and writer,
+limits, prompt/contract/context/tool fingerprints and optional cost estimates in
+its immutable snapshot. The worker reads the current environment key and checks
+live enablement and fingerprints before calls. A default-model change cannot
+switch a queued run. Failed model access/structured-output compatibility is visible
+without a scripted fallback or prerequisite verification workflow.
+
+Prices are optional. Estimates for the configured default are never reused for a
+different selected model. Missing prices leave dollar totals unavailable; dollar
+caps cannot cover unpriced calls. Token/tool/iteration/time limits and approval,
+cancellation, lease and checkpoint controls remain in force. Embedding profiles
+are a separate, immutable collection boundary.
+
+Legacy local connection/revision endpoints and encrypted credentials remain for
+existing records and queued snapshots. Production still rejects these legacy
+management endpoints. They are absent from the current UI and not prerequisites
+for environment-based discovery or research. Legacy snapshots retain their
+credential revocation and fingerprint checks.
+
+## Harness studio and inspectable execution
+
+A project-owned configuration draft is shared by Harness and Workflows, separately
+from scoped server query data. Typed request contracts carry additional system
+instructions, bounded context policy and optional stage models. Live snapshots pin
+the configuration plus its SHA-256; the worker combines run instructions with the
+versioned stage prompt and records the effective prompt hash. Strict context policy
+uses 70% of the balanced stage input cap; the same diversity, deduplication and
+untrusted-source rules apply. Contracts remain fixed per stage. Schema previews and
+sample validation use the actual Pydantic models, with validation locations/types
+returned without echoing submitted values.
+
+The execution graph is a projection of the actual LangGraph nodes. Its inspector
+selects saved events and contexts by stage. Unexecuted nodes remain explicit
+workflow definitions; it does not generate fictitious runtime traces. The decision
+brief renders persisted claims and limitations, with citations opening pinned sources.
+
+Collection evaluations freeze version IDs and labels at enqueue. The coordinator
+passes those versions and a pinned live model snapshot to child runs. Source updates
+cannot replace the evaluation corpus. Child runs retain per-run budgets/cancellation;
+recovery reuses their idempotency keys. Collection retrieval metrics reuse retained
+run evidence, avoiding additional unbudgeted embedding calls after completion.
+Built-in fixtures retain their independent retrieval probe. Disclosure matching is
+lexical, and no independent model-judge quality claim is made.
 
 ## Scheduling, checkpoints and replay
 

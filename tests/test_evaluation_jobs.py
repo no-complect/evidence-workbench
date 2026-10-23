@@ -157,3 +157,43 @@ def test_benchmark_drift_fails_before_any_research_run(client, monkeypatch):
     execute_job(leased)
     assert db.one('SELECT status FROM evaluation_jobs WHERE id=%s', (job['id'],))['status'] == 'failed'
     assert not db.all_rows('SELECT id FROM research_runs WHERE evaluation_job_id=%s', (job['id'],))
+
+
+def test_collection_evaluation_freezes_sources_expectations_and_configuration(client):
+    from workbench.models import EXAMPLES
+    pid = project(client)
+    collection = client.post(f'/api/projects/{pid}/collections', json={'name':'Evaluation collection','embedding_config':'demo-v1'}).json()['id']
+    endpoint = f'/api/projects/{pid}/collections/{collection}/sources'
+    old_text = 'Original retention requirement: security controls are required for the AI assistant. Investigate security evidence and unresolved assumptions. Keep audit data for seven days and restrict access to authorized staff only. '
+    upload = client.post(endpoint, files={'file':('security.md',old_text.encode(),'text/markdown')})
+    assert upload.status_code == 201, upload.text
+    original_version = upload.json()['version_id']
+    custom = {'collection_id':collection,'mode':'demo','harness_config':{'system_instruction':'Preserve missing evidence.','context_policy':'strict'},
+              'cases':[{'question':EXAMPLES[1],'query':'security retention','expected_sources':['security.md']},
+                       {'question':EXAMPLES[1],'query':'security retention','expect_no_evidence':True}]}
+    job, body = submit(client, pid, custom=custom)
+    path = f'/api/projects/{pid}/evaluation-jobs'
+    assert client.post(path,json=body).json()['id'] == job['id']
+    assert client.post(path,json={**body,'custom':{**custom,'cases':[{'question':EXAMPLES[1],'query':'security','expected_sources':['wrong.md']}]}}).status_code == 409
+    assert job['request']['custom']['version_ids'] == [original_version]
+    replacement = client.post(endpoint, files={'file':('security.md',b'Replacement retention guidance. This version must not replace the pinned source of an already queued evaluation.','text/markdown')})
+    assert replacement.status_code == 201
+    with research_executor():
+        leased = lease('collection-evaluator')
+        assert str(leased['id']) == job['id']
+        execute_job(leased)
+    saved = db.one('SELECT * FROM evaluation_jobs WHERE id=%s', (job['id'],))
+    assert saved['status'] == 'completed', saved['error']
+    children = db.all_rows('SELECT * FROM research_runs WHERE evaluation_job_id=%s', (job['id'],))
+    assert len(children) == 6
+    assert all(r['corpus_versions'] == [original_version] for r in children)
+    assert all(r['request']['harness_config']['context_policy'] == 'strict' for r in children)
+    result = db.one('SELECT * FROM evaluation_runs WHERE id=%s', (job['id'],))
+    assert result['versions']['source_version_ids'] == [original_version]
+    assert len(result['raw']) == 6 and result['versions']['expectations'][0]['expected_sources'] == ['security.md']
+    assert all(r['status'] == 'completed' for r in result['raw'])
+    assert all(r['checks']['abstained_without_claims'] is False for r in result['raw'] if r['case'] == 'custom-2')
+    assert any('Original retention' in c['text'] for r in children for c in r['report']['claims'])
+    assert client.post(path,json={**body,'idempotency_key':db.uid(),'custom':{**custom,'mode':'live'}}).status_code == 409
+    other = project(client)
+    assert client.post(f'/api/projects/{other}/evaluation-jobs', json={**body,'idempotency_key':db.uid()}).status_code == 409

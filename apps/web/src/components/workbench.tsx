@@ -3,19 +3,27 @@
 import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ErrorNotice } from "./error-notice";
+import { initialHarnessConfiguration } from "@/features/harness/configuration";
+import {
+  initialResearchDraft,
+  researchReducer,
+} from "@/features/workbench/research-state";
+import { modelCatalogOptions } from "@/features/harness/queries";
 import { ApiError } from "@/lib/api";
 import type { Bootstrap, Project } from "@/lib/contracts";
 import { AuthPanel } from "@/features/workbench/auth-panel";
 import { CreateDialog } from "@/features/workbench/create-dialog";
 import { EvidenceDrawer } from "@/features/workbench/evidence-drawer";
 import { PlanReview } from "@/features/workbench/plan-review";
+import { InvestigationHeader } from "@/features/workbench/investigation-header";
 import { ResearchComposer } from "@/features/workbench/research-composer";
 import { RunStrip } from "@/features/workbench/run-strip";
 import { RunViews } from "@/features/workbench/run-views";
 import { HarnessView } from "@/features/workbench/harness-view";
-import { SourcesPanel } from "@/features/workbench/sources-panel";
+import { RagWorkspace } from "@/features/collections/rag-workspace";
+import { CollectionWizard } from "@/features/collections/collection-wizard";
+import { useUploadQueue } from "@/features/collections/use-upload-queue";
 import { EvaluationsView } from "./evaluations-view";
-import notebook from "@/features/workbench/notebook.module.css";
 import {
   WorkspaceFrame,
   WorkspaceNavigation,
@@ -87,6 +95,42 @@ function ProjectWorkspace({
   // Server records are read directly from query caches rather than copied to state.
   const [ui, dispatch] = useReducer(workspaceReducer, initialWorkspaceState);
   const projectId = project?.id ?? "";
+  const [selectedModelId, setSelectedModelId] = useState("");
+  const modelsEnabled = bootstrap?.model_catalog_enabled ?? false;
+  const models = useQuery(
+    modelCatalogOptions(
+      projectId,
+      modelsEnabled &&
+        (ui.workspace === "harness" ||
+          ui.workspace === "workflows" ||
+          ui.workspace === "evaluations"),
+    ),
+  );
+  const defaultModel = models.data?.default_model ?? "";
+  const modelId =
+    selectedModelId ||
+    (models.data?.models.includes(defaultModel) ? defaultModel : "");
+  const modelSelection = modelsEnabled
+    ? {
+        catalog: models.data,
+        fetching: models.isFetching,
+        error: models.error,
+        modelId,
+        onModelChange: setSelectedModelId,
+        onRefresh: () => {
+          void models.refetch();
+        },
+      }
+    : undefined;
+  const [configuration, setConfiguration] = useState(
+    initialHarnessConfiguration,
+  );
+  const [researchDraft, researchDispatch] = useReducer(
+    researchReducer,
+    initialResearchDraft,
+  );
+  const research = { draft: researchDraft, dispatch: researchDispatch };
+  const uploads = useUploadQueue(projectId);
   const projectQuery = useQuery(projectOptions(projectId));
   const runQuery = useResearchRun(projectId, ui.runId);
   const collection = resolveSelection(
@@ -150,18 +194,38 @@ function ProjectWorkspace({
         hidden={ui.workspace !== "workflows"}
         aria-label="Workflows workspace"
       >
-        <ResearchComposer
-          projectId={projectId}
-          collections={projectQuery.data?.collections ?? []}
-          collectionId={collectionId}
-          examples={bootstrap?.examples ?? []}
-          liveEnabled={bootstrap?.live_enabled ?? false}
-          running={running}
-          onCollectionChange={(id) =>
-            dispatch({ type: "select-collection", collectionId: id })
-          }
-          onStarted={(id) => dispatch({ type: "started-run", runId: id })}
-        />
+        <div hidden={!!ui.runId}>
+          <ResearchComposer
+            research={research}
+            configuration={configuration}
+            modelSelection={modelSelection}
+            projectId={projectId}
+            collections={projectQuery.data?.collections ?? []}
+            collectionId={collectionId}
+            examples={bootstrap?.examples ?? []}
+            liveEnabled={bootstrap?.live_enabled ?? false}
+            running={running}
+            onCollectionChange={(id) =>
+              dispatch({ type: "select-collection", collectionId: id })
+            }
+            onStarted={(id) => dispatch({ type: "started-run", runId: id })}
+          />
+        </div>
+        {run && (
+          <InvestigationHeader
+            run={run}
+            collectionName={
+              projectQuery.data?.collections.find(
+                (c) => c.id === run.collection_id,
+              )?.name ??
+              collection?.name ??
+              "Evidence collection"
+            }
+            evidenceCount={runQuery.data?.detail.evidence.length ?? 0}
+            onNavigate={(tab) => dispatch({ type: "navigate", tab })}
+          />
+        )}
+
         {run && (
           <RunStrip
             key={`summary-${run.id}`}
@@ -176,10 +240,17 @@ function ProjectWorkspace({
             projectId={projectId}
             runId={run.id}
             initialPlan={run.plan}
-            onApproved={() => dispatch({ type: "navigate", tab: "activity" })}
+            onApproved={() => dispatch({ type: "navigate", tab: "execution" })}
           />
         )}
         <RunViews
+          strategy={researchDraft.strategy}
+          onStrategyChange={(value) =>
+            researchDispatch({ type: "strategy", value })
+          }
+          onHarness={() =>
+            dispatch({ type: "workspace", workspace: "harness" })
+          }
           key={`views-${ui.runId}`}
           projectId={projectId}
           snapshot={runQuery.data}
@@ -198,62 +269,36 @@ function ProjectWorkspace({
         aria-label="Harness workspace"
       >
         <HarnessView
+          projectId={projectId}
+          active={ui.workspace === "harness"}
+          research={research}
+          configuration={configuration}
+          onConfigurationChange={setConfiguration}
+          onOpenWorkflows={() =>
+            dispatch({ type: "workspace", workspace: "workflows" })
+          }
+          modelSelection={modelSelection}
           snapshot={runQuery.data}
           liveEnabled={bootstrap?.live_enabled ?? false}
         />
       </section>
       <section hidden={ui.workspace !== "rag"} aria-label="RAG workspace">
-        <WorkspaceHeading
-          kicker="RAG / COLLECTIONS & SOURCES"
-          title="Give the answer a foundation."
-        >
-          Bring the documents behind a decision. Inspect ingestion and source
-          versions before investigating.
-        </WorkspaceHeading>
-        <div className={notebook.note}>
-          Requirements, architecture notes, policies, runbooks, and cost
-          assumptions make useful sources. Markdown, text, and text-based PDF
-          files are supported, up to 8 MiB per file.
-        </div>
-        <label className={notebook.collectionControl}>
-          Collection
-          <select
-            aria-label="RAG collection"
-            value={collectionId}
-            onChange={(event) =>
-              dispatch({
-                type: "select-collection",
-                collectionId: event.target.value,
-              })
-            }
-          >
-            <option value="" disabled>
-              Select a collection
-            </option>
-            {(projectQuery.data?.collections ?? []).map((item) => (
-              <option value={item.id} key={item.id}>
-                {item.name} · {item.document_count} docs
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className={notebook.surface}>
-          <div className={notebook.pad}>
-            <SourcesPanel
-              key={collectionId}
-              projectId={projectId}
-              collectionId={collectionId}
-              readOnly={collection?.read_only ?? false}
-              active={ui.workspace === "rag"}
-              onCreate={() =>
-                dispatch({
-                  type: "show-overlay",
-                  overlay: { kind: "create-collection" },
-                })
-              }
-            />
-          </div>
-        </div>
+        <RagWorkspace
+          projectId={projectId}
+          collections={projectQuery.data?.collections ?? []}
+          collectionId={collectionId}
+          active={ui.workspace === "rag"}
+          uploads={uploads}
+          onSelect={(id) =>
+            dispatch({ type: "select-collection", collectionId: id })
+          }
+          onCreate={() =>
+            dispatch({
+              type: "show-overlay",
+              overlay: { kind: "create-collection" },
+            })
+          }
+        />
       </section>
       <section
         hidden={ui.workspace !== "evaluations"}
@@ -267,6 +312,17 @@ function ProjectWorkspace({
           Inspect individual cases as carefully as aggregate results.
         </WorkspaceHeading>
         <EvaluationsView
+          setup={{
+            collections: projectQuery.data?.collections ?? [],
+            collectionId,
+            onCollectionChange: (id) =>
+              dispatch({ type: "select-collection", collectionId: id }),
+            examples: bootstrap?.examples ?? [],
+            liveEnabled: bootstrap?.live_enabled ?? false,
+            modelId,
+            configuration,
+            limits: researchDraft.limits,
+          }}
           projectId={projectId}
           enabled={bootstrap?.evaluations_enabled ?? false}
           active={ui.workspace === "evaluations"}
@@ -293,12 +349,12 @@ function ProjectWorkspace({
         />
       )}
       {overlay?.kind === "create-collection" && (
-        <CreateDialog
-          kind="collection"
+        <CollectionWizard
           projectId={projectId}
-          liveEnabled={bootstrap?.live_enabled ?? false}
+          collections={projectQuery.data?.collections ?? []}
+          uploads={uploads}
           onClose={closeOverlay}
-          onCreated={(id) => {
+          onFinished={(id) => {
             dispatch({ type: "select-collection", collectionId: id });
             dispatch({ type: "workspace", workspace: "rag" });
           }}

@@ -40,6 +40,12 @@ export const projectOptions = (project: string) =>
     queryKey: workspaceKeys.project(project),
     queryFn: ({ signal }) => workbenchApi.project(project, signal),
     enabled: !!project,
+    refetchInterval: (query) =>
+      query.state.data?.collections.some(
+        (collection) => collection.setup_status === "preparing",
+      )
+        ? 2500
+        : false,
   });
 
 export const sourceOptions = (project: string, collection: string) =>

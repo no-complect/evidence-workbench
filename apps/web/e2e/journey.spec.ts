@@ -3,6 +3,7 @@ test("benchmark queues in UI and exposes persisted case results", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   const menu = page.getByRole("button", {
     name: "Toggle navigation",
@@ -43,6 +44,7 @@ test("seeded question → edited plan → report → citation → context → ex
   page,
 }, testInfo) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "Start research", exact: true })
@@ -127,7 +129,11 @@ test("seeded question → edited plan → report → citation → context → ex
   await page.getByRole("button", { name: "Markdown", exact: true }).click();
   expect((await downloaded).suggestedFilename()).toBe("research-report.md");
   await page.getByRole("tab", { name: "Context", exact: true }).click();
-  await expect(page.locator(".code-header")).toContainText("Assembled input");
+  await expect(
+    page
+      .getByRole("region", { name: "Workflows workspace", exact: true })
+      .locator(".code-header"),
+  ).toContainText("Assembled input");
   await page.getByRole("tab", { name: "Research trail", exact: true }).click();
   await expect(page.getByText("Report ready", { exact: true })).toBeVisible();
   expect(
@@ -140,6 +146,7 @@ test("upload ingestion status and arbitrary demo error are visible", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "RAG", exact: true }).click();
   await page.getByLabel("Upload source file").setInputFiles({
@@ -150,7 +157,7 @@ test("upload ingestion status and arbitrary demo error are visible", async ({
     ),
   });
   await expect(
-    page.getByText("browser-test.txt", { exact: true }),
+    page.getByRole("table").getByText("browser-test.txt", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await page

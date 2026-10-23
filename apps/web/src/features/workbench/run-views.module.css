@@ -2,7 +2,7 @@
   display: flex;
   gap: 4px;
   padding: 4px;
-  background: #e8ecf3;
+  background: #e9ebee;
   border-radius: 7px;
   width: max-content;
   max-width: 100%;
@@ -39,7 +39,9 @@
   min-width: 0;
   min-height: 330px;
 }
-.panel:not([data-view="evidence"]) {
+.panel:not([data-view="evidence"]):not([data-view="execution"]):not(
+    [data-view="report"]
+  ) {
   background: white;
   border: 1px solid var(--border);
   border-radius: 9px;
@@ -57,7 +59,9 @@
   .tabs svg {
     width: 14px;
   }
-  .panel:not([data-view="evidence"]) {
+  .panel:not([data-view="evidence"]):not([data-view="execution"]):not(
+      [data-view="report"]
+    ) {
     padding: 20px 16px;
   }
 }

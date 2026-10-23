@@ -12,6 +12,8 @@ from .providers import DemoProvider, OpenAIProvider
 from .retrieval import PostgresHybridRetriever
 from .evidence import for_run, persist_report, verify
 from .config import settings
+from .harness import connection, fingerprints
+from .credential_store import decrypt
 
 from .reducers import merge_ids
 
@@ -51,7 +53,8 @@ class Runtime:
 
         def call():
             try:
-                payload, trace = assemble(stage, self.run['question'], for_run(self.run), summary)
+                configuration = (self.run.get('harness_snapshot') or {}).get('configuration') or self.run['request'].get('harness_config')
+                payload, trace = assemble(stage, self.run['question'], for_run(self.run), summary, configuration)
             except ContextOverflow as exc:
                 raise budget.BudgetExhausted(str(exc)) from exc
             trace['input_tokens_estimate'] += len(json.dumps(
@@ -59,16 +62,34 @@ class Runtime:
             trace['schema_and_message_overhead_included'] = True
             reserve_tokens = trace['input_tokens_estimate'] + trace['output_token_reservation']
             s = settings()
-            cost = 0 if self.run['mode'] == 'demo' else (
-                trace['input_tokens_estimate'] * s.model_input_usd_per_million +
-                2200 * s.model_output_usd_per_million) / 1_000_000
+            provider = self.provider
+            target = None
+            snapshot = self.run.get('harness_snapshot')
+            if snapshot:
+                if snapshot['fingerprints'] != fingerprints() or not s.live_enabled:
+                    raise ValueError('Pinned harness no longer matches the enabled runtime')
+                target = snapshot['targets'][stage]
+                if snapshot.get('credential_source') == 'environment':
+                    if not s.openai_api_key:
+                        raise ValueError('Server model credentials are unavailable')
+                    provider = OpenAIProvider(target, s.openai_api_key)
+                else:
+                    credential = connection(self.run['project_id'], target['connection_id'], self.run['user_id'])
+                    provider = OpenAIProvider(target, decrypt(credential['encrypted_key']))
+                    trace['harness_revision_id'] = snapshot['revision_id']
+                trace['model_target'] = target
+            input_price = target['input_usd_per_million'] if target else s.model_input_usd_per_million
+            output_price = target['output_usd_per_million'] if target else s.model_output_usd_per_million
+            cost = 0 if self.run['mode'] == 'demo' or input_price is None or output_price is None else (
+                trace['input_tokens_estimate'] * input_price +
+                2200 * output_price) / 1_000_000
             call_key = f"{key}/attempt-{self.run['attempts']}"
             budget.reserve(self.run, call_key, tokens=reserve_tokens, cost=cost)
             db.execute(
                 'INSERT INTO contexts(id,run_id,project_id,call_key,stage,payload) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(run_id,call_key) DO NOTHING',
                 (db.uid(), self.run['id'], self.run['project_id'], call_key, stage,
                  db.jsonb(trace)))
-            result, actual, actual_cost = self.provider.invoke(
+            result, actual, actual_cost = provider.invoke(
                 stage,
                 payload,
                 schema,
@@ -79,7 +100,8 @@ class Runtime:
             budget.reconcile(self.run, call_key, actual, actual_cost)
             db.event(
                 self.run, key, stage, f'{stage.title()} completed', {
-                    'provider': self.provider.name,
+                    'provider': provider.name,
+                    'model_target': target,
                     'estimated_tokens_reserved': reserve_tokens,
                     'actual_tokens': actual,
                     'cost_known': self.run['mode'] == 'demo' or actual_cost is not None
@@ -146,8 +168,9 @@ def build_graph(run, checkpointer):
             call_key = f'{key}/attempt-{run["attempts"]}'
             # Query embeddings are separately budgeted as one tool plus worst-case input tokens.
             tokens = 0 if run['mode'] == 'demo' else len(task['question'].encode())
-            cost = 0 if run['mode'] == 'demo' else tokens * settings(
-            ).embedding_usd_per_million / 1_000_000
+            embedding_price = (run.get('harness_snapshot') or {}).get(
+                'embedding_usd_per_million', settings().embedding_usd_per_million)
+            cost = 0 if run['mode'] == 'demo' or embedding_price is None else tokens * embedding_price / 1_000_000
             budget.reserve(run, call_key, tokens=tokens, tools=1, cost=cost)
             retriever = PostgresHybridRetriever(project_id=str(run['project_id']),
                                                 collection_id=str(run['collection_id']),

@@ -11,9 +11,16 @@ export type Collection = {
   document_count: number;
   embedding_config: string;
   read_only?: boolean;
+  setup_status?: "preparing" | "ready" | "failed";
+  setup_error?: string | null;
+  setup_request?: Omit<
+    import("../../../../packages/contracts/models").CollectionSetup,
+    "idempotency_key"
+  > | null;
 };
 export type Run = {
   id: string;
+  collection_id?: string;
   question: string;
   status: string;
   mode: string;
@@ -26,6 +33,8 @@ export type Run = {
   tools_used: number;
   cost_used: string | number;
   request: { limits: Limits };
+  harness_snapshot?:
+    import("@/features/harness/contracts").HarnessSnapshot | null;
   cancel_requested: boolean;
 };
 export type Evidence = {
@@ -89,6 +98,8 @@ export type Source = {
   error: string | null;
   chunk_count: number;
   version_count: number;
+  vector_chunk_count?: number;
+  current_version_id?: string | null;
 };
 export type Evaluation = {
   id: string;
@@ -123,7 +134,7 @@ export type EvaluationCase = {
 export type EvaluationJob = {
   id: string;
   status: "queued" | "running" | "completed" | "failed" | "cancelled";
-  request: { split: string };
+  request: { split: string; custom?: unknown };
   progress: {
     completed?: number;
     total?: number;
@@ -141,6 +152,7 @@ export type Bootstrap = {
   examples: string[];
   live_enabled: boolean;
   evaluations_enabled: boolean;
+  model_catalog_enabled?: boolean;
   auth_mode: "demo" | "supabase";
 };
 export type RunListItem = Pick<
@@ -158,4 +170,35 @@ export type RunSnapshot = {
   events: RunEvent[];
   cursor: number;
   hasMoreEvents: boolean;
+};
+
+export type CollectionOptions = {
+  documents: { name: string; bytes: number }[];
+  live_embeddings: boolean;
+};
+export type UploadResult = {
+  document_id: string;
+  version_id: string;
+  status: "ready";
+  deduplicated: boolean;
+  chunks?: number;
+  vector_chunks?: number;
+};
+export type SearchHit = {
+  rrf: number;
+  ranks: { full_text?: number; vector?: number };
+  reranker: string;
+  chunk: {
+    id: string;
+    text: string;
+    source_name: string;
+    version_id: string;
+    content_hash: string;
+    section: string;
+    page: number | null;
+    start_offset: number;
+    end_offset: number;
+    embedding_config: string;
+    metadata: Evidence["metadata"];
+  };
 };

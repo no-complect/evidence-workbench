@@ -3,6 +3,10 @@ from .config import settings
 from .models import Plan, Task, Assessment, Report, Claim, TOPICS
 
 
+class ModelCompatibilityError(ValueError):
+    """Safe public error for a model that cannot serve this research contract."""
+
+
 class DemoProvider:
     name = 'deterministic-fixture-v1'
 
@@ -84,36 +88,48 @@ class DemoProvider:
 class OpenAIProvider:
     name = 'openai'
 
+    def __init__(self, target=None, api_key=None):
+        self.target = target
+        self.api_key = api_key
+
     def invoke(self, stage, payload, schema, timeout=35):
         from langchain_openai import ChatOpenAI
         s = settings()
-        # Explicit capability contract: no temperature/reasoning params on unknown models.
-        if s.openai_model not in {'gpt-4.1-mini', 'gpt-4.1', 'gpt-4.1-nano'}:
-            raise ValueError(
-                'Model capabilities not configured; supported path is GPT-4.1 family with JSON schema'
-            )
-        model = ChatOpenAI(model=s.openai_model,
-                           api_key=s.openai_api_key,
+        target = self.target or {
+            'model_id': s.openai_model,
+            'input_usd_per_million': s.model_input_usd_per_million,
+            'output_usd_per_million': s.model_output_usd_per_million,
+        }
+        model = ChatOpenAI(model=target['model_id'],
+                           api_key=self.api_key or s.openai_api_key,
+                           base_url='https://api.openai.com/v1',
+                           stream_usage=False,
                            max_tokens=2200,
                            timeout=timeout,
                            max_retries=0)
-        output = model.with_structured_output(schema,
-                                              method='json_schema',
-                                              strict=True,
-                                              include_raw=True).invoke([
-                                                  ('system', payload['trusted_instructions']),
-                                                  ('human',
-                                                   json.dumps({
-                                                       k: v
-                                                       for k, v in payload.items()
-                                                       if k != 'trusted_instructions'
-                                                   }))
-                                              ])
+        try:
+            output = model.with_structured_output(schema,
+                                                  method='json_schema',
+                                                  strict=True,
+                                                  include_raw=True).invoke([
+                                                      ('system', payload['trusted_instructions']),
+                                                      ('human',
+                                                       json.dumps({
+                                                           k: v
+                                                           for k, v in payload.items()
+                                                           if k != 'trusted_instructions'
+                                                       }))
+                                                  ])
+        except Exception as exc:
+            if getattr(exc, 'status_code', None) in {400, 403, 404, 422}:
+                raise ModelCompatibilityError('Selected model could not serve the research contract') from None
+            raise
         if output.get('parsing_error') or output.get('parsed') is None:
-            raise ValueError('Provider output failed schema validation')
+            raise ModelCompatibilityError('Provider output failed schema validation')
         usage = output['raw'].usage_metadata
         if not usage:
             return output['parsed'], None, None
-        cost = (usage['input_tokens'] * s.model_input_usd_per_million +
-                usage['output_tokens'] * s.model_output_usd_per_million) / 1_000_000
+        prices = [target['input_usd_per_million'], target['output_usd_per_million']]
+        cost = None if any(price is None for price in prices) else (
+            usage['input_tokens'] * prices[0] + usage['output_tokens'] * prices[1]) / 1_000_000
         return output['parsed'], usage['total_tokens'], cost

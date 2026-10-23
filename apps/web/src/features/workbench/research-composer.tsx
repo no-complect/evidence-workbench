@@ -1,5 +1,10 @@
 "use client";
-import { useReducer, useRef, useState } from "react";
+import { useRef, useState, type Dispatch } from "react";
+import type { HarnessConfiguration } from "../../../../../packages/contracts/models";
+import {
+  ModelSelector,
+  type ModelSelectionProps,
+} from "@/features/harness/model-selector";
 import {
   CircleDot,
   Database,
@@ -14,8 +19,8 @@ import type { Collection } from "@/lib/contracts";
 import { useStartResearch } from "./mutations";
 import {
   DEFAULT_QUESTION,
-  initialResearchDraft,
-  researchReducer,
+  type ResearchDraft,
+  type DraftAction,
   researchRequest,
   submissionIntent,
   limitFields,
@@ -26,6 +31,9 @@ import {
 
 export function ResearchComposer({
   projectId,
+  research,
+  configuration,
+  modelSelection,
   collections,
   collectionId,
   examples,
@@ -35,6 +43,9 @@ export function ResearchComposer({
   onStarted,
 }: {
   projectId: string;
+  research: { draft: ResearchDraft; dispatch: Dispatch<DraftAction> };
+  configuration: HarnessConfiguration;
+  modelSelection?: ModelSelectionProps;
   collections: Collection[];
   collectionId: string;
   examples: string[];
@@ -43,13 +54,24 @@ export function ResearchComposer({
   onCollectionChange: (id: string) => void;
   onStarted: (id: string) => void;
 }) {
-  const [draft, dispatch] = useReducer(researchReducer, initialResearchDraft);
+  const { draft, dispatch } = research;
   const [showSettings, setShowSettings] = useState(false);
   const [validationError, setValidationError] = useState("");
   const intent = useRef<SubmissionIntent | null>(null);
   const mutation = useStartResearch(projectId);
   const { question, mode, strategy, limits, approval, webEnabled } = draft;
   const busy = mutation.isPending;
+  const pricedModel =
+    !!modelSelection?.catalog?.pricing_configured &&
+    modelSelection.modelId === modelSelection.catalog.default_model &&
+    Object.values(configuration.stage_models).every(
+      (id) => !id || id === modelSelection.catalog?.default_model,
+    );
+  const collectionReady = collections.some(
+    (item) =>
+      item.id === collectionId &&
+      (!item.setup_status || item.setup_status === "ready"),
+  );
   const setQuestion = (value: string) => dispatch({ type: "question", value });
   const setMode = (value: ExecutionMode) => dispatch({ type: "mode", value });
   const setStrategy = (value: ResearchStrategy) =>
@@ -63,6 +85,14 @@ export function ResearchComposer({
     mutation.reset();
     try {
       const request = researchRequest(draft, collectionId);
+      request.harness_config = configuration;
+      if (mode === "live" && modelSelection) {
+        if (!modelSelection.catalog?.models.includes(modelSelection.modelId))
+          throw new Error(
+            "Choose an available model. Refresh models if the catalog has changed.",
+          );
+        request.model_id = modelSelection.modelId;
+      }
       intent.current = submissionIntent(intent.current, request, () =>
         crypto.randomUUID(),
       );
@@ -159,7 +189,11 @@ export function ResearchComposer({
                   Select a collection
                 </option>
                 {collections.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option
+                    key={c.id}
+                    value={c.id}
+                    disabled={!!c.setup_status && c.setup_status !== "ready"}
+                  >
                     {c.name} · {c.document_count} docs
                   </option>
                 ))}
@@ -180,6 +214,7 @@ export function ResearchComposer({
               busy ||
               !projectId ||
               !collectionId ||
+              !collectionReady ||
               question.trim().length < 10 ||
               running
             }
@@ -217,22 +252,39 @@ export function ResearchComposer({
                 <option value="rag">Basic RAG</option>
               </select>
             </label>
-            {limitFields.map(([key, label, min, max]) => (
-              <label key={key}>
-                {label}
-                <input
-                  type="number"
-                  required
-                  min={min}
-                  max={max}
-                  step={key === "estimated_cost_usd" ? 0.01 : 1}
-                  value={limits[key]}
-                  onChange={(e) =>
-                    dispatch({ type: "limit", key, value: e.target.value })
-                  }
-                />
-              </label>
-            ))}
+            {mode === "live" && modelSelection && (
+              <ModelSelector {...modelSelection} />
+            )}
+            {mode === "live" && modelSelection && !pricedModel && (
+              <p className="fine-print">
+                Dollar estimates are unavailable without server pricing
+                configuration. Token, tool, iteration, and time limits still
+                apply.
+              </p>
+            )}
+            {limitFields
+              .filter(
+                ([key]) =>
+                  mode !== "live" ||
+                  pricedModel ||
+                  key !== "estimated_cost_usd",
+              )
+              .map(([key, label, min, max]) => (
+                <label key={key}>
+                  {label}
+                  <input
+                    type="number"
+                    required
+                    min={min}
+                    max={max}
+                    step={key === "estimated_cost_usd" ? 0.01 : 1}
+                    value={limits[key]}
+                    onChange={(e) =>
+                      dispatch({ type: "limit", key, value: e.target.value })
+                    }
+                  />
+                </label>
+              ))}
             <label className="check-label">
               <input
                 type="checkbox"
@@ -258,7 +310,7 @@ export function ResearchComposer({
         <span>
           {mode === "demo"
             ? "Synthetic documents. Scripted responses. Real retrieval, citations, and persisted execution."
-            : "Live model calls use server credentials and your configured budget. Costs are estimates."}
+            : "Live model calls use the server key and your execution limits. Dollar estimates are available only when pricing is configured."}
         </span>
         <span className="note-version">CORPUS v1</span>
       </div>

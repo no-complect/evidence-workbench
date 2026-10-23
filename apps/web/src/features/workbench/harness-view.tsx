@@ -1,26 +1,61 @@
+import type { Dispatch } from "react";
+import type { HarnessConfiguration } from "../../../../../packages/contracts/models";
+import type { ResearchDraft, DraftAction } from "./research-state";
+import { HarnessStudio } from "@/features/harness/harness-studio";
 import { Braces, Fingerprint, ShieldCheck } from "lucide-react";
 import type { RunSnapshot } from "@/lib/contracts";
 import { WorkspaceHeading } from "./workspace-shell";
 import { limitFields } from "./research-state";
+import { type ModelSelectionProps } from "@/features/harness/model-selector";
+import { stages } from "@/features/harness/contracts";
 import styles from "./notebook.module.css";
 
 export function HarnessView({
+  projectId,
+  active,
+  research,
+  configuration,
+  onConfigurationChange,
+  onOpenWorkflows,
   snapshot,
   liveEnabled,
+  modelSelection,
 }: {
+  projectId: string;
+  active: boolean;
+  research: { draft: ResearchDraft; dispatch: Dispatch<DraftAction> };
+  configuration: HarnessConfiguration;
+  onConfigurationChange: (value: HarnessConfiguration) => void;
+  onOpenWorkflows: () => void;
   snapshot: RunSnapshot | undefined;
   liveEnabled: boolean;
+  modelSelection?: ModelSelectionProps;
 }) {
   const run = snapshot?.detail.run;
   const contexts = snapshot?.detail.contexts ?? [];
   return (
     <>
       <WorkspaceHeading
-        kicker="LLM HARNESS / EXECUTION BOUNDARY"
+        kicker="LLM HARNESS / CONFIGURATION STUDIO"
         title="Make the model boundary explicit."
       >
-        Inspect the execution limits and saved context behind an investigation.
+        Shape the request, constrain the response, and inspect the context. Each
+        investigation keeps its configuration.
       </WorkspaceHeading>
+      {!projectId ? (
+        <p role="status">Select a project to configure its harness.</p>
+      ) : (
+        <HarnessStudio
+          projectId={projectId}
+          active={active}
+          research={research}
+          configuration={configuration}
+          onChange={onConfigurationChange}
+          modelSelection={modelSelection}
+          contexts={contexts}
+          onOpenWorkflows={onOpenWorkflows}
+        />
+      )}
       <div className={styles.twoColumns}>
         <section
           className={styles.surface}
@@ -62,10 +97,21 @@ export function HarnessView({
                 ? "Live inference is configured on this instance. The Workflows form selects execution mode and budgets."
                 : "This instance runs the self-contained fixture demo. No provider credentials or paid model calls are needed."}
             </div>
-            <p className="fine-print">
-              Provider connections, account-specific model discovery, and saved
-              harness revisions are not available in this version.
-            </p>
+            {run?.harness_snapshot && (
+              <div className={styles.note}>
+                <strong>
+                  Run model configuration: {run.harness_snapshot.name}
+                </strong>
+                {run.harness_snapshot.revision_id && (
+                  <p className="mono">{run.harness_snapshot.revision_id}</p>
+                )}
+                {stages.map(([stage, label]) => (
+                  <p key={stage}>
+                    {label}: {run.harness_snapshot!.targets[stage].model_id}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         </section>
         <section className={styles.surface} aria-label="Saved context policy">

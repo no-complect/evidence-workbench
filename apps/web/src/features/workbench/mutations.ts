@@ -23,37 +23,6 @@ export function useCreateProject() {
   });
 }
 
-export function useCreateCollection(project: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (body: { name: string; embedding_config: string }) =>
-      workbenchApi.createCollection(project, body),
-    onSuccess: () =>
-      client.invalidateQueries({
-        queryKey: workspaceKeys.project(project),
-        exact: true,
-      }),
-  });
-}
-
-export function useUploadSource(project: string, collection: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (file: File) => workbenchApi.upload(project, collection, file),
-    onSuccess: async () => {
-      await Promise.all([
-        client.invalidateQueries({
-          queryKey: workspaceKeys.sources(project, collection),
-        }),
-        client.invalidateQueries({
-          queryKey: workspaceKeys.project(project),
-          exact: true,
-        }),
-      ]);
-    },
-  });
-}
-
 export function useStartResearch(project: string) {
   const client = useQueryClient();
   return useMutation({

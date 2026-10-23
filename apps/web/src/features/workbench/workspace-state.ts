@@ -1,4 +1,5 @@
-export type WorkspaceTab = "report" | "evidence" | "activity" | "context";
+export type WorkspaceTab =
+  "execution" | "report" | "evidence" | "activity" | "context";
 export type EngineeringWorkspace =
   "harness" | "rag" | "workflows" | "evaluations";
 export type WorkspaceOverlay =
@@ -24,8 +25,8 @@ export type WorkspaceAction =
 export const initialWorkspaceState: WorkspaceState = {
   runId: "",
   collectionId: "",
-  tab: "report",
-  workspace: "workflows",
+  tab: "execution",
+  workspace: "harness",
   overlay: null,
 };
 
@@ -51,7 +52,7 @@ export function workspaceReducer(
         ...state,
         runId: action.runId,
         workspace: "workflows",
-        tab: "activity",
+        tab: "execution",
         overlay: null,
       };
     case "new-investigation":
@@ -59,7 +60,7 @@ export function workspaceReducer(
         ...state,
         runId: "",
         workspace: "workflows",
-        tab: "report",
+        tab: "execution",
         overlay: null,
       };
     case "select-collection":

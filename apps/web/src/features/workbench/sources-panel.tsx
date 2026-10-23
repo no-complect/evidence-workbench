@@ -4,26 +4,28 @@ import { useQuery } from "@tanstack/react-query";
 import { ErrorNotice } from "@/components/error-notice";
 import { SourcesView } from "@/components/sources-view";
 import { sourceOptions } from "./queries";
-import { useUploadSource } from "./mutations";
+import { UploadBatch } from "@/features/collections/upload-batch";
+import type { UploadQueue } from "@/features/collections/use-upload-queue";
 
 export function SourcesPanel({
   projectId,
   collectionId,
   readOnly,
-  onCreate,
+  uploads,
+  ready = true,
   active = true,
 }: {
   projectId: string;
   collectionId: string;
   readOnly: boolean;
-  onCreate: () => void;
+  uploads: UploadQueue;
+  ready?: boolean;
   active?: boolean;
 }) {
   const sources = useQuery({
     ...sourceOptions(projectId, collectionId),
     enabled: active && !!projectId && !!collectionId,
   });
-  const upload = useUploadSource(projectId, collectionId);
   return (
     <>
       <ErrorNotice
@@ -31,22 +33,17 @@ export function SourcesPanel({
         error={sources.error}
         onRetry={() => void sources.refetch()}
       />
-      <ErrorNotice error={upload.error} onDismiss={upload.reset} />
       {!!collectionId && sources.isPending && (
         <p role="status">Loading sources…</p>
       )}
       <SourcesView
         sources={sources.data ?? []}
-        canCreate={!!projectId}
-        canUpload={!!collectionId && !readOnly}
+        canUpload={!!collectionId && !readOnly && ready}
         readOnly={readOnly}
-        busy={upload.isPending}
-        onCreate={onCreate}
-        onUpload={(file) => upload.mutate(file)}
+        busy={uploads.busy}
+        onUpload={(files) => void uploads.add(collectionId, files)}
       />
-      {upload.isSuccess && (
-        <p role="status">Source uploaded. The collection is up to date.</p>
-      )}
+      <UploadBatch queue={uploads} collectionId={collectionId} />
     </>
   );
 }

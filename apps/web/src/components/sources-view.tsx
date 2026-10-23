@@ -1,33 +1,22 @@
 "use client";
 import { useRef } from "react";
-import {
-  Database,
-  FileText,
-  Loader2,
-  Plus,
-  ShieldCheck,
-  Upload,
-} from "lucide-react";
+import { Database, FileText, Loader2, ShieldCheck, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { Empty } from "./empty";
 import type { Source } from "@/lib/api";
 
 export function SourcesView({
   sources,
-  canCreate,
   canUpload,
   readOnly = false,
   busy,
-  onCreate,
   onUpload,
 }: {
   sources: Source[];
-  canCreate: boolean;
   canUpload: boolean;
   readOnly?: boolean;
   busy: boolean;
-  onCreate: () => void;
-  onUpload: (file: File) => void;
+  onUpload: (files: File[]) => void;
 }) {
   const uploadRef = useRef<HTMLInputElement>(null);
   return (
@@ -38,15 +27,6 @@ export function SourcesView({
           <p>Markdown, plain text, and text-based PDFs · up to 8 MiB.</p>
         </div>
         <div className="flex-row">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onCreate}
-            disabled={!canCreate}
-          >
-            <Plus size={14} />
-            Collection
-          </Button>
           <Button
             size="sm"
             onClick={() => uploadRef.current?.click()}
@@ -62,11 +42,12 @@ export function SourcesView({
           <input
             ref={uploadRef}
             type="file"
+            multiple
             accept=".md,.txt,.pdf"
             className="sr-only"
             aria-label="Upload source file"
             onChange={(e) => {
-              if (e.target.files?.[0]) onUpload(e.target.files[0]);
+              if (e.target.files?.length) onUpload(Array.from(e.target.files));
               e.target.value = "";
             }}
           />
@@ -100,6 +81,7 @@ export function SourcesView({
                 <th>Document</th>
                 <th>Status</th>
                 <th>Chunks</th>
+                <th>Vectors</th>
                 <th>Versions</th>
               </tr>
             </thead>
@@ -111,7 +93,13 @@ export function SourcesView({
                       <FileText size={17} />
                       <div>
                         <strong>{s.name}</strong>
-                        {s.error && <p className="source-error">{s.error}</p>}
+                        {s.error && (
+                          <p className="source-error">
+                            {s.error}
+                            {s.current_version_id &&
+                              " Previous source version is still available."}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -121,6 +109,7 @@ export function SourcesView({
                     </span>
                   </td>
                   <td className="mono">{s.chunk_count}</td>
+                  <td className="mono">{s.vector_chunk_count ?? "—"}</td>
                   <td className="mono">{s.version_count}</td>
                 </tr>
               ))}

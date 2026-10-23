@@ -83,7 +83,8 @@ After the initial build:
 3. Open **Research trail** to follow saved execution events. Open **Evidence board**, select a finding, and inspect its pinned passage or explicit limitation. **Inspect provenance** opens the full source details.
 4. Open **Decision brief**, click a numbered citation, and inspect its source version, section, offsets, and exact text. Click **Markdown** to download the report.
 5. Open **Context** to inspect a recorded model input, prompt version, and evidence inclusion/exclusion decisions.
-6. Open **RAG** and upload [reviewer-notes.txt](./docs/examples/reviewer-notes.txt). Its status should become `ready`. New demo uploads are full-text searchable; arbitrary research questions require live mode.
+6. Open **RAG**, choose **New collection**, and follow **Purpose → Sources → Review → Try it**. Use the synthetic architecture pack to prepare real bundled documents without paid calls, or bring your own files. Search with **Keyword**, **Vector**, or **Hybrid**, then inspect a result’s passage, ranks, version, and content hash. Custom fixture uploads support Keyword search; Vector requires a recognized fixture topic.
+7. Upload [reviewer-notes.txt](./docs/examples/reviewer-notes.txt). Its status should become `ready`. New demo uploads are full-text searchable; arbitrary research questions require live mode.
 
 For a terminal-only investigation:
 
@@ -105,8 +106,8 @@ The optional CLI commands above run inside the evaluation container and submit c
 
 ## Features to explore
 
-- **Harness:** inspect the selected run's execution limits and saved prompt/context fingerprints. Provider connections, model discovery, and saved harness revisions are not available yet.
-- **RAG:** manage collections and inspect source ingestion, deduplicated uploads, and immutable versions. Markdown, UTF-8 text, and text-based PDF uploads are limited to 8 MiB and PDFs to 200 pages.
+- **Harness:** connect a local OpenAI account, discover its model catalog, explicitly verify research contracts, and save immutable planner/reviewer/writer model targets with budgets. Inspect the selected run’s pinned targets, execution limits, and saved prompt/context fingerprints.
+- **RAG:** create collections through a guided walkthrough, inspect per-file ingestion results and retries, and compare real keyword/vector/hybrid retrieval with pinned provenance. Collection preparation can resume after interruption; completed retries reuse the collection without resetting later source updates. Embedding profiles are immutable; changing the embedding model requires a new collection. Markdown, UTF-8 text, and text-based PDF uploads are limited to 8 MiB per file, 20 files per batch, and PDFs to 200 pages. Failed replacements preserve the last usable source version.
 - **Workflows:** run investigations, approve an edited plan, inspect **Decision brief**, **Evidence board**, **Research trail**, and **Context**. Findings retain citations and limitations; passage inspectors expose source identity and unavailable references. Redacted assembled inputs retain prompt hashes, token estimates, and evidence selection decisions. Private chain-of-thought is not requested or displayed.
 - **Evaluations:** queue, cancel, and inspect comparisons of basic RAG, a fixed workflow, and bounded follow-up research.
 
@@ -132,7 +133,68 @@ The demo uses ten original synthetic documents and 41 precomputed, 16-dimensiona
 
 ## Live mode and scope
 
-Live research supports an explicitly configured GPT-4.1-family model, `text-embedding-3-small` vectors, and optional Tavily/public-page research. It requires server-side keys, price estimates, and a separate live embedding collection. There is no silent fallback to scripted answers. Live uploads invoke paid embeddings outside the run's research budget.
+Configure `OPENAI_API_KEY` on the server. Local Docker reads it from the root
+`.env`; hosted runtimes read their environment variables. **Harness** automatically
+loads the models returned for that key. Choose any listed model and the selection
+carries into **Workflows → Research settings → Live**. **Refresh models** reloads
+the current catalog. There is no key-entry form, connection creation, paid preflight
+check, or saved revision required. Model discovery makes no inference calls and
+works while live execution is disabled.
+
+Set `LIVE_ENABLED=true` to opt into paid execution. `OPENAI_MODEL` supplies the
+initial selection when that ID exists in the returned catalog. The selected model
+is pinned in each queued run for planner, reviewer and writer calls, together with
+its prompt/contract/context policy and limits. Changing the default does not alter
+queued jobs. The key remains in the server environment and is read by the API and
+worker; new jobs never copy it into the database, browser, logs or model context.
+Restart local services or redeploy after changing environment values.
+
+All returned model IDs are listed without a family filter. Listing does not prove
+inference permission or compatibility: research needs a chat model that supports
+strict structured output. Unsupported models produce a visible execution error,
+with no scripted fallback. Live RAG still requires a separately ingested live
+collection using `text-embedding-3-small` vectors. Live ingestion invokes paid
+embeddings outside the research-run budget.
+
+Model and embedding prices are optional server estimates. When estimates are
+missing, dollar totals are shown as unavailable; token, tool, iteration and time
+limits still apply. A dollar cap cannot bound unpriced calls. Model price estimates
+apply only to `OPENAI_MODEL`, never silently to another selected model. Optional
+Tavily/public-page research still requires its server key and per-call estimate.
+Existing saved connection/revision APIs and queued snapshots are retained for
+compatibility, but are not part of the current setup or UI.
+
+Harness opens as a configuration studio: edit an additional system instruction,
+choose balanced or strict context assembly, select optional per-stage models, and
+inspect the actual planner/reviewer/report schemas. **Validate sample** uses the
+same Pydantic contracts as execution, without a model call. The contract selector
+is an inspector; it does not replace the workflow's per-stage output contracts.
+Configuration drafts survive workspace navigation and reset at project/user boundaries.
+Saved runs keep the original configuration and effective prompt hashes.
+
+**Workflows → Execution** shows the real LangGraph structure with reviewed tasks,
+saved stage events, and assembled context in a node inspector. The decision brief
+keeps unresolved findings beside evidence-linked claims. Empty nodes describe the
+workflow definition and are not presented as simulated execution.
+
+**Evaluations** supports the built-in fixture benchmark and a collection-specific
+case editor. A submitted collection comparison freezes source version IDs, explicit
+source/disclosure expectations, per-run limits, and the chosen harness configuration;
+a separate evaluation worker coordinates basic RAG, fixed workflow, and bounded
+research through the research queue. Live cases also pin model targets at submission
+and require an explicit paid-call acknowledgment. Scripted cases are restricted to
+the seeded questions and fixture embedding profile. The browser currently authors
+one case per comparison; the API accepts up to six. Collection retrieval metrics use
+the top five retained evidence passages by RRF score and ID; fixture benchmarks use
+an independent retrieval probe. Source labels are human expectations and disclosure
+checks are lexical. Cases labeled as having no supporting evidence check whether
+the report abstains from claims. No independent semantic judge is claimed.
+
+OpenAI is the first adapter; other provider APIs are not implemented. Provider tests
+use synthetic responses; paid account access must be verified in the operator’s
+installation. Live comparisons make paid model and retrieval calls within each
+research run's bounded execution. When prices are absent, dollar caps cannot bound
+those unpriced calls.
 
 The hosted configuration uses Supabase Auth, project membership checks, RLS, and private Storage. A read-only MCP server exposes corpus search, evidence lookup, and run status. See [Deployment and configuration](./docs/DEPLOYMENT.md).
 

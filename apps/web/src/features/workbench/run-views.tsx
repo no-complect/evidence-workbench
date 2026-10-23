@@ -1,7 +1,9 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { Activity, BookOpen, FileText, Layers3 } from "lucide-react";
+import { Activity, BookOpen, FileText, Layers3, Workflow } from "lucide-react";
+import { ExecutionView } from "./execution-view";
+import type { ResearchStrategy } from "./research-state";
 import { ActivityView } from "@/components/activity-view";
 import { ContextView } from "@/components/context-view";
 import { EvidenceView } from "@/components/evidence-view";
@@ -14,6 +16,7 @@ import type { WorkspaceTab } from "./workspace-state";
 import styles from "./run-views.module.css";
 
 const tabs = [
+  { id: "execution", label: "Execution", icon: Workflow },
   { id: "report", label: "Decision brief", icon: FileText },
   { id: "evidence", label: "Evidence board", icon: BookOpen },
   { id: "activity", label: "Research trail", icon: Activity },
@@ -22,12 +25,18 @@ const tabs = [
 
 export function RunViews({
   projectId,
+  strategy,
+  onStrategyChange,
+  onHarness,
   snapshot,
   tab,
   onNavigate,
   onEvidence,
 }: {
   projectId: string;
+  strategy: ResearchStrategy;
+  onStrategyChange: (value: ResearchStrategy) => void;
+  onHarness: () => void;
   snapshot: RunSnapshot | undefined;
   tab: WorkspaceTab;
   onNavigate: (tab: WorkspaceTab) => void;
@@ -99,6 +108,16 @@ export function RunViews({
         aria-labelledby={`tab-${tab}`}
         tabIndex={0}
       >
+        {tab === "execution" && (
+          <ExecutionView
+            key={run?.id ?? "new"}
+            snapshot={snapshot}
+            strategy={strategy}
+            onStrategyChange={onStrategyChange}
+            onHarness={onHarness}
+            onEvidence={() => onNavigate("evidence")}
+          />
+        )}
         {tab === "report" && (
           <>
             <ErrorNotice
