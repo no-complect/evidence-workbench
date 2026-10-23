@@ -1,11 +1,15 @@
 import type { Dispatch } from "react";
-import type { HarnessConfiguration } from "../../../../../packages/contracts/models";
+import type {
+  HarnessConfiguration,
+  HarnessPresetSettings,
+} from "../../../../../packages/contracts/models";
+import { HarnessPresets } from "@/features/harness/harness-presets";
 import type { ResearchDraft, DraftAction } from "./research-state";
 import { HarnessStudio } from "@/features/harness/harness-studio";
 import { Braces, Fingerprint, ShieldCheck } from "lucide-react";
 import type { RunSnapshot } from "@/lib/contracts";
 import { WorkspaceHeading } from "./workspace-shell";
-import { limitFields } from "./research-state";
+import { limitFields, parseLimits } from "./research-state";
 import { type ModelSelectionProps } from "@/features/harness/model-selector";
 import { stages, type JudgeSelection } from "@/features/harness/contracts";
 import styles from "./notebook.module.css";
@@ -21,6 +25,7 @@ export function HarnessView({
   liveEnabled,
   modelSelection,
   judgeSelection,
+  onApplyPreset,
 }: {
   projectId: string;
   active: boolean;
@@ -32,9 +37,23 @@ export function HarnessView({
   liveEnabled: boolean;
   modelSelection?: ModelSelectionProps;
   judgeSelection: JudgeSelection;
+  onApplyPreset: (settings: HarnessPresetSettings) => void;
 }) {
   const run = snapshot?.detail.run;
   const contexts = snapshot?.detail.contexts ?? [];
+  let draft: HarnessPresetSettings | null = null;
+  let draftError = "";
+  try {
+    draft = {
+      configuration,
+      limits: parseLimits(research.draft.limits),
+      model_id: modelSelection?.modelId || null,
+      judge_model_id: judgeSelection.modelId || null,
+    };
+  } catch (error) {
+    draftError =
+      error instanceof Error ? error.message : "Correct the draft limits.";
+  }
   return (
     <>
       <WorkspaceHeading
@@ -57,6 +76,16 @@ export function HarnessView({
           modelSelection={modelSelection}
           contexts={contexts}
           onOpenWorkflows={onOpenWorkflows}
+        />
+      )}
+      {projectId && (
+        <HarnessPresets
+          projectId={projectId}
+          active={active}
+          draft={draft}
+          draftError={draftError}
+          availableModels={modelSelection?.catalog?.models}
+          onApply={onApplyPreset}
         />
       )}
       <div className={styles.twoColumns}>

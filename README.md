@@ -85,6 +85,7 @@ After the initial build:
 5. Open **Context** to inspect a recorded model input, prompt version, and evidence inclusion/exclusion decisions.
 6. Open **RAG**, choose **New collection**, and follow **Purpose → Sources → Review → Try it**. Use the synthetic architecture pack to prepare real bundled documents without paid calls, or bring your own files. Search with **Keyword**, **Vector**, or **Hybrid**, then inspect a result’s passage, ranks, version, and content hash. Custom fixture uploads support Keyword search; Vector requires a recognized fixture topic.
 7. Upload [reviewer-notes.txt](./docs/examples/reviewer-notes.txt). Its status should become `ready`. New demo uploads are full-text searchable; arbitrary research questions require live mode.
+8. In **Harness**, name and **Save current draft** as a baseline. Change its instructions, context policy or limits, then inspect the field-by-field comparison. Save an alternative to compare two presets, or **Apply to draft** to reuse one. Presets are immutable and private to your user in that project, with a limit of 100. Applying restores instructions, model targets, optional judge selection and limits; execution mode, question, approval and paid consent stay separate. Unavailable model IDs remain visible for correction. Saved investigations retain their original configuration.
 
 For a terminal-only investigation:
 

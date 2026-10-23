@@ -206,6 +206,7 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
         pricing_configured: false,
         judge_pricing_configured: false,
       });
+    if (path.endsWith("/harness/presets")) return reply([]);
     if (path.endsWith("/harness/studio"))
       return reply({
         schemas: { plan: {}, assess: {}, report: {}, judge: {} },

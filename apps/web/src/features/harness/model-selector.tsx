@@ -32,13 +32,16 @@ export function ModelSelector({
         <Tooltip content="Choose a model discovered through the server's provider key. Discovery does not guarantee chat or structured-output compatibility; selection makes no inference calls.">
           <select
             aria-label="Available model"
-            value={available.includes(modelId) ? modelId : ""}
+            value={modelId}
             disabled={!catalog?.configured || !available.length}
             onChange={(event) => onModelChange(event.target.value)}
           >
             <option value="">
               {fetching ? "Loading models…" : "Choose a model"}
             </option>
+            {!!modelId && !available.includes(modelId) && (
+              <option value={modelId}>{modelId} · unavailable</option>
+            )}
             {available.map((id) => (
               <option key={id} value={id}>
                 {id}

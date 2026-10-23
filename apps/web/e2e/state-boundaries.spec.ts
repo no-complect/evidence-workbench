@@ -21,6 +21,45 @@ const source = (name: string) => ({
 const answer = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, json: body });
 
+test("workspace navigation waits for the initial project boundary", async ({
+  page,
+}) => {
+  let release!: () => void;
+  let received!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const requested = new Promise<void>((resolve) => {
+    received = resolve;
+  });
+  const setup = mockWorkspace(page, async (route, path) => {
+    if (path !== "bootstrap") return false;
+    received();
+    await gate;
+    await answer(route, {
+      projects,
+      examples: [],
+      live_enabled: false,
+      evaluations_enabled: true,
+      auth_mode: "demo",
+    });
+    return true;
+  });
+  await requested;
+  await expect(
+    page.getByRole("button", { name: "Evaluations", exact: true }),
+  ).toBeDisabled();
+  release();
+  await setup;
+  await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Evaluations workspace", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Evaluations", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+});
+
 async function mockWorkspace(
   page: Page,
   handle?: (route: Route, path: string) => Promise<boolean>,
@@ -61,6 +100,7 @@ async function mockWorkspace(
       return answer(route, [source(`${path.split("/")[3]}.txt`)]);
     if (path.endsWith("/evaluations") || path.endsWith("/evaluation-jobs"))
       return answer(route, []);
+    if (path.endsWith("/harness/presets")) return answer(route, []);
     throw new Error(
       `Unexpected mocked request: ${route.request().method()} ${path}`,
     );

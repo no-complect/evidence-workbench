@@ -44,6 +44,7 @@ export type DraftAction =
   | { type: "strategy"; value: ResearchStrategy }
   | { type: "approval"; value: boolean }
   | { type: "web"; value: boolean }
+  | { type: "limits"; value: Limits }
   | { type: "limit"; key: keyof Limits; value: string };
 
 export function researchReducer(
@@ -69,6 +70,16 @@ export function researchReducer(
       return {
         ...state,
         limits: { ...state.limits, [action.key]: action.value },
+      };
+    case "limits":
+      return {
+        ...state,
+        limits: Object.fromEntries(
+          Object.entries(action.value).map(([key, value]) => [
+            key,
+            String(value),
+          ]),
+        ) as ResearchDraft["limits"],
       };
   }
 }
