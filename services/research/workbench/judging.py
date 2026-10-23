@@ -4,6 +4,7 @@ from .config import settings
 from .context import redact
 from .evidence import for_run
 from .models import Report, SemanticJudgment
+from .model_targets import credential as environment_credential
 
 
 def public_rows(evaluation_id, project_id, run_id=None):
@@ -96,6 +97,8 @@ def grade_run(evaluation_id, project_id, owner, run, pinned, check_active):
         content, bound, request = judge_policy.prepare_claim(claim, evidence)
         request.update({'model_id': pinned['model_id'], 'prompt_sha256': pinned['prompt_sha256'],
             'schema_sha256': pinned['schema_sha256'], 'adapter': pinned['adapter']})
+        if pinned.get('provider') == 'anthropic':
+            request['provider'] = 'anthropic'
         row, invoke, remaining = reserve(evaluation_id, project_id, owner, run['id'], index,
             request, bound, pinned, check_active)
         if not invoke:
@@ -106,12 +109,16 @@ def grade_run(evaluation_id, project_id, owner, run, pinned, check_active):
             finish(row, {'status': 'ungraded', 'reason': 'Evaluation stopped before the judge call'}, None, pinned)
             raise
         s = settings()
-        if not s.live_enabled or not s.openai_api_key or run['mode'] != 'live':
+        try:
+            key = environment_credential(pinned, s)
+        except ValueError:
+            key = None
+        if not s.live_enabled or not key or run['mode'] != 'live':
             finish(row, {'status': 'ungraded', 'reason': 'Live judge credentials or execution are unavailable'}, None, pinned)
             continue
         usage = None
         try:
-            output = judge_policy.SemanticJudge(pinned, s.openai_api_key).invoke(content, max(.1, min(30, remaining)))
+            output = judge_policy.SemanticJudge(pinned, key).invoke(content, max(.1, min(30, remaining)))
             usage = judge_policy.usage_counts(output.get('raw'))
             if output.get('parsing_error') or output.get('parsed') is None:
                 result = {'status': 'ungraded', 'reason': 'Judge output did not match the semantic contract'}

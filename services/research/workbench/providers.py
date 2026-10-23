@@ -7,6 +7,22 @@ class ModelCompatibilityError(ValueError):
     """Safe public error for a model that cannot serve this research contract."""
 
 
+def structured_model(target, key, schema, output_tokens, timeout):
+    """Fixed provider endpoints, bounded calls and no SDK retries or tool execution."""
+    kwargs = {'model': target['model_id'], 'api_key': key, 'max_tokens': output_tokens,
+              'timeout': timeout, 'max_retries': 0}
+    provider = target.get('provider', 'openai')
+    if provider == 'anthropic':
+        from langchain_anthropic import ChatAnthropic
+        model = ChatAnthropic(**kwargs, base_url='https://api.anthropic.com')
+        return model.with_structured_output(schema, method='json_schema', include_raw=True)
+    if provider == 'openai':
+        from langchain_openai import ChatOpenAI
+        model = ChatOpenAI(**kwargs, base_url='https://api.openai.com/v1', stream_usage=False)
+        return model.with_structured_output(schema, method='json_schema', strict=True, include_raw=True)
+    raise ModelCompatibilityError('Unsupported model provider')
+
+
 class DemoProvider:
     name = 'deterministic-fixture-v1'
 
@@ -85,51 +101,50 @@ class DemoProvider:
         return result, None, None
 
 
+def invoke_research(target, key, payload, schema, timeout):
+    try:
+        output = structured_model(target, key, schema, 2200, timeout).invoke([
+            ('system', payload['trusted_instructions']),
+            ('human', json.dumps({k: v for k, v in payload.items() if k != 'trusted_instructions'})),
+        ])
+    except Exception as exc:
+        if getattr(exc, 'status_code', None) in {400, 403, 404, 422}:
+            raise ModelCompatibilityError('Selected model could not serve the research contract') from None
+        raise
+    if output.get('parsing_error') or output.get('parsed') is None:
+        raise ModelCompatibilityError('Provider output failed schema validation')
+    usage = output['raw'].usage_metadata
+    if not usage:
+        return output['parsed'], None, None
+    prices = [target['input_usd_per_million'], target['output_usd_per_million']]
+    cost = None if any(price is None for price in prices) else (
+        usage['input_tokens'] * prices[0] + usage['output_tokens'] * prices[1]) / 1_000_000
+    return output['parsed'], usage['total_tokens'], cost
+
+
 class OpenAIProvider:
     name = 'openai'
 
     def __init__(self, target=None, api_key=None):
-        self.target = target
-        self.api_key = api_key
+        self.target, self.api_key = target, api_key
 
     def invoke(self, stage, payload, schema, timeout=35):
-        from langchain_openai import ChatOpenAI
         s = settings()
         target = self.target or {
             'model_id': s.openai_model,
             'input_usd_per_million': s.model_input_usd_per_million,
             'output_usd_per_million': s.model_output_usd_per_million,
         }
-        model = ChatOpenAI(model=target['model_id'],
-                           api_key=self.api_key or s.openai_api_key,
-                           base_url='https://api.openai.com/v1',
-                           stream_usage=False,
-                           max_tokens=2200,
-                           timeout=timeout,
-                           max_retries=0)
-        try:
-            output = model.with_structured_output(schema,
-                                                  method='json_schema',
-                                                  strict=True,
-                                                  include_raw=True).invoke([
-                                                      ('system', payload['trusted_instructions']),
-                                                      ('human',
-                                                       json.dumps({
-                                                           k: v
-                                                           for k, v in payload.items()
-                                                           if k != 'trusted_instructions'
-                                                       }))
-                                                  ])
-        except Exception as exc:
-            if getattr(exc, 'status_code', None) in {400, 403, 404, 422}:
-                raise ModelCompatibilityError('Selected model could not serve the research contract') from None
-            raise
-        if output.get('parsing_error') or output.get('parsed') is None:
-            raise ModelCompatibilityError('Provider output failed schema validation')
-        usage = output['raw'].usage_metadata
-        if not usage:
-            return output['parsed'], None, None
-        prices = [target['input_usd_per_million'], target['output_usd_per_million']]
-        cost = None if any(price is None for price in prices) else (
-            usage['input_tokens'] * prices[0] + usage['output_tokens'] * prices[1]) / 1_000_000
-        return output['parsed'], usage['total_tokens'], cost
+        return invoke_research(target, self.api_key or s.openai_api_key, payload, schema, timeout)
+
+
+class AnthropicProvider:
+    name = 'anthropic'
+
+    def __init__(self, target, api_key):
+        self.target, self.api_key = target, api_key
+
+    def invoke(self, stage, payload, schema, timeout=35):
+        if self.target.get('provider') != 'anthropic' or not self.api_key:
+            raise ModelCompatibilityError('Anthropic target or credentials unavailable')
+        return invoke_research(self.target, self.api_key, payload, schema, timeout)

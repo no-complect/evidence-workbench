@@ -8,12 +8,14 @@ from langgraph.types import Send, interrupt
 from . import db, budget
 from .models import Plan, Assessment, Report, Claim
 from .context import assemble, ContextOverflow
-from .providers import DemoProvider, OpenAIProvider
+from .providers import DemoProvider, OpenAIProvider, AnthropicProvider
+from .model_targets import credential as environment_credential, validate_adapter
 from .retrieval import PostgresHybridRetriever
 from .evidence import for_run, persist_report, verify
 from .config import settings
 from .harness import connection, fingerprints
 from .credential_store import decrypt
+from .environment_models import environment_fingerprints
 
 from .reducers import merge_ids
 
@@ -66,13 +68,15 @@ class Runtime:
             target = None
             snapshot = self.run.get('harness_snapshot')
             if snapshot:
-                if snapshot['fingerprints'] != fingerprints() or not s.live_enabled:
+                expected = environment_fingerprints() if snapshot['fingerprints'].get('adapter') == 'environment-research-json-schema-v1' else fingerprints()
+                if snapshot['fingerprints'] != expected or not s.live_enabled:
                     raise ValueError('Pinned harness no longer matches the enabled runtime')
                 target = snapshot['targets'][stage]
                 if snapshot.get('credential_source') == 'environment':
-                    if not s.openai_api_key:
-                        raise ValueError('Server model credentials are unavailable')
-                    provider = OpenAIProvider(target, s.openai_api_key)
+                    validate_adapter(target)
+                    provider_key = environment_credential(target, s)
+                    provider_type = AnthropicProvider if target['provider'] == 'anthropic' else OpenAIProvider
+                    provider = provider_type(target, provider_key)
                 else:
                     credential = connection(self.run['project_id'], target['connection_id'], self.run['user_id'])
                     provider = OpenAIProvider(target, decrypt(credential['encrypted_key']))

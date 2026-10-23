@@ -189,9 +189,12 @@ test("real environment catalog returns a clear missing-key state without connect
     exact: true,
   });
   await expect(
-    workspace.getByText("Set OPENAI_API_KEY in the server environment", {
-      exact: false,
-    }),
+    workspace.getByText(
+      "Set OPENAI_API_KEY or ANTHROPIC_API_KEY in the server environment",
+      {
+        exact: false,
+      },
+    ),
   ).toBeVisible();
   await expect(
     workspace.getByRole("combobox", { name: "Available model", exact: true }),

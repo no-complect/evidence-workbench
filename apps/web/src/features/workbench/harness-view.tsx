@@ -139,7 +139,8 @@ export function HarnessView({
                 )}
                 {stages.map(([stage, label]) => (
                   <p key={stage}>
-                    {label}: {run.harness_snapshot!.targets[stage].model_id}
+                    {label}: {run.harness_snapshot!.targets[stage].provider} /{" "}
+                    {run.harness_snapshot!.targets[stage].model_id}
                   </p>
                 ))}
               </div>

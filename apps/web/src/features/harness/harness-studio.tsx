@@ -78,7 +78,8 @@ export function HarnessStudio({
                   value="live"
                   disabled={
                     !modelSelection?.catalog?.live_enabled ||
-                    !modelSelection.catalog.configured
+                    !modelSelection.catalog.configured ||
+                    modelSelection.catalog.embeddings_configured === false
                   }
                 >
                   Live · server environment key

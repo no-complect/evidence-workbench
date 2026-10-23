@@ -63,16 +63,31 @@ export function ModelSelector({
       <ErrorNotice error={error} />
       {catalog && !catalog.configured ? (
         <p className="fine-print">
-          Set OPENAI_API_KEY in the server environment, then restart the local
-          services or redeploy.
+          Set OPENAI_API_KEY or ANTHROPIC_API_KEY in the server environment,
+          then restart the local services or redeploy.
         </p>
       ) : catalog ? (
         <p className="fine-print">
-          {available.length} models available from the server’s OpenAI key.
-          Selection makes no inference calls. This model will be used for the
-          planner, reviewer, and writer.
+          {available.length} models available from the configured server
+          providers. Selection makes no inference calls. This model will be used
+          for the planner, reviewer, and writer.
         </p>
       ) : null}
+      {catalog?.providers?.map((provider) =>
+        provider.error ? (
+          <p role="alert" className="fine-print" key={provider.provider}>
+            {provider.error} Successfully loaded models remain available.
+            Refresh models to retry.
+          </p>
+        ) : null,
+      )}
+      {catalog?.embeddings_configured === false && catalog.configured && (
+        <p className="fine-print">
+          Models can be inspected and saved. Live RAG also requires
+          OPENAI_API_KEY for the collection’s OpenAI embeddings; Anthropic does
+          not replace that index.
+        </p>
+      )}
       {!!catalog?.configured && !available.length && (
         <p role="status" className="fine-print">
           The provider returned no models for this key.
