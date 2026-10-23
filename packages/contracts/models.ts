@@ -17,3 +17,6 @@ export type SearchRequest = { collection_id: string; query: string; top_k: numbe
 export type ModelVerification = { model_id: string; input_usd_per_million: number; output_usd_per_million: number; max_cost_usd: number; idempotency_key: string };
 export type HarnessTargets = { plan: string; assess: string; report: string };
 export type HarnessCreate = { name: string; targets: HarnessTargets; limits: Limits; idempotency_key: string };
+export type HarnessPresetSettings = { configuration: HarnessConfiguration; limits: Limits; model_id: string | null; judge_model_id: string | null };
+export type HarnessPresetCreate = { name: string; settings: HarnessPresetSettings; idempotency_key: string };
+export type HarnessPreset = { name: string; id: string; settings: HarnessPresetSettings; settings_hash: string; schema_version: number; created_at: string };

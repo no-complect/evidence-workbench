@@ -43,9 +43,11 @@ const workspaces = [
 export function WorkspaceNavigation({
   workspace,
   onChange,
+  pending = false,
 }: {
   workspace: EngineeringWorkspace;
   onChange: (workspace: EngineeringWorkspace) => void;
+  pending?: boolean;
 }) {
   return (
     <nav className={styles.navigation} aria-label="Engineering workspaces">
@@ -54,6 +56,7 @@ export function WorkspaceNavigation({
           <button
             type="button"
             aria-pressed={workspace === id}
+            disabled={pending}
             onClick={() => onChange(id)}
           >
             <Icon size={17} />

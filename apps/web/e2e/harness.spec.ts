@@ -31,6 +31,7 @@ async function mockModels(page: Page, liveEnabled = true) {
         evaluations_enabled: false,
         auth_mode: "demo",
       });
+    if (path.endsWith("/harness/presets")) return reply([]);
     if (path.endsWith("/harness/studio"))
       return reply({
         schemas: { plan: {}, assess: {}, report: {} },

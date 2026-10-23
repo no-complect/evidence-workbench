@@ -1,6 +1,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends
-from . import db, harness, environment_models
+from . import db, harness, environment_models, harness_presets
+from .models import HarnessPresetCreate, HarnessPreset
 from .auth import identity
 from .models import ConnectionCreate, ModelVerification, HarnessCreate, StrictModel, Plan, Assessment, Report, SemanticJudgment
 from .auth import authorize
@@ -42,6 +43,16 @@ def validate_contract(project_id: UUID, body: ContractValidation, user=Depends(i
 @router.get('/models')
 def models(project_id: UUID, user=Depends(identity)):
     return environment_models.catalog(project_id, user)
+
+
+@router.get('/presets', response_model=list[HarnessPreset])
+def presets(project_id: UUID, user=Depends(identity)):
+    return harness_presets.list_presets(project_id, user)
+
+
+@router.post('/presets', status_code=201, response_model=HarnessPreset)
+def save_preset(project_id: UUID, body: HarnessPresetCreate, user=Depends(identity)):
+    return harness_presets.save_preset(project_id, user, body)
 
 
 @router.get('')

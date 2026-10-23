@@ -163,6 +163,14 @@ export function HarnessStudio({
                     }
                   >
                     <option value="">Use selected model</option>
+                    {!!configuration.stage_models[key] &&
+                      !modelSelection?.catalog?.models.includes(
+                        configuration.stage_models[key]!,
+                      ) && (
+                        <option value={configuration.stage_models[key]!}>
+                          {configuration.stage_models[key]} · unavailable
+                        </option>
+                      )}
                     {modelSelection?.catalog?.models.map((id) => (
                       <option key={id} value={id}>
                         {id}
@@ -182,6 +190,14 @@ export function HarnessStudio({
                   onChange={(e) => judgeSelection.onChange(e.target.value)}
                 >
                   <option value="">Off · deterministic checks only</option>
+                  {!!judgeSelection.modelId &&
+                    !modelSelection?.catalog?.models.includes(
+                      judgeSelection.modelId,
+                    ) && (
+                      <option value={judgeSelection.modelId}>
+                        {judgeSelection.modelId} · unavailable
+                      </option>
+                    )}
                   {modelSelection?.catalog?.models.map((id) => (
                     <option key={id} value={id}>
                       {id}

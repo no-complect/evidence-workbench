@@ -1,0 +1,176 @@
+.surface {
+  background: var(--paper, #fff);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 24px;
+  min-width: 0;
+  overflow: hidden;
+}
+.head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+}
+.head > span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.head svg,
+.comparisonHead svg {
+  color: var(--blue);
+  flex-shrink: 0;
+}
+.head small,
+.description,
+.identity {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.8fr) minmax(0, 1.5fr);
+}
+.library,
+.comparison {
+  padding: 24px;
+  min-width: 0;
+}
+.library {
+  border-right: 1px solid var(--border);
+  background: #f6f5f5;
+}
+.kicker {
+  font:
+    10px/1.6 ui-monospace,
+    monospace;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin: 0 0 10px;
+}
+.description {
+  margin: 12px 0;
+}
+.description:empty {
+  display: none;
+}
+.field {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 0;
+}
+.field input,
+.field select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--foreground);
+  background: white;
+  font:
+    13px/1.6 Arial,
+    Helvetica,
+    sans-serif;
+}
+.comparisonHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.comparisonHead h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 20px 0 12px;
+}
+.tableScroll {
+  max-height: 500px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.tableScroll table {
+  width: 100%;
+  min-width: 460px;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.8;
+  table-layout: fixed;
+}
+.tableScroll th,
+.tableScroll td {
+  vertical-align: top;
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tableScroll thead {
+  background: #e9ecf0;
+  color: #3c4657;
+}
+.tableScroll tbody th {
+  color: var(--muted);
+  font-weight: 500;
+}
+.tableScroll tr[data-changed="true"] td {
+  background: #f1f5f8;
+}
+.empty {
+  padding: 24px 18px;
+  background: #f5f5f6;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.warning {
+  padding: 12px;
+  background: #edf2f7;
+  color: #3f5267;
+  border-left: 2px solid #8a9fb7;
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 850px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .library {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+@media (max-width: 550px) {
+  .library,
+  .comparison {
+    padding: 19px;
+  }
+  .field input,
+  .field select {
+    font-size: 16px;
+  }
+}

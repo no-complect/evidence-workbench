@@ -156,6 +156,7 @@ function ProjectWorkspace({
       connection={connection}
       navigation={
         <WorkspaceNavigation
+          pending={connection === "connecting"}
           workspace={ui.workspace}
           onChange={(workspace) => action({ type: "workspace", workspace })}
         />
@@ -270,6 +271,12 @@ function ProjectWorkspace({
         aria-label="Harness workspace"
       >
         <HarnessView
+          onApplyPreset={(preset) => {
+            setConfiguration(preset.configuration);
+            setSelectedModelId(preset.model_id ?? "");
+            setJudgeModelId(preset.judge_model_id ?? "");
+            researchDispatch({ type: "limits", value: preset.limits });
+          }}
           judgeSelection={{ modelId: judgeModelId, onChange: setJudgeModelId }}
           projectId={projectId}
           active={ui.workspace === "harness"}

@@ -1,5 +1,6 @@
 from typing import Literal, Annotated
 from uuid import UUID
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 DEFAULT_QUESTION = 'Compare three approaches to deploying an enterprise AI assistant. Investigate security, operating costs, retrieval quality, and maintenance. Support recommendations with evidence and identify unresolved questions.'
@@ -21,7 +22,7 @@ class Limits(StrictModel):
     tokens: int = Field(48000, ge=500, le=200000)
     wall_seconds: int = Field(120, ge=5, le=900)
     concurrency: int = Field(1, ge=1, le=3)
-    estimated_cost_usd: float = Field(1.0, ge=0, le=25)
+    estimated_cost_usd: float = Field(1.0, ge=0, le=25, allow_inf_nan=False)
     top_k: int = Field(5, ge=1, le=20)
 
 
@@ -132,6 +133,27 @@ class Report(StrictModel):
 
 class Named(StrictModel):
     name: str = Field(min_length=1, max_length=100)
+
+
+class HarnessPresetSettings(StrictModel):
+    configuration: HarnessConfiguration
+    limits: Limits
+    model_id: str | None = Field(None, min_length=1, max_length=1024)
+    judge_model_id: str | None = Field(None, min_length=1, max_length=1024)
+
+
+class HarnessPresetCreate(Named):
+    name: str = Field(min_length=1, max_length=100, pattern=r'\S')
+    settings: HarnessPresetSettings
+    idempotency_key: UUID
+
+
+class HarnessPreset(Named):
+    id: UUID
+    settings: HarnessPresetSettings
+    settings_hash: str
+    schema_version: int
+    created_at: datetime
 
 
 class CollectionCreate(Named):

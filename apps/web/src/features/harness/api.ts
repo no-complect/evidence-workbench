@@ -1,5 +1,9 @@
 import { api } from "@/lib/api";
 import type {
+  HarnessPreset,
+  HarnessPresetCreate,
+} from "../../../../../packages/contracts/models";
+import type {
   ModelCatalog,
   HarnessStudioState,
   InspectorStage,
@@ -20,4 +24,14 @@ export const studioApi = {
       `projects/${project}/harness/validate-contract`,
       { method: "POST", body: JSON.stringify(body) },
     ),
+};
+
+export const presetApi = {
+  list: (project: string, signal?: AbortSignal) =>
+    api<HarnessPreset[]>(`projects/${project}/harness/presets`, { signal }),
+  save: (project: string, body: HarnessPresetCreate) =>
+    api<HarnessPreset>(`projects/${project}/harness/presets`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };

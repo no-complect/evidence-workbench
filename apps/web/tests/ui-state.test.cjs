@@ -28,6 +28,74 @@ const ui = load("features/workbench/workspace-state.ts");
 const research = load("features/workbench/research-state.ts");
 const cases = load("features/evaluations/case-state.ts");
 
+test("applying preset limits preserves execution, question, approval and web choices", () => {
+  const state = {
+    ...research.initialResearchDraft,
+    mode: "live",
+    webEnabled: true,
+    approval: false,
+    question: "Keep this investigation question",
+    strategy: "rag",
+  };
+  const next = research.researchReducer(state, {
+    type: "limits",
+    value: {
+      ...research.parseLimits(state.limits),
+      tokens: 12000,
+      estimated_cost_usd: 0.25,
+    },
+  });
+  assert.equal(next.limits.tokens, "12000");
+  assert.equal(next.limits.estimated_cost_usd, "0.25");
+  for (const key of ["mode", "webEnabled", "approval", "question", "strategy"])
+    assert.equal(next[key], state[key]);
+});
+
+test("preset comparisons expose exact field changes and unavailable targets without substitution", () => {
+  const comparison = load("features/harness/preset-comparison.ts", {
+    "@/features/workbench/research-state": research,
+    "./contracts": {
+      stages: [
+        ["plan", "Planner"],
+        ["assess", "Reviewer"],
+        ["report", "Writer"],
+      ],
+    },
+  });
+  const left = {
+    configuration: {
+      system_instruction: "Keep citations",
+      context_policy: "strict",
+      stage_models: { plan: null, assess: null, report: "retired" },
+    },
+    model_id: "available",
+    judge_model_id: "retired",
+    limits: research.parseLimits(research.initialResearchDraft.limits),
+  };
+  const right = {
+    ...left,
+    configuration: {
+      ...left.configuration,
+      system_instruction: "Keep uncertainty",
+    },
+    limits: { ...left.limits, tokens: 12000 },
+  };
+  const rows = comparison.compareSettings(left, right);
+  assert.equal(rows.length, 14);
+  assert.deepEqual(
+    Array.from(
+      rows.filter((row) => row.left !== row.right),
+      (row) => row.label,
+    ),
+    ["System instruction", "Token budget"],
+  );
+  assert.deepEqual(
+    Array.from(comparison.unavailableModels(left, ["available"])),
+    ["retired"],
+  );
+  assert.equal(left.configuration.stage_models.report, "retired");
+});
+
 test("evaluation cases reject stale source expectations and require an explicit evidence gap", () => {
   const examples = ["What evidence supports this decision?"];
   let state = cases.caseReducer(cases.initialCaseDrafts, {
