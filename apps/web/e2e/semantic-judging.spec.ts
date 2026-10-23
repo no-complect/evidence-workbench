@@ -1,8 +1,30 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+async function expectCheckboxLayout(page: Page, name: string) {
+  const checkbox = page.getByRole("checkbox", { name, exact: true });
+  const bounds = await checkbox.evaluate((input) => {
+    const box = input.getBoundingClientRect();
+    const label = input.closest("label")!;
+    const text = label.querySelector("span")!.getBoundingClientRect();
+    return {
+      width: box.width,
+      height: box.height,
+      gap: text.left - box.right,
+      topOffset: box.top - text.top,
+      withinLabel: text.right <= label.getBoundingClientRect().right + 1,
+    };
+  });
+  expect(bounds.width).toBe(16);
+  expect(bounds.height).toBe(16);
+  expect(bounds.gap).toBeGreaterThanOrEqual(8);
+  expect(bounds.topOffset).toBeGreaterThanOrEqual(0);
+  expect(bounds.topOffset).toBeLessThan(8);
+  expect(bounds.withinLabel).toBeTruthy();
+}
 
 test("real judge contract validates without inference and scripted grading stays disabled", async ({
   page,
-}) => {
+}, info) => {
   await page.goto("/");
   const harness = page.getByRole("region", {
     name: "Harness workspace",
@@ -44,6 +66,12 @@ test("real judge contract validates without inference and scripted grading stays
       exact: true,
     }),
   ).toContainText("Scripted cases retain deterministic checks only");
+  await expectCheckboxLayout(page, "Enable semantic judging");
+  await page
+    .getByRole("region", { name: "Semantic evaluation settings", exact: true })
+    .screenshot({
+      path: info.outputPath("disabled-judge-checkbox.png"),
+    });
 });
 
 test("provider-double UI: judge selection, configuration-bound consent and saved claim grades", async ({
@@ -248,6 +276,14 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
     name: "Authorize paid evaluation",
     exact: true,
   });
+  await expectCheckboxLayout(page, "Enable semantic judging");
+  await expectCheckboxLayout(page, "Authorize paid evaluation");
+  await consent
+    .locator("..")
+    .getByText("I authorize paid calls", { exact: false })
+    .click();
+  await expect(consent).toBeChecked();
+  await consent.uncheck();
   await consent.check();
   await page
     .getByLabel("Claims sampled per investigation", { exact: true })

@@ -25,6 +25,16 @@ test("guided starter preparation → real retrieval methods → pinned provenanc
   page,
 }, info) => {
   const dialog = await openWizard(page);
+  await dialog.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(
+    dialog.getByLabel("Collection name", { exact: true }),
+  ).toHaveValue(/^Browser collection /);
+  await dialog
+    .getByRole("button", { name: "Choose sources", exact: true })
+    .click();
+  await expect(
+    dialog.getByLabel("Use the synthetic architecture pack"),
+  ).toBeChecked();
   await page.screenshot({
     path: info.outputPath("collection-sources.png"),
     fullPage: true,
@@ -164,6 +174,7 @@ test("own-source walkthrough exposes per-file errors, retries and deduplicated v
   await dialog
     .getByRole("button", { name: "Finish setup", exact: true })
     .click();
+  await expect(dialog).not.toBeVisible();
   await expect(
     page
       .getByRole("table")

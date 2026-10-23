@@ -24,6 +24,7 @@ import {
   type ResearchDraft,
 } from "@/features/workbench/research-state";
 import styles from "@/features/harness/studio.module.css";
+import controls from "./evaluation-controls.module.css";
 
 export type EvaluationSetup = {
   collections: Collection[];
@@ -266,7 +267,7 @@ export function EvaluationEditor({
                 {investigationCount} investigations use your current per-run
                 limits. Ingestion is separate.
               </p>
-              <label className="check-label">
+              <label className={controls.checkbox}>
                 <input
                   type="checkbox"
                   aria-label="Authorize paid evaluation"
@@ -276,12 +277,14 @@ export function EvaluationEditor({
                     setError("");
                   }}
                 />
-                I authorize paid calls for these {investigationCount} evaluation
-                runs
-                {judge
-                  ? ` and up to ${investigationCount * judgeClaims} sampled claim judgments`
-                  : ""}
-                .
+                <span>
+                  I authorize paid calls for these {investigationCount}{" "}
+                  evaluation runs
+                  {judge
+                    ? ` and up to ${investigationCount * judgeClaims} sampled claim judgments`
+                    : ""}
+                  .
+                </span>
               </label>
             </div>
           )}

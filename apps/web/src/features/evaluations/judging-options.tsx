@@ -1,5 +1,6 @@
 import { Scale } from "lucide-react";
 import styles from "@/features/harness/studio.module.css";
+import controls from "./evaluation-controls.module.css";
 
 export function JudgingOptions({
   live,
@@ -23,7 +24,7 @@ export function JudgingOptions({
       <Scale size={17} />
       <div style={{ minWidth: 0, flex: 1 }}>
         <strong>Separate model judgment</strong>
-        <label className="check-label">
+        <label className={controls.checkbox}>
           <input
             type="checkbox"
             aria-label="Enable semantic judging"
@@ -31,7 +32,7 @@ export function JudgingOptions({
             disabled={!live || !modelId}
             onChange={(e) => onEnabled(e.target.checked)}
           />
-          Grade sampled cited claims with the evaluation judge.
+          <span>Grade sampled cited claims with the evaluation judge.</span>
         </label>
         <p className="fine-print">
           {!live
