@@ -246,9 +246,9 @@ test("uncertain save retries once, unavailable model IDs stay visible and projec
   await presets
     .getByRole("button", { name: "Apply to draft", exact: true })
     .click();
-  await expect(page.getByLabel("Available model", { exact: true })).toHaveValue(
-    "retired-model",
-  );
+  await expect(
+    page.getByRole("combobox", { name: "Available model", exact: true }),
+  ).toHaveValue("retired-model");
   await expect(page.getByLabel("Writer model", { exact: true })).toHaveValue(
     "retired-writer",
   );

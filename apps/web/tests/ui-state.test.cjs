@@ -84,7 +84,7 @@ test("preset comparisons expose exact field changes and unavailable targets with
   assert.equal(rows.length, 14);
   assert.deepEqual(
     Array.from(
-      rows.filter((row) => row.left !== row.right),
+      rows.filter((row) => row.changed),
       (row) => row.label,
     ),
     ["System instruction", "Token budget"],
@@ -94,6 +94,21 @@ test("preset comparisons expose exact field changes and unavailable targets with
     ["retired"],
   );
   assert.equal(left.configuration.stage_models.report, "retired");
+  const empty = {
+    ...left,
+    configuration: { ...left.configuration, system_instruction: "" },
+  };
+  const literalPlaceholder = {
+    ...empty,
+    configuration: {
+      ...empty.configuration,
+      system_instruction: "No additional instruction",
+    },
+  };
+  assert.equal(
+    comparison.compareSettings(empty, literalPlaceholder)[0].changed,
+    true,
+  );
 });
 
 test("evaluation cases reject stale source expectations and require an explicit evidence gap", () => {

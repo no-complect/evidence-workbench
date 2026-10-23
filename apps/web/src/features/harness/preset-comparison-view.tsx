@@ -27,7 +27,7 @@ export function PresetComparison({
   const target = compareId ? comparison?.settings : draft;
   const rows =
     selected && target ? compareSettings(selected.settings, target) : [];
-  const changes = rows.filter((row) => row.left !== row.right);
+  const changes = rows.filter((row) => row.changed);
   return (
     <div className={styles.comparison}>
       <div className={styles.comparisonHead}>
@@ -93,7 +93,7 @@ export function PresetComparison({
                 </thead>
                 <tbody>
                   {(showAll ? rows : changes).map((row) => (
-                    <tr key={row.label} data-changed={row.left !== row.right}>
+                    <tr key={row.label} data-changed={row.changed}>
                       <th scope="row">{row.label}</th>
                       <td>{row.left}</td>
                       <td>{row.right}</td>
