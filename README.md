@@ -134,9 +134,11 @@ The demo uses ten original synthetic documents and 41 precomputed, 16-dimensiona
 
 ## Live mode and scope
 
-Configure `OPENAI_API_KEY` on the server. Local Docker reads it from the root
+Configure `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` on the server. Local Docker reads them from the root
 `.env`; hosted runtimes read their environment variables. **Harness** automatically
-loads the models returned for that key. Choose any listed model and the selection
+loads the models returned for those keys. Anthropic discovery follows all pages;
+its selections use an `anthropic:` prefix. Existing OpenAI IDs remain unchanged.
+Choose any listed model and the selection
 carries into **Workflows → Research settings → Live**. **Refresh models** reloads
 the current catalog. There is no key-entry form, connection creation, paid preflight
 check, or saved revision required. Model discovery makes no inference calls and
@@ -150,12 +152,23 @@ queued jobs. The key remains in the server environment and is read by the API an
 worker; new jobs never copy it into the database, browser, logs or model context.
 Restart local services or redeploy after changing environment values.
 
+With only an Anthropic key, `ANTHROPIC_MODEL` can choose the initial model; otherwise
+the first discovered Anthropic ID is selected. Planner, reviewer, writer and the
+separate evaluation judge may target different providers. Failed discovery for one
+provider leaves successful results from the other available, with a visible error.
+No inference, automatic fallback or paid compatibility probe runs during discovery.
+
 All returned model IDs are listed without a family filter. Listing does not prove
 inference permission or compatibility: research needs a chat model that supports
 strict structured output. Unsupported models produce a visible execution error,
 with no scripted fallback. Live RAG still requires a separately ingested live
 collection using `text-embedding-3-small` vectors. Live ingestion invokes paid
 embeddings outside the research-run budget.
+`OPENAI_API_KEY` is still required for these embeddings, even when research and
+judging use Anthropic. An Anthropic-only configuration can inspect/select/save
+models but cannot run the current live RAG pipeline. Google/Bedrock/Vertex adapters
+are not implemented. Existing OpenAI snapshots retain their recovery behavior;
+new jobs also pin each target's provider and adapter identity.
 
 Model and embedding prices are optional server estimates. When estimates are
 missing, dollar totals are shown as unavailable; token, tool, iteration and time

@@ -18,6 +18,8 @@ uv run uvicorn workbench.api:app --host 127.0.0.1 --port 8000 --reload
 uv run python -m workbench.worker
 ```
 
+Run `uv run python -m workbench.evaluation_worker` in its own terminal for UI evaluations.
+
 In another terminal: `APP_ENV=local npm --prefix apps/web run dev`. The Next development command binds all local interfaces; use `npm --prefix apps/web run dev -- --hostname 127.0.0.1` if running directly on a shared network. Compose host bindings remain loopback-only. The web process uses the local default proxy secret only when `APP_ENV=local/test` is explicit. Host tests can point to another database; use a dedicated `workbench_test` database and `WORKBENCH_INTEGRATION=1`.
 
 ## Production Supabase
@@ -32,10 +34,11 @@ If you customize the storage bucket, create the equivalent private bucket yourse
 
 ## Independently hosted API and worker
 
-Build `services/research/Dockerfile`. Run the image as two independently managed processes/services:
+Build `services/research/Dockerfile`. Run the image as three independently managed processes/services:
 
 - API command: `uvicorn workbench.api:app --host 0.0.0.0 --port 8000` behind a TLS reverse proxy.
 - Worker command: `python -m workbench.worker` with outbound provider access and the same database/storage config. It exposes no network listener.
+- Evaluation worker command: `python -m workbench.evaluation_worker`, with the same database/storage and provider environment. It coordinates research jobs and performs optional separately authorized claim grading; it exposes no network listener.
 
 The worker needs persistent Postgres and reachable Supabase Storage; it does not need a persistent local filesystem in production. It must run on an always-on container host (your existing VM/container platform is sufficient). Configure a restart policy and a termination grace period longer than the longest provider timeout (45 seconds in the local Compose). Multiple replicas coordinate using leases and session advisory locks. Provider requests can duplicate in a crash window; do not claim exactly-once inference. Retention, backups and production alerting are operator responsibilities and are not provisioned by this project.
 
@@ -47,13 +50,29 @@ The frontend is a conventional Next.js App Router app. Configure Vercel's projec
 
 Set `APP_ENV=production`, `API_URL=https://your-deployed-api.example`, `API_SHARED_SECRET`, `NEXT_PUBLIC_AUTH_MODE=supabase`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Public variables are embedded at **build time**. Configure the Supabase Auth site's URL and allowed redirects to your actual Vercel domain. The browser uses Supabase JS auth; the Next API proxy forwards the user bearer token and a separate server-only backend secret. The browser may read its project list directly through Supabase RLS.
 
-The model catalog and research execution use `OPENAI_API_KEY` from the **Python
-API and worker environment**. In local Docker, both receive the root `.env` value.
-With the current separately hosted backend, adding this key only to the Vercel
-frontend does not configure the API or worker; set it in those services’ deployment
+The model catalog, research and optional judge use `OPENAI_API_KEY` and/or
+`ANTHROPIC_API_KEY` from the **Python API, research worker and evaluation worker
+environment**. Local Docker supplies these from the root `.env`.
+With the current separately hosted backend, adding these keys only to the Vercel
+frontend does not configure the Python services; set them in those services’ deployment
 environments too. If a future deployment hosts the Python API on Vercel, its
 server-side environment uses the same variable. Never use a `NEXT_PUBLIC_` key.
 No backend hosting topology is changed by the model selector.
+
+OpenAI selections retain their existing IDs; Anthropic selections use `anthropic:`
+before the provider ID. Discovery follows Anthropic pagination without inference,
+reports safe provider-specific failures and retains successful provider catalogs.
+Research stages and the evaluation judge can target providers independently. Keys
+stay server-side and are rechecked at execution. New snapshots pin provider/adapter
+identities; old OpenAI snapshots remain supported. No automatic provider fallback
+or compatibility probe runs. Anthropic model/adapter behavior has synthetic contract
+and integration coverage; real paid-provider quality remains a separate check.
+
+Live retrieval and ingestion still use OpenAI embeddings. `OPENAI_API_KEY` is
+required for the current live RAG index even if all research/judging uses Anthropic.
+Model prices apply only to `OPENAI_MODEL`; Anthropic dollar estimates remain
+unavailable, with token/time/tool/sample limits enforced. Do not change a stored
+collection's embedding identity when changing research models.
 
 **A deployed Vercel app cannot reach your laptop's localhost API.** API_URL must be the publicly reachable, authenticated TLS API endpoint. Vercel requests submit jobs and return 202; they do not host the research loop. Source uploads are bounded synchronous requests and may need a direct-storage upload design for larger future ingestion workloads.
 
@@ -79,6 +98,8 @@ The local Next production build passes; a hosted deployment has not been verifie
 | CREDENTIAL_STORE_PATH | `.runtime/credentials` on host; `/data/credentials` in Compose | Private local credential key directory, shared by API and worker | Python only |
 | OPENAI_API_KEY | Unused | Required for live model/embedding calls | Python only |
 | OPENAI_MODEL | gpt-4.1-mini | Initial model selection; UI can choose any discovered ID | Python |
+| ANTHROPIC_API_KEY | Unused | Optional Claude discovery/research/judge key | Python API + both workers only |
+| ANTHROPIC_MODEL | Unused | Optional initial Claude ID when no OpenAI key is configured | Python |
 | OPENAI_EMBEDDING_MODEL | Unused | text-embedding-3-small, dimension 1536 | Python |
 | MODEL_INPUT_USD_PER_MILLION / MODEL_OUTPUT_USD_PER_MILLION | Unused | Optional estimate for OPENAI_MODEL only | Python |
 | EMBEDDING_USD_PER_MILLION | Unused | Optional embedding estimate | Python |

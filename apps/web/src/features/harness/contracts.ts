@@ -19,6 +19,12 @@ export type ModelCatalog = {
   judge_pricing_configured?: boolean;
   returned_count?: number;
   request_id?: string | null;
+  providers?: {
+    provider: "openai" | "anthropic";
+    count: number;
+    error: string | null;
+  }[];
+  embeddings_configured?: boolean;
 };
 export type ModelTarget = {
   model_id: string;
@@ -26,6 +32,7 @@ export type ModelTarget = {
   connection_id?: string;
   connection_name?: string;
   verification_id?: string;
+  adapter?: string;
   input_usd_per_million: number | null;
   output_usd_per_million: number | null;
 };

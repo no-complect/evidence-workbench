@@ -41,7 +41,10 @@ export function SemanticGrades({
             </p>
             <dl className={styles.gradeMetadata}>
               <dt>Judge model</dt>
-              <dd>{row.request.model_id}</dd>
+              <dd>
+                {row.request.provider ? `${row.request.provider} / ` : ""}
+                {row.request.model_id}
+              </dd>
               <dt>Evidence IDs</dt>
               <dd>{row.request.evidence_ids.join(", ")}</dd>
               <dt>Source versions</dt>

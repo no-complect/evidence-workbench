@@ -49,7 +49,7 @@ def create_run(project_id, body, user, *, evaluation_job_id=None, pinned_harness
     else:
         s = settings()
         if not s.live_enabled or not s.openai_api_key:
-            raise HTTPException(409, 'Live mode is not configured; no scripted fallback will occur')
+            raise HTTPException(409, 'Live execution requires LIVE_ENABLED and the server OpenAI key for embeddings; no scripted fallback will occur')
         if collection['embedding_config'] != 'openai-small-v1':
             raise HTTPException(
                 422,

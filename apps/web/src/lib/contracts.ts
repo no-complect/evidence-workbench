@@ -148,6 +148,7 @@ export type SemanticGrade = {
   claim_index: number;
   status: "reserved" | "graded" | "ungraded";
   request: {
+    provider?: string;
     model_id: string;
     claim_preview: string;
     evidence_ids: string[];

@@ -89,6 +89,10 @@ export function ResearchComposer({
       const request = researchRequest(draft, collectionId);
       request.harness_config = configuration;
       if (mode === "live" && modelSelection) {
+        if (modelSelection.catalog?.embeddings_configured === false)
+          throw new Error(
+            "Live RAG needs the server OpenAI key for collection embeddings, in addition to the selected research provider.",
+          );
         if (!modelSelection.catalog?.models.includes(modelSelection.modelId))
           throw new Error(
             "Choose an available model. Refresh models if the catalog has changed.",

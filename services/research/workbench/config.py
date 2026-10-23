@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     live_enabled: bool = False
     openai_api_key: str = ''
     openai_model: str = 'gpt-4.1-mini'
+    anthropic_api_key: str = ''
+    anthropic_model: str = ''
     openai_embedding_model: str = 'text-embedding-3-small'
     model_input_usd_per_million: float | None = Field(None, ge=0, allow_inf_nan=False)
     model_output_usd_per_million: float | None = Field(None, ge=0, allow_inf_nan=False)
