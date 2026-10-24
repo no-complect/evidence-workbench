@@ -9,16 +9,30 @@ desktop/mobile collection and research/evaluation browser journeys. The reusable
 command is `python3 scripts/verify-compose.py --browser`; see
 [Development](DEVELOPMENT.md#fresh-container-verification) for prerequisites.
 
-Local runner safety tests pass for inherited credential isolation, project-scoped
-cleanup on build/journey failure and immediate terminal-job failure handling.
-Docker is unavailable in the preparation environment; the new container job must
-pass remotely before fresh-container verification can be claimed. This section
-will record the exact verified source and CI run after execution.
+At source `00dd052` on 2026-10-24, both the
+[push run](https://github.com/no-complect/evidence-workbench/actions/runs/40042775162)
+and [pull-request run](https://github.com/no-complect/evidence-workbench/actions/runs/40042779943)
+passed both jobs:
 
-At c2e3b34, prior host CI passed 105 Python tests and 56 desktop/mobile browser
-tests, plus type, build, contract, formatting and publication checks. This includes
-real pgvector/worker/MCP/recovery tests; the older unchecked list below is historical.
-Those host results do not validate the newly added container job or hosted services.
+- **109 Python tests**, including real pgvector/worker/MCP/recovery tests and four
+  runner tests covering credential isolation, owned-project cleanup, terminal
+  failures and real HTTP transport/status handling.
+- **56 host-process desktop/mobile browser checks**, plus type, build, contract,
+  proxy, state, formatting, Ruff and publication checks.
+- **Fresh Docker image builds and empty-volume startup**, starter preparation and
+  retry, persisted vectors and worker planning through the standalone Next proxy.
+- **Application container recreation during pending approval**, followed by resumed
+  research, persisted context, citation provenance, shared source downloads, report
+  export and denied access under an unknown project.
+- **An authored evaluation across three strategies** through both independent
+  workers, plus **10 desktop/mobile browser checks against the actual containers**.
+
+The container runner disables provider keys and paid execution, verifies that no
+provider catalog is configured, and removes only its unique project's containers
+and volumes. CI artifacts retain synthetic logs, result IDs and browser captures.
+Docker is unavailable in the preparation environment; these are measured remote
+CI results. The older unchecked list below is historical. Hosted Supabase two-user
+identity/RLS/private storage, public TLS routing and paid quality remain unverified.
 
 ## Earlier verification record — 2026-10-07
 
