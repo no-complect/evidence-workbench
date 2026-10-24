@@ -11,6 +11,8 @@ import {
 } from "@/features/workbench/research-state";
 import { modelCatalogOptions } from "@/features/harness/queries";
 import { ApiError } from "@/lib/api";
+import { browserConfiguration } from "@/lib/browser-environment";
+import { ConfigurationNotice } from "@/features/workbench/configuration-notice";
 import type { Bootstrap, Project } from "@/lib/contracts";
 import { AuthPanel } from "@/features/workbench/auth-panel";
 import { CreateDialog } from "@/features/workbench/create-dialog";
@@ -45,7 +47,11 @@ import {
 } from "@/features/workbench/workspace-state";
 
 export function Workbench() {
-  const bootstrap = useQuery(bootstrapOptions());
+  const configurationIssues = browserConfiguration();
+  const bootstrap = useQuery({
+    ...bootstrapOptions(),
+    enabled: !configurationIssues.length,
+  });
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const project = resolveSelection(
     bootstrap.data?.projects ?? [],
@@ -54,7 +60,35 @@ export function Workbench() {
   const needsAuth =
     process.env.NEXT_PUBLIC_AUTH_MODE === "supabase" &&
     bootstrap.error instanceof ApiError &&
-    bootstrap.error.status === 401;
+    bootstrap.error.status === 401 &&
+    bootstrap.error.code !== "configuration_error";
+  if (
+    configurationIssues.length ||
+    (!bootstrap.data &&
+      bootstrap.error instanceof ApiError &&
+      bootstrap.error.code === "configuration_error")
+  )
+    return (
+      <WorkspaceFrame connection="offline" navigation={null} projectBar={null}>
+        <ConfigurationNotice
+          issues={
+            configurationIssues.length
+              ? configurationIssues
+              : [bootstrap.error!.message]
+          }
+        />
+      </WorkspaceFrame>
+    );
+  if (!bootstrap.data && bootstrap.isError && !needsAuth)
+    return (
+      <WorkspaceFrame connection="offline" navigation={null} projectBar={null}>
+        <ErrorNotice
+          title="Connection unavailable"
+          error={bootstrap.error}
+          onRetry={() => void bootstrap.refetch()}
+        />
+      </WorkspaceFrame>
+    );
   return (
     <ProjectWorkspace
       key={project?.id ?? "unselected"}
@@ -175,10 +209,19 @@ function ProjectWorkspace({
         />
       }
     >
-      <ErrorNotice
-        title="Connection unavailable"
-        error={bootstrapError}
-        onRetry={onRetryBootstrap}
+      {bootstrapError instanceof ApiError &&
+      bootstrapError.code === "configuration_error" ? (
+        <ConfigurationNotice issues={[bootstrapError.message]} />
+      ) : (
+        <ErrorNotice
+          title="Connection unavailable"
+          error={bootstrapError}
+          onRetry={onRetryBootstrap}
+        />
+      )}
+      <ConfigurationNotice
+        blocking={false}
+        issues={bootstrap?.configuration?.notices ?? []}
       />
       {needsAuth && <AuthPanel />}
       <ErrorNotice
@@ -209,6 +252,9 @@ function ProjectWorkspace({
             collectionId={collectionId}
             examples={bootstrap?.examples ?? []}
             liveEnabled={bootstrap?.live_enabled ?? false}
+            webSearchEnabled={
+              bootstrap?.configuration?.web_search_enabled ?? false
+            }
             running={running}
             onCollectionChange={(id) =>
               dispatch({ type: "select-collection", collectionId: id })

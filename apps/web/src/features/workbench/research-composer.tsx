@@ -41,6 +41,7 @@ export function ResearchComposer({
   collectionId,
   examples,
   liveEnabled,
+  webSearchEnabled,
   running,
   onCollectionChange,
   onStarted,
@@ -55,6 +56,7 @@ export function ResearchComposer({
   collectionId: string;
   examples: string[];
   liveEnabled: boolean;
+  webSearchEnabled: boolean;
   running: boolean;
   onCollectionChange: (id: string) => void;
   onStarted: (id: string) => void;
@@ -99,6 +101,10 @@ export function ResearchComposer({
     mutation.reset();
     try {
       const request = researchRequest(draft, collectionId);
+      if (mode === "live" && webEnabled && !webSearchEnabled)
+        throw new Error(
+          "Public web sources are unavailable. Turn off Include public web sources to research your collection, or restore the server web-search configuration.",
+        );
       request.harness_config = configuration;
       if (mode === "live" && modelSelection) {
         if (modelSelection.catalog?.embeddings_configured === false)
@@ -353,11 +359,18 @@ export function ResearchComposer({
               <input
                 type="checkbox"
                 checked={webEnabled && mode === "live"}
-                disabled={mode === "demo"}
+                disabled={mode === "demo" || (!webSearchEnabled && !webEnabled)}
                 onChange={(e) => setWebEnabled(e.target.checked)}
               />{" "}
               Include public web sources
             </label>
+            {mode === "live" && !webSearchEnabled && (
+              <p className="fine-print">
+                Public web sources are unavailable. Continue with collection
+                sources, or configure TAVILY_API_KEY and WEB_SEARCH_USD_PER_CALL
+                on the server.
+              </p>
+            )}
           </div>
         )}
       </form>

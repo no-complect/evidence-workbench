@@ -6,7 +6,7 @@ const vm = require("node:vm");
 const ts = require("typescript");
 const { QueryClient } = require("@tanstack/react-query");
 
-function load(relative, dependencies = {}) {
+function load(relative, dependencies = {}, globals = {}) {
   const source = fs.readFileSync(
     path.join(__dirname, "../src", relative),
     "utf8",
@@ -19,6 +19,8 @@ function load(relative, dependencies = {}) {
   }).outputText;
   const context = {
     exports: {},
+    URL,
+    ...globals,
     require: (name) => dependencies[name] ?? require(name),
   };
   vm.runInNewContext(compiled, context);
@@ -27,6 +29,117 @@ function load(relative, dependencies = {}) {
 const ui = load("features/workbench/workspace-state.ts");
 const research = load("features/workbench/research-state.ts");
 const cases = load("features/evaluations/case-state.ts");
+
+test("backend key mismatch and missing browser auth build are setup errors; expired sessions remain sign-in errors", async () => {
+  for (const [message, mode, configuration] of [
+    ["Backend authentication required", "supabase", true],
+    ["Sign in to continue", "demo", true],
+    ["Sign in to continue", "supabase", false],
+    ["Session expired or invalid", "supabase", false],
+  ]) {
+    const transport = load(
+      "lib/api.ts",
+      { "./supabase": { supabase: () => null } },
+      {
+        process: { env: { NEXT_PUBLIC_AUTH_MODE: mode } },
+        Headers,
+        fetch: async () => Response.json({ detail: message }, { status: 401 }),
+      },
+    );
+    await assert.rejects(
+      () => transport.api("bootstrap"),
+      (error) => {
+        assert.equal(
+          error.code,
+          configuration ? "configuration_error" : undefined,
+        );
+        assert.equal(error.status, 401);
+        if (configuration)
+          assert.ok(
+            error.message.includes("API_SHARED_SECRET") ||
+              error.message.includes("NEXT_PUBLIC_AUTH_MODE"),
+          );
+        return true;
+      },
+    );
+  }
+});
+
+test("incomplete browser auth never instantiates the SDK; valid configuration reuses one client", () => {
+  const browser = load("lib/browser-environment.ts");
+  for (const env of [
+    { NEXT_PUBLIC_AUTH_MODE: "supabase" },
+    { NEXT_PUBLIC_AUTH_MODE: "supabase", NEXT_PUBLIC_SUPABASE_URL: "invalid" },
+    { NEXT_PUBLIC_AUTH_MODE: "demo" },
+    {
+      NEXT_PUBLIC_AUTH_MODE: "supabase",
+      NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "synthetic-public",
+    },
+  ]) {
+    let calls = 0;
+    const client = {};
+    const api = load(
+      "lib/supabase.ts",
+      {
+        "./browser-environment": {
+          browserConfiguration: () => browser.browserConfigurationIssues(env),
+        },
+        "@supabase/supabase-js": {
+          createClient: () => {
+            calls++;
+            return client;
+          },
+        },
+      },
+      { process: { env } },
+    );
+    const ready =
+      env.NEXT_PUBLIC_AUTH_MODE === "supabase" &&
+      browser.browserConfigurationIssues(env).length === 0;
+    assert.equal(api.supabase(), ready ? client : null);
+    assert.equal(api.supabase(), ready ? client : null);
+    assert.equal(calls, ready ? 1 : 0);
+  }
+});
+
+test("browser auth configuration separates demo from required Supabase values without echoing inputs", () => {
+  const { browserConfigurationIssues } = load("lib/browser-environment.ts");
+  assert.equal(browserConfigurationIssues({}).length, 0);
+  assert.equal(
+    browserConfigurationIssues({
+      NEXT_PUBLIC_AUTH_MODE: "demo",
+      NEXT_PUBLIC_SUPABASE_URL: "synthetic-invalid",
+    }).length,
+    0,
+  );
+  const required = browserConfigurationIssues({
+    NEXT_PUBLIC_AUTH_MODE: "supabase",
+  });
+  assert.equal(required.length, 2);
+  for (const invalid of [
+    "synthetic-private-input",
+    "http://remote.example",
+    "https://user:synthetic-private@db.example",
+  ]) {
+    const issues = browserConfigurationIssues({
+      NEXT_PUBLIC_AUTH_MODE: "supabase",
+      NEXT_PUBLIC_SUPABASE_URL: invalid,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "synthetic-public",
+    });
+    assert.equal(issues.length, 1);
+    assert.ok(!JSON.stringify(issues).includes("synthetic-private"));
+  }
+  for (const url of ["https://db.example", "http://127.0.0.1:54321"])
+    assert.equal(
+      browserConfigurationIssues({
+        NEXT_PUBLIC_AUTH_MODE: "supabase",
+        NEXT_PUBLIC_SUPABASE_URL: url,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "synthetic-public",
+      }).length,
+      0,
+    );
+});
 
 test("applying preset limits preserves execution, question, approval and web choices", () => {
   const state = {

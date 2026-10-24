@@ -18,7 +18,24 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    throw new ApiError(response.status, errorMessage(error, response.status));
+    const message = errorMessage(error, response.status);
+    const keyMismatch =
+      response.status === 401 && message === "Backend authentication required";
+    const missingBrowserAuth =
+      response.status === 401 &&
+      message === "Sign in to continue" &&
+      process.env.NEXT_PUBLIC_AUTH_MODE !== "supabase";
+    throw new ApiError(
+      response.status,
+      keyMismatch
+        ? "Set API_SHARED_SECRET to the same value on the web server and Python API, then restart or redeploy those services."
+        : missingBrowserAuth
+          ? "The API requires sign-in. Set NEXT_PUBLIC_AUTH_MODE=supabase, NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY before rebuilding or redeploying the web app."
+          : message,
+      error?.code === "configuration_error" || keyMismatch || missingBrowserAuth
+        ? "configuration_error"
+        : undefined,
+    );
   }
   return response.json();
 }
@@ -44,6 +61,7 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly code?: "configuration_error",
   ) {
     super(message);
     this.name = "ApiError";

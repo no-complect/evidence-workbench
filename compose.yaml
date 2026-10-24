@@ -18,6 +18,8 @@ x-research-env: &research-env
   EMBEDDING_USD_PER_MILLION: ${EMBEDDING_USD_PER_MILLION:-}
   TAVILY_API_KEY: ${TAVILY_API_KEY:-}
   WEB_SEARCH_USD_PER_CALL: ${WEB_SEARCH_USD_PER_CALL:-}
+  LEASE_SECONDS: ${LEASE_SECONDS:-30}
+  POLL_SECONDS: ${POLL_SECONDS:-0.5}
 services:
   db:
     image: pgvector/pgvector:pg17
