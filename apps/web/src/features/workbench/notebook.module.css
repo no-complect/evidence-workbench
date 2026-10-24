@@ -39,6 +39,24 @@
   color: var(--muted);
   font-size: 12px;
 }
+.session {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 6px max(16px, calc((100vw - 1180px) / 2));
+  border-bottom: 1px solid var(--border);
+  background: white;
+}
+.identity {
+  max-width: min(60vw, 320px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+}
 .navigation {
   display: flex;
   gap: 6px;

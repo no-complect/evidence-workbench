@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
+
+type AuthIdentity = { id: string; email: string | undefined } | null;
+const AuthIdentityContext = createContext<AuthIdentity>(null);
+export const useAuthIdentity = () => useContext(AuthIdentityContext);
 
 function QueryScope({ children }: { children: ReactNode }) {
   // One client per mounted user session, never shared across server requests.
@@ -29,16 +39,26 @@ function QueryScope({ children }: { children: ReactNode }) {
 }
 
 export function QueryProvider({ children }: { children: ReactNode }) {
-  const [principal, setPrincipal] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<AuthIdentity>(null);
   useEffect(() => {
     const subscription = supabase()?.auth.onAuthStateChange(
       (_event, session) => {
-        setPrincipal(session?.user.id ?? null);
+        setIdentity((previous) => {
+          const user = session?.user;
+          if (!user) return null;
+          return previous?.id === user.id && previous.email === user.email
+            ? previous
+            : { id: user.id, email: user.email };
+        });
       },
     );
     return () => subscription?.data.subscription.unsubscribe();
   }, []);
   // Identity changes discard both cached server data and local workspace drafts.
   // Token refreshes for the same user preserve them. No data is persisted to disk.
-  return <QueryScope key={principal ?? "anonymous"}>{children}</QueryScope>;
+  return (
+    <AuthIdentityContext value={identity}>
+      <QueryScope key={identity?.id ?? "anonymous"}>{children}</QueryScope>
+    </AuthIdentityContext>
+  );
 }

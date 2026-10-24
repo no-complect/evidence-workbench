@@ -1,12 +1,290 @@
 import { test, expect, type Page } from "@playwright/test";
 
+test("new investigation → collection walkthrough → same draft → explicit research", async ({
+  page,
+}, info) => {
+  let submissions = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/projects\/[^/]+\/runs$/.test(new URL(request.url()).pathname)
+    )
+      submissions++;
+  });
+  await page.goto("/");
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+  const projectDialog = page.getByRole("dialog", {
+    name: "New project",
+    exact: true,
+  });
+  await projectDialog
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill(`Collection-first ${Date.now()}`);
+  await projectDialog
+    .getByRole("button", { name: "Create project", exact: true })
+    .click();
+  await expect(projectDialog).not.toBeVisible();
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
+  const workspace = page.getByRole("region", {
+    name: "Workflows workspace",
+    exact: true,
+  });
+  const setup = workspace.getByRole("button", {
+    name: "Set up collection",
+    exact: true,
+  });
+  const question = workspace.getByRole("textbox", {
+    name: "What would you like to investigate?",
+    exact: true,
+  });
+  await expect(setup).toBeEnabled();
+  await page.getByRole("button", { name: "RAG", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "RAG collection", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page
+      .getByRole("combobox", { name: "RAG collection", exact: true })
+      .locator("option:checked"),
+  ).toHaveText("No collections yet");
+  await expect(
+    page.getByRole("button", { name: "Add Collection", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
+  await expect(
+    workspace.getByRole("combobox", { name: "Collection", exact: true }),
+  ).toHaveCount(0);
+  await question.fill("short");
+  await setup.click();
+  const dialog = page.getByRole("dialog", {
+    name: "Create an evidence collection",
+  });
+  await expect(
+    dialog.getByRole("textbox", {
+      name: "Decision or research question",
+      exact: true,
+    }),
+  ).toHaveValue("short");
+  await dialog
+    .getByRole("button", { name: "Close collection walkthrough", exact: true })
+    .click();
+  await expect(question).toHaveValue("short");
+  await expect(setup).toBeEnabled();
+  await workspace
+    .getByRole("button", { name: "Security requirements", exact: true })
+    .click();
+  const preservedQuestion = await question.inputValue();
+  await workspace
+    .getByRole("button", { name: "Research settings", exact: true })
+    .click();
+  await workspace
+    .getByRole("spinbutton", { name: "Tool calls", exact: true })
+    .fill("32");
+  await page.screenshot({
+    path: info.outputPath("collection-prerequisite.png"),
+    fullPage: true,
+  });
+  await setup.click();
+  await expect(
+    dialog.getByRole("textbox", {
+      name: "Decision or research question",
+      exact: true,
+    }),
+  ).toHaveValue(preservedQuestion);
+  const name = `Investigation sources ${Date.now()}`;
+  await dialog.getByLabel("Collection name", { exact: true }).fill(name);
+  await dialog
+    .getByRole("button", { name: "Choose sources", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Review sources", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Prepare collection", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("heading", {
+      name: "Your collection is ready to inspect.",
+      exact: true,
+    }),
+  ).toBeVisible({ timeout: 30000 });
+  expect(submissions).toBe(0);
+  await dialog
+    .getByRole("button", { name: "Finish setup", exact: true })
+    .click();
+  await expect(dialog).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Workflows", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(question).toHaveValue(preservedQuestion);
+  await expect(
+    workspace.getByRole("spinbutton", { name: "Tool calls", exact: true }),
+  ).toHaveValue("32");
+  const selected = workspace.getByRole("combobox", {
+    name: "Collection",
+    exact: true,
+  });
+  await expect(selected.locator("option:checked")).toHaveText(
+    `${name} · 10 docs`,
+  );
+  const collectionId = await selected.inputValue();
+  const start = workspace.getByRole("button", {
+    name: "Start research",
+    exact: true,
+  });
+  await expect(start).toBeEnabled();
+  expect(submissions).toBe(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: info.outputPath("collection-return-to-draft.png"),
+    fullPage: true,
+  });
+  const posted = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      /\/projects\/[^/]+\/runs$/.test(new URL(request.url()).pathname),
+  );
+  await start.click();
+  const body = (await posted).postDataJSON();
+  expect(body.collection_id).toBe(collectionId);
+  expect(body.question).toBe(preservedQuestion);
+  expect(body.limits.tool_calls).toBe(32);
+  await expect(
+    page.getByRole("heading", {
+      name: "A plan before we proceed",
+      exact: true,
+    }),
+  ).toBeVisible({ timeout: 30000 });
+  expect(submissions).toBe(1);
+});
+
+test("loading and failed collection metadata never masquerade as a new collection", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let fail = false;
+  await page.route("**/api/backend/projects/*", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await gate;
+    await route.fulfill({
+      status: fail ? 503 : 200,
+      json: fail
+        ? { detail: "Synthetic collection metadata failure" }
+        : { collections: [], runs: [] },
+    });
+  });
+  await page.goto("/");
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
+  const workspace = page.getByRole("region", {
+    name: "Workflows workspace",
+    exact: true,
+  });
+  await expect(
+    workspace.getByText("Loading collections…", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    workspace.getByRole("button", { name: "Start research", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    workspace.getByRole("button", { name: "Set up collection", exact: true }),
+  ).toHaveCount(0);
+  release();
+  await expect(
+    workspace.getByRole("button", { name: "Set up collection", exact: true }),
+  ).toBeEnabled();
+  fail = true;
+  await page.reload();
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
+  await expect(
+    workspace.getByText("Collections could not load. Retry above.", {
+      exact: true,
+    }),
+  ).toBeVisible({ timeout: 15000 });
+  await expect(
+    workspace.getByRole("button", { name: "Start research", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    workspace.getByRole("button", { name: "Set up collection", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  fail = false;
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "Project could not load" })
+    .getByRole("button", { name: "Retry", exact: true })
+    .click();
+  await expect(
+    workspace.getByRole("button", { name: "Set up collection", exact: true }),
+  ).toBeEnabled();
+});
+
+test("an existing empty or interrupted collection opens RAG without creating a duplicate", async ({
+  page,
+}) => {
+  let state = "ready";
+  let writes = 0;
+  const cid = "7a733118-b5a3-4ac7-85a4-cf2ac0b9768b";
+  await page.route("**/api/backend/projects/**", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      writes++;
+      return route.fallback();
+    }
+    const pathname = new URL(request.url()).pathname;
+    if (/\/projects\/[^/]+$/.test(pathname))
+      return route.fulfill({
+        json: {
+          collections: [
+            {
+              id: cid,
+              name: "Unfinished sources",
+              document_count: 0,
+              embedding_config: "demo-v1",
+              setup_status: state,
+            },
+          ],
+          runs: [],
+        },
+      });
+    if (pathname.endsWith(`/collections/${cid}/sources`))
+      return route.fulfill({ json: [] });
+    return route.fallback();
+  });
+  for (state of ["ready", "preparing", "failed"]) {
+    await page.goto("/");
+    await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Workflows", exact: true }).click();
+    await page
+      .getByRole("region", { name: "Workflows workspace", exact: true })
+      .getByRole("button", { name: "Review collection setup", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "RAG", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByRole("combobox", { name: "RAG collection", exact: true }),
+    ).toHaveValue(cid);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  }
+  expect(writes).toBe(0);
+});
+
 async function openWizard(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "RAG", exact: true }).click();
   await page
-    .getByRole("button", { name: "New collection", exact: true })
+    .getByRole("button", { name: "Add Collection", exact: true })
     .click();
   const dialog = page.getByRole("dialog", {
     name: "Create an evidence collection",

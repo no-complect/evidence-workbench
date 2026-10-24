@@ -37,24 +37,28 @@ export function ResearchComposer({
   configuration,
   modelSelection,
   collections,
+  collectionsStatus,
   collectionId,
   examples,
   liveEnabled,
   running,
   onCollectionChange,
   onStarted,
+  onPrepareSources,
 }: {
   projectId: string;
   research: { draft: ResearchDraft; dispatch: Dispatch<DraftAction> };
   configuration: HarnessConfiguration;
   modelSelection?: ModelSelectionProps;
   collections: Collection[];
+  collectionsStatus: "pending" | "error" | "success";
   collectionId: string;
   examples: string[];
   liveEnabled: boolean;
   running: boolean;
   onCollectionChange: (id: string) => void;
   onStarted: (id: string) => void;
+  onPrepareSources: () => void;
 }) {
   const { draft, dispatch } = research;
   const [showSettings, setShowSettings] = useState(false);
@@ -72,8 +76,11 @@ export function ResearchComposer({
   const collectionReady = collections.some(
     (item) =>
       item.id === collectionId &&
+      item.document_count > 0 &&
       (!item.setup_status || item.setup_status === "ready"),
   );
+  const collectionsLoaded = collectionsStatus === "success";
+  const needsSources = collectionsLoaded && !collectionReady;
   const setQuestion = (value: string) => dispatch({ type: "question", value });
   const setMode = (value: ExecutionMode) => dispatch({ type: "mode", value });
   const setStrategy = (value: ResearchStrategy) =>
@@ -83,6 +90,11 @@ export function ResearchComposer({
   const setCollectionId = onCollectionChange;
   function start() {
     if (busy || running) return;
+    if (!collectionsLoaded) return;
+    if (needsSources) {
+      onPrepareSources();
+      return;
+    }
     setValidationError("");
     mutation.reset();
     try {
@@ -188,27 +200,38 @@ export function ResearchComposer({
         />
         <div className="composer-toolbar">
           <div className="composer-selects">
-            <label>
-              <Database size={15} />
-              <span className="sr-only">Collection</span>
-              <select
-                value={collectionId}
-                onChange={(e) => setCollectionId(e.target.value)}
-              >
-                <option value="" disabled>
-                  Select a collection
-                </option>
-                {collections.map((c) => (
-                  <option
-                    key={c.id}
-                    value={c.id}
-                    disabled={!!c.setup_status && c.setup_status !== "ready"}
-                  >
-                    {c.name} · {c.document_count} docs
+            {collectionsLoaded && collections.length ? (
+              <label>
+                <Database size={15} />
+                <span className="sr-only">Collection</span>
+                <select
+                  value={collectionId}
+                  onChange={(e) => setCollectionId(e.target.value)}
+                >
+                  <option value="" disabled>
+                    Select a collection
                   </option>
-                ))}
-              </select>
-            </label>
+                  {collections.map((c) => (
+                    <option
+                      key={c.id}
+                      value={c.id}
+                      disabled={!!c.setup_status && c.setup_status !== "ready"}
+                    >
+                      {c.name} · {c.document_count} docs
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <p className="fine-print" role="status">
+                <Database size={15} aria-hidden="true" />{" "}
+                {collectionsStatus === "pending"
+                  ? "Loading collections…"
+                  : collectionsStatus === "error"
+                    ? "Collections could not load. Retry above."
+                    : "Set up a collection to give this investigation sources."}
+              </p>
+            )}
             <Tooltip content="Choose execution mode, strategy, resource limits and whether to review the plan. Changing a draft does not modify a saved run.">
               <button
                 type="button"
@@ -221,27 +244,35 @@ export function ResearchComposer({
             </Tooltip>
           </div>
           <Button
-            type="submit"
+            type={needsSources ? "button" : "submit"}
+            onClick={needsSources ? onPrepareSources : undefined}
             help={
-              mode === "live"
-                ? "Start a live investigation using the server key, selected models and current limits. Model calls may incur provider charges."
-                : "Start a scripted investigation with synthetic documents. Retrieval, saved execution and citations are real; responses use fixtures and make no paid model calls."
+              needsSources
+                ? "Prepare source material before starting research. Your question and research settings stay in this draft."
+                : mode === "live"
+                  ? "Start a live investigation using the server key, selected models and current limits. Model calls may incur provider charges."
+                  : "Start a scripted investigation with synthetic documents. Retrieval, saved execution and citations are real; responses use fixtures and make no paid model calls."
             }
             disabled={
               busy ||
               !projectId ||
-              !collectionId ||
-              !collectionReady ||
-              question.trim().length < 10 ||
+              !collectionsLoaded ||
+              (!needsSources && question.trim().length < 10) ||
               running
             }
           >
             {busy ? (
               <Loader2 size={16} className="spin" />
+            ) : needsSources ? (
+              <Database size={16} />
             ) : (
               <Search size={16} />
             )}
-            Start research
+            {needsSources
+              ? collections.length
+                ? "Review collection setup"
+                : "Set up collection"
+              : "Start research"}
           </Button>
         </div>
         {showSettings && (

@@ -4,7 +4,7 @@ export type EngineeringWorkspace =
   "harness" | "rag" | "workflows" | "evaluations";
 export type WorkspaceOverlay =
   | { kind: "create-project" }
-  | { kind: "create-collection" }
+  | { kind: "create-collection"; returnTo?: "workflows" }
   | { kind: "evidence"; evidenceId: string }
   | null;
 export type WorkspaceState = {

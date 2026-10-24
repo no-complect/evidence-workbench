@@ -31,15 +31,21 @@ export function CollectionWizard({
   uploads,
   onClose,
   onFinished,
+  initialPurpose,
 }: {
   projectId: string;
   collections: Collection[];
   uploads: UploadQueue;
   onClose: () => void;
   onFinished: (id: string) => void;
+  initialPurpose?: string;
 }) {
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<CollectionDraft>(initialCollectionDraft);
+  const [draft, setDraft] = useState<CollectionDraft>(() => ({
+    ...initialCollectionDraft,
+    purpose:
+      initialPurpose?.trim().slice(0, 1000) || initialCollectionDraft.purpose,
+  }));
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
   const [createdId, setCreatedId] = useState("");
