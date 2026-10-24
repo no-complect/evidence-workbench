@@ -2,12 +2,35 @@ import hashlib
 import json
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
+from openai import APIError, APIConnectionError, APITimeoutError
 from .config import ROOT, settings
 from . import db
 from .storage import storage
 from .parsing import chunks_from_file, IngestionError, MAX_BYTES  # re-export for API/tests
 
 MANIFEST = json.loads((ROOT / 'fixtures/manifest.json').read_text())
+
+
+def _embedding_error(error: APIError) -> str:
+    """Only fixed, actionable messages may leave the provider boundary."""
+    status = getattr(error, 'status_code', None)
+    if isinstance(error, APITimeoutError):
+        return 'Embedding request timed out. Retry this file after checking provider availability.'
+    if isinstance(error, APIConnectionError):
+        return 'Embedding provider could not be reached. Check the API server network, then retry this file.'
+    if status == 401:
+        return 'Embedding provider rejected the server credentials. Correct OPENAI_API_KEY on the API and workers, restart them, then retry this file.'
+    if status == 403:
+        return 'Embedding provider denied model access. Check the API project permissions for text-embedding-3-small, then retry this file.'
+    if status == 429:
+        if getattr(error, 'code', None) in {'insufficient_quota', 'billing_hard_limit_reached'}:
+            return 'Embedding provider quota is exhausted. Check the API project billing and usage limits before retrying this file.'
+        return 'Embedding provider rate limit reached. Wait before retrying this file.'
+    if status == 404:
+        return 'Embedding model is unavailable. Check access to text-embedding-3-small before retrying this file.'
+    if status is not None and status >= 500:
+        return 'Embedding provider is temporarily unavailable. Retry this file later.'
+    return 'Embedding request was rejected. Check the server embedding model and API project settings before retrying this file.'
 
 
 def embed_passages(passages, config):
@@ -24,12 +47,15 @@ def embed_passages(passages, config):
         raise IngestionError(
             'This index requires text-embedding-3-small; create a new configuration to reindex')
     from langchain_openai import OpenAIEmbeddings
-    return OpenAIEmbeddings(model=s.openai_embedding_model,
-                            dimensions=1536,
-                            chunk_size=32,
-                            api_key=s.openai_api_key,
-                            max_retries=0,
-                            request_timeout=30).embed_documents([p['text'] for p in passages])
+    try:
+        return OpenAIEmbeddings(model=s.openai_embedding_model,
+                                dimensions=1536,
+                                chunk_size=32,
+                                api_key=s.openai_api_key,
+                                max_retries=0,
+                                request_timeout=30).embed_documents([p['text'] for p in passages])
+    except APIError as exc:
+        raise IngestionError(_embedding_error(exc)) from exc
 
 
 def ingest(project_id, collection_id, name, data, metadata=None, embed=True):

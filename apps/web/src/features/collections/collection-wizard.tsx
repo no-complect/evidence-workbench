@@ -13,6 +13,7 @@ import {
   type SubmissionIntent,
 } from "@/features/workbench/research-state";
 import { collectionOptions, usePrepareCollection } from "./queries";
+import { sourceOptions } from "@/features/workbench/queries";
 import {
   collectionRequest,
   initialCollectionDraft,
@@ -54,9 +55,19 @@ export function CollectionWizard({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const options = useQuery(collectionOptions(projectId));
   const prepare = usePrepareCollection(projectId);
+  const sources = useQuery(sourceOptions(projectId, createdId));
   const collection =
     collections.find((item) => item.id === createdId) ?? prepare.data;
   const busy = prepare.isPending || uploads.busy;
+  const usableSources =
+    sources.data?.some((source) => source.chunk_count > 0) ?? false;
+  const needsCorrection =
+    sources.data?.some((source) => source.status === "error") ||
+    uploads.rows.some(
+      (row) =>
+        row.collectionId === createdId &&
+        (row.status === "failed" || row.status === "invalid"),
+    );
   useEffect(() => {
     if (step === 0) nameRef.current?.focus();
     else headingRef.current?.focus();
@@ -374,7 +385,17 @@ export function CollectionWizard({
       {step === 3 && collection && (
         <>
           <h3 ref={headingRef} tabIndex={-1}>
-            Your collection is ready to inspect.
+            {busy
+              ? "Preparing your source files…"
+              : sources.isError
+                ? "Collection saved. Source status unavailable."
+                : sources.isPending
+                  ? "Checking prepared sources…"
+                  : !usableSources
+                    ? "Collection saved. Sources need attention."
+                    : needsCorrection
+                      ? "Your collection is partially ready."
+                      : "Your collection is ready to inspect."}
           </h3>
           <p className="fine-print">
             Preparation status is shown below. Search uses the actual indexed
@@ -382,6 +403,21 @@ export function CollectionWizard({
             checks.
           </p>
           <UploadBatch queue={uploads} collectionId={createdId} />
+          <ErrorNotice
+            error={sources.error}
+            title="Source status could not load"
+            onRetry={() => void sources.refetch()}
+          />
+          {!busy &&
+            !sources.isPending &&
+            !sources.isError &&
+            !usableSources && (
+              <p role="status">
+                No source passages are indexed yet. Correct the file errors
+                shown here or add a supported source before searching or starting
+                research.
+              </p>
+            )}
           <label className={styles.field}>
             Add more collection files
             <input
@@ -398,11 +434,13 @@ export function CollectionWizard({
               }}
             />
           </label>
-          <RetrievalExperiment
-            projectId={projectId}
-            collection={collection}
-            indexing={uploads.busy}
-          />
+          {usableSources && (
+            <RetrievalExperiment
+              projectId={projectId}
+              collection={collection}
+              indexing={uploads.busy}
+            />
+          )}
           <div className={styles.actions}>
             <span className="fine-print">
               Files needing correction can be selected again. Your prepared
@@ -413,7 +451,7 @@ export function CollectionWizard({
               disabled={busy}
               onClick={() => onFinished(createdId)}
             >
-              Finish setup
+              {usableSources ? "Finish setup" : "Close setup"}
               <CheckCheck size={15} />
             </Button>
           </div>
