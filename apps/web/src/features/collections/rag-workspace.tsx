@@ -12,6 +12,7 @@ import notebook from "@/features/workbench/notebook.module.css";
 export function RagWorkspace({
   projectId,
   collections,
+  collectionsStatus,
   collectionId,
   active,
   uploads,
@@ -20,6 +21,7 @@ export function RagWorkspace({
 }: {
   projectId: string;
   collections: Collection[];
+  collectionsStatus: "pending" | "error" | "success";
   collectionId: string;
   active: boolean;
   uploads: UploadQueue;
@@ -28,7 +30,9 @@ export function RagWorkspace({
 }) {
   const collection = collections.find((item) => item.id === collectionId);
   const ready =
-    !collection?.setup_status || collection.setup_status === "ready";
+    collectionsStatus === "success" &&
+    !!collection &&
+    (!collection.setup_status || collection.setup_status === "ready");
   return (
     <>
       <WorkspaceHeading
@@ -37,26 +41,39 @@ export function RagWorkspace({
         action={
           <Button
             help="Walk through purpose, sources, preparation and a retrieval test. Use bundled synthetic documents or upload your own."
-            disabled={!projectId || uploads.busy}
+            disabled={
+              !projectId || uploads.busy || collectionsStatus !== "success"
+            }
             onClick={onCreate}
           >
             <Plus size={16} />
-            New collection
+            Add Collection
           </Button>
         }
       >
-        Create a collection, prepare its sources, and compare how retrieval
-        finds evidence for the same question.
+        Add a collection, prepare its sources, and compare how retrieval finds
+        evidence for the same question.
       </WorkspaceHeading>
       <label className={notebook.collectionControl}>
         Collection
         <select
           aria-label="RAG collection"
           value={collectionId}
+          disabled={
+            !projectId ||
+            collectionsStatus !== "success" ||
+            collections.length === 0
+          }
           onChange={(event) => onSelect(event.target.value)}
         >
           <option value="" disabled>
-            Select a collection
+            {collectionsStatus === "pending"
+              ? "Loading collections…"
+              : collectionsStatus === "error"
+                ? "Collections unavailable"
+                : collections.length
+                  ? "Select a collection"
+                  : "No collections yet"}
           </option>
           {collections.map((item) => (
             <option value={item.id} key={item.id}>
@@ -68,6 +85,11 @@ export function RagWorkspace({
           ))}
         </select>
       </label>
+      {collectionsStatus === "success" && collections.length === 0 && (
+        <p className="fine-print" role="status">
+          Add a collection to prepare your sources.
+        </p>
+      )}
       {!ready && collection && (
         <PreparationNotice
           key={collection.id}

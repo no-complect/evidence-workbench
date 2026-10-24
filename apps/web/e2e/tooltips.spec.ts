@@ -73,7 +73,7 @@ test("card help opens by tap inside the collection dialog and Escape preserves t
   await page.goto("/");
   await page.getByRole("button", { name: "RAG", exact: true }).click();
   await page
-    .getByRole("button", { name: "New collection", exact: true })
+    .getByRole("button", { name: "Add Collection", exact: true })
     .click();
   const dialog = page.getByRole("dialog", {
     name: "Create an evidence collection",
