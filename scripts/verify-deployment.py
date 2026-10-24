@@ -28,7 +28,8 @@ def origin(value):
         parsed = urlsplit(value)
         host = parsed.hostname or ''
         port = parsed.port
-        require(parsed.scheme == 'https' and host and parsed.username is None
+        require(parsed.scheme == 'https' and host and (port is None or port > 0)
+                and parsed.username is None
                 and parsed.password is None and parsed.path in {'', '/'}
                 and not parsed.query and not parsed.fragment and not any(
                     char.isspace() or char == '\\' for char in value),

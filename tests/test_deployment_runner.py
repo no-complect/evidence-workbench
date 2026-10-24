@@ -36,7 +36,7 @@ def deployed(request):
     'https://192.168.1.1', 'https://web.local', 'https://user:secret@web.example',
     'https://web.example/path', 'https://web.example?token=private',
     'https://web.example#private', 'https://web.example:bad', 'https://web.example\\other',
-    'https://web.example\n', 'https://web..example',
+    'https://web.example\n', 'https://web..example', 'https://web.example:0',
 ])
 def test_origins_reject_local_demo_or_credential_bearing_urls(value):
     with pytest.raises(runner.VerificationError):
