@@ -414,8 +414,8 @@ export function CollectionWizard({
             !usableSources && (
               <p role="status">
                 No source passages are indexed yet. Correct the file errors
-                shown here or add a supported source before searching or starting
-                research.
+                shown here or add a supported source before searching or
+                starting research.
               </p>
             )}
           <label className={styles.field}>
@@ -460,3 +460,4 @@ export function CollectionWizard({
     </Modal>
   );
 }
+
