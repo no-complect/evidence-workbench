@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { proxyConfigurationIssues } from "@/lib/server-environment";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 const allowed = new Set(["bootstrap", "projects"]);
@@ -48,19 +49,14 @@ async function proxy(
   const secret =
     process.env.API_SHARED_SECRET ||
     (local ? "local-demo-only-not-for-production" : "");
-  if (
-    !base ||
-    !secret ||
-    (!local && process.env.NEXT_PUBLIC_AUTH_MODE === "demo")
-  )
+  const issues = proxyConfigurationIssues(process.env);
+  if (issues.length)
     return Response.json(
-      { detail: "Backend environment is not configured securely" },
-      { status: 503 },
-    );
-  if (!local && !base.startsWith("https://"))
-    return Response.json(
-      { detail: "Production API_URL must use HTTPS" },
-      { status: 503 },
+      {
+        detail: `Configuration needs attention. ${issues.join(" ")} Restart or redeploy after updating the environment.`,
+        code: "configuration_error",
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   if (Number(request.headers.get("content-length") || 0) > 9 * 1024 * 1024)
     return Response.json(
@@ -100,7 +96,7 @@ async function proxy(
       body = joined.buffer;
     }
     const response = await fetch(
-      `${base}/api/${path.join("/")}${request.nextUrl.search}`,
+      `${base.replace(/\/$/, "")}/api/${path.join("/")}${request.nextUrl.search}`,
       {
         method: request.method,
         headers,
