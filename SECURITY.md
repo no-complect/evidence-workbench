@@ -1,6 +1,6 @@
 # Security
 
-This is a portfolio research application. Its local demo uses synthetic sources
+Evidence Workbench is a document research application. Its local demo uses synthetic sources
 and explicit local-only credentials, with Compose ports bound to loopback.
 Publishing the source code does not make that configuration suitable for a
 publicly reachable deployment.
