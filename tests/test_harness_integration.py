@@ -31,7 +31,11 @@ def provider(monkeypatch, tmp_path, client):
                 assert key == SECRET
         def invoke(self, stage, payload, schema, timeout=35):
             calls.append((stage, self.target['model_id']))
-            return providers.DemoProvider().invoke(stage, payload, schema)[0], 100, 0.0001
+            result = providers.DemoProvider().invoke(stage, payload, schema)[0]
+            if stage == 'report':
+                for claim in result.claims:
+                    claim.support = 'model_assessed'
+            return schema.model_validate(result.model_dump(mode='json')), 100, 0.0001
     monkeypatch.setattr(harness, 'OpenAIProvider', FakeProvider)
     monkeypatch.setattr(graph, 'OpenAIProvider', FakeProvider)
     return calls
