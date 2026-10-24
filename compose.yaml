@@ -25,7 +25,7 @@ services:
       POSTGRES_USER: workbench
       POSTGRES_PASSWORD: workbench
       POSTGRES_DB: workbench
-    ports: ['127.0.0.1:55432:5432']
+    ports: ['127.0.0.1:${WORKBENCH_DB_PORT:-55432}:5432']
     volumes: ['database:/var/lib/postgresql/data']
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U workbench -d workbench']
@@ -47,7 +47,7 @@ services:
       dockerfile: services/research/Dockerfile
     environment: *research-env
     command: ['uvicorn', 'workbench.api:app', '--host', '0.0.0.0', '--port', '8000']
-    ports: ['127.0.0.1:8000:8000']
+    ports: ['127.0.0.1:${WORKBENCH_API_PORT:-8000}:8000']
     volumes: ['objects:/data/objects', 'credentials:/data/credentials']
     depends_on:
       init: { condition: service_completed_successfully }
@@ -87,7 +87,7 @@ services:
       API_URL: http://api:8000
       API_SHARED_SECRET: ${API_SHARED_SECRET:-local-demo-only-not-for-production}
       NEXT_PUBLIC_AUTH_MODE: demo
-    ports: ['127.0.0.1:3000:3000']
+    ports: ['127.0.0.1:${WORKBENCH_WEB_PORT:-3000}:3000']
     depends_on:
       api: { condition: service_healthy }
     healthcheck:

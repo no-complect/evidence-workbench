@@ -2,6 +2,30 @@ name: Workbench verification
 on: [push, pull_request]
 permissions: { contents: read }
 jobs:
+  compose:
+    name: Fresh container journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - run: npm ci --no-audit --no-fund
+        working-directory: apps/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Build, start and exercise disposable containers
+        run: python3 scripts/verify-compose.py --browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-verification-results
+          path: |
+            .runtime/compose-verification
+            apps/web/playwright-report
+            apps/web/test-results
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15

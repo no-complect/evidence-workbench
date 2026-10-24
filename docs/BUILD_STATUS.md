@@ -1,5 +1,39 @@
 # Verification status
 
+## Current container verification
+
+The **Fresh container journey** CI job builds the committed Dockerfiles, starts
+empty project volumes, exercises the standalone web proxy and both worker
+processes, recreates the application containers during pending approval, and runs
+desktop/mobile collection and research/evaluation browser journeys. The reusable
+command is `python3 scripts/verify-compose.py --browser`; see
+[Development](DEVELOPMENT.md#fresh-container-verification) for prerequisites.
+
+At source `00dd052` on 2026-10-24, both the
+[push run](https://github.com/no-complect/evidence-workbench/actions/runs/40042775162)
+and [pull-request run](https://github.com/no-complect/evidence-workbench/actions/runs/40042779943)
+passed both jobs:
+
+- **109 Python tests**, including real pgvector/worker/MCP/recovery tests and four
+  runner tests covering credential isolation, owned-project cleanup, terminal
+  failures and real HTTP transport/status handling.
+- **56 host-process desktop/mobile browser checks**, plus type, build, contract,
+  proxy, state, formatting, Ruff and publication checks.
+- **Fresh Docker image builds and empty-volume startup**, starter preparation and
+  retry, persisted vectors and worker planning through the standalone Next proxy.
+- **Application container recreation during pending approval**, followed by resumed
+  research, persisted context, citation provenance, shared source downloads, report
+  export and denied access under an unknown project.
+- **An authored evaluation across three strategies** through both independent
+  workers, plus **10 desktop/mobile browser checks against the actual containers**.
+
+The container runner disables provider keys and paid execution, verifies that no
+provider catalog is configured, and removes only its unique project's containers
+and volumes. CI artifacts retain synthetic logs, result IDs and browser captures.
+Docker is unavailable in the preparation environment; these are measured remote
+CI results. The older unchecked list below is historical. Hosted Supabase two-user
+identity/RLS/private storage, public TLS routing and paid quality remain unverified.
+
 ## Earlier verification record — 2026-10-07
 
 The repository includes application source, locked dependencies, a containerized
