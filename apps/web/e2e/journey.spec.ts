@@ -215,11 +215,88 @@ test("seeded question → edited plan → report → citation → context → ex
   await page.getByRole("button", { name: "Markdown", exact: true }).click();
   expect((await downloaded).suggestedFilename()).toBe("research-report.md");
   await page.getByRole("tab", { name: "Context", exact: true }).click();
+  const contextPanel = page.getByRole("tabpanel", {
+    name: "Context",
+    exact: true,
+  });
+  const modelCall = contextPanel.getByRole("combobox", {
+    name: "Model call",
+    exact: true,
+  });
+  const reportContext = await modelCall
+    .locator("option")
+    .filter({ hasText: "report/" })
+    .first()
+    .getAttribute("value");
+  expect(reportContext).toBeTruthy();
+  await modelCall.selectOption(reportContext!);
   await expect(
-    page
-      .getByRole("region", { name: "Workflows workspace", exact: true })
-      .locator(".code-header"),
-  ).toContainText("Assembled input");
+    contextPanel.getByRole("region", {
+      name: "User requirements",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await contextPanel
+    .getByText("Read saved instructions", { exact: true })
+    .click();
+  await expect(
+    contextPanel.getByRole("region", {
+      name: "Trusted instructions",
+      exact: true,
+    }),
+  ).toContainText("saved prompt");
+  const contextSources = contextPanel.getByRole("region", {
+    name: "Retrieved passages in model context",
+    exact: true,
+  });
+  const contextVersion = await contextSources
+    .locator("dl")
+    .first()
+    .locator("dt")
+    .filter({ hasText: "Source version" })
+    .evaluate((node) => node.nextElementSibling?.textContent);
+  expect(contextVersion).toBeTruthy();
+  expect(contextVersion).not.toBe("Not available in this run");
+  await contextSources
+    .getByRole("button", { name: "Inspect source", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Evidence details", exact: true }),
+  ).toContainText(contextVersion!);
+  await page.keyboard.press("Escape");
+  expect(
+    await page.evaluate(() => document.body.scrollWidth <= window.innerWidth),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("context-inspector.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Harness", exact: true }).click();
+  const embedded = page.getByRole("region", {
+    name: "Harness workspace",
+    exact: true,
+  });
+  await embedded
+    .getByText("Inspect assembled context", { exact: true })
+    .click();
+  await embedded
+    .getByRole("combobox", { name: "Model call", exact: true })
+    .selectOption(reportContext!);
+  await expect(
+    embedded.getByRole("region", {
+      name: "Retrieved passages in model context",
+      exact: true,
+    }),
+  ).toContainText(contextVersion!);
+  expect(
+    await page.evaluate(() => document.body.scrollWidth <= window.innerWidth),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("harness-context-inspector.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await page.getByRole("tab", { name: "Research trail", exact: true }).click();
   await expect(page.getByText("Report ready", { exact: true })).toBeVisible();
   expect(

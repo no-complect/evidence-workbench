@@ -74,7 +74,7 @@ export function HarnessView({
           configuration={configuration}
           onChange={onConfigurationChange}
           modelSelection={modelSelection}
-          contexts={contexts}
+          savedRun={snapshot?.detail}
           onOpenWorkflows={onOpenWorkflows}
         />
       )}

@@ -1,65 +1,78 @@
 "use client";
 import { useState } from "react";
-import { Layers3, Terminal } from "lucide-react";
-
+import { Layers3 } from "lucide-react";
 import { Empty } from "./empty";
 import { HelpTip } from "./ui/tooltip";
-import type { Context } from "@/lib/api";
+import type { Context, Evidence } from "@/lib/contracts";
+import { ContextRecordView } from "@/features/context/context-record-view";
+import styles from "@/features/context/context.module.css";
 
-export function ContextView({ contexts }: { contexts: Context[] }) {
+export function ContextView({
+  contexts,
+  evidence,
+  onInspect,
+}: {
+  contexts: Context[];
+  evidence?: Evidence[];
+  onInspect?: (evidence: Evidence) => void;
+}) {
   const [contextId, setContextId] = useState("");
-  const chosenContext = contexts.find((c) => c.id === contextId) || contexts[0];
+  const chosen =
+    contexts.find((context) => context.id === contextId) ?? contexts[0];
   return (
     <>
-      <div className="section-title">
+      <div className={styles.heading}>
         <div>
           <h2>
             Context inspector
             <HelpTip
               label="Context inspector"
-              content="Inspect the redacted inputs actually assembled for a saved model call, including selected and excluded evidence, policy version, prompt hash and token bounds. This is not private chain-of-thought."
+              content="Inspect the redacted inputs saved for a model call, separated into instructions, user requirements, workflow state and untrusted passages. Selection reasons and source provenance stay inspectable. This is not private chain-of-thought."
             />
           </h2>
           <p>
-            Redacted assembled inputs and selection decisions. No private
-            chain-of-thought.
+            Follow what entered a model call, why it was selected, and where it
+            came from.
           </p>
         </div>
-        {contexts.length ? (
-          <select
-            aria-label="Model call"
-            value={chosenContext?.id}
-            onChange={(e) => setContextId(e.target.value)}
-          >
-            {contexts.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.call_key}
-              </option>
-            ))}
-          </select>
-        ) : null}
+        {chosen && (
+          <label className={styles.call}>
+            Model call
+            <select
+              aria-label="Model call"
+              value={chosen.id}
+              onChange={(event) => setContextId(event.target.value)}
+            >
+              {contexts.map((context) => (
+                <option key={context.id} value={context.id}>
+                  {context.stage} · {context.call_key}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
-      {chosenContext ? (
+      {chosen ? (
         <>
-          <div className="context-stats">
+          <div className={styles.stats}>
             <div>
               <span>Prompt</span>
-              <strong>{chosenContext.payload.prompt_id}</strong>
+              <strong>{chosen.payload.prompt_id}</strong>
             </div>
             <div>
               <span>Context policy</span>
-              <strong>{chosenContext.payload.policy_version}</strong>
+              <strong>{chosen.payload.policy_version}</strong>
             </div>
             <div>
               <span>
                 Input token bound
                 <HelpTip
                   label="Input token bound"
-                  content="A conservative estimate used to bound assembled input before execution. It is not provider-reported usage; output tokens are reserved separately."
+                  content="A conservative bound used before execution, including schema/message overhead when recorded. This is not provider-reported usage; output tokens are reserved separately."
                 />
               </span>
               <strong>
-                {chosenContext.payload.input_tokens_estimate.toLocaleString()}
+                {chosen.payload.input_tokens_estimate.toLocaleString()}
               </strong>
             </div>
             <div>
@@ -67,41 +80,25 @@ export function ContextView({ contexts }: { contexts: Context[] }) {
                 Selected / excluded
                 <HelpTip
                   label="Context evidence selection"
-                  content="Passages admitted to or excluded from this model call's finite context. Inspect the saved reasons to see how relevance, diversity and limits affected selection."
+                  content="Saved policy decisions for this model call. Excluded passages were not included in its source context."
                 />
               </span>
               <strong>
-                {chosenContext.payload.selected.length} /{" "}
-                {chosenContext.payload.excluded.length}
+                {chosen.payload.selected.length} /{" "}
+                {chosen.payload.excluded.length}
               </strong>
             </div>
           </div>
           <p className="fine-print">
-            Estimator: {chosenContext.payload.token_estimator}. Output
-            reservation: {chosenContext.payload.output_token_reservation}{" "}
-            tokens. Demo counts are estimates, not provider usage.
+            Output reservation: {chosen.payload.output_token_reservation}{" "}
+            tokens. These bounds are not provider-reported token usage.
           </p>
-          <details className="context-decisions">
-            <summary>Evidence selection decisions</summary>
-            {[
-              ...chosenContext.payload.selected,
-              ...chosenContext.payload.excluded,
-            ].map((e) => (
-              <p key={e.evidence_id}>
-                <code>{e.evidence_id.slice(0, 8)}</code> {e.reason}
-              </p>
-            ))}
-          </details>
-          <div className="code-header">
-            <Terminal size={14} />
-            Assembled input<span>REDACTED</span>
-          </div>
-          <pre className="context-code">
-            {JSON.stringify(chosenContext.payload.assembled_input, null, 2)}
-          </pre>
-          <p className="hash-text">
-            Prompt SHA-256: {chosenContext.payload.prompt_hash}
-          </p>
+          <ContextRecordView
+            key={chosen.id}
+            context={chosen}
+            evidence={evidence}
+            onInspect={onInspect}
+          />
         </>
       ) : (
         <Empty

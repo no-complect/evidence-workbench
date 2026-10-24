@@ -108,6 +108,18 @@ A row lock on the run serializes budget reservations from all parallel branches.
 
 The versioned planner, reviewer, writer and optional judge prompts specify schemas, evidence rules, tool limits and stopping rules. The context assembler separates trusted instructions, user requirements, a typed summary and untrusted source passages. It avoids whole conversation histories, deduplicates text hashes, favors fresh sources, limits any one source to three passages, and logs selection/exclusion reasons. Headings, repeated fixture disclaimers, and flagged adversarial fixtures are excluded. Annotation-based exclusion demonstrates the boundary for a known test; it is not a universal prompt-injection detector.
 
+The context UI projects the saved redacted input into separate instruction,
+requirement, workflow-state and source-passage sections. A pure parser handles
+legacy/malformed records without reconstructing them from raw evidence or the run
+question. Context selection is local interaction state; saved records remain in
+the existing project/user-scoped query cache. The same record components serve
+Context, execution-node inspection and the embedded Harness view. Original-source
+inspection uses only matching evidence already loaded for the selected run, with
+no identifier-based fallback fetch. Redacted excerpts and original authorized
+source text remain distinct. Selection/exclusion decisions, prompt hashes, token
+bounds and raw saved input/trace metadata remain inspectable. These are persisted
+assembled inputs, not a dump of provider SDK wire messages or private reasoning.
+
 The no-dependency token estimator counts UTF-8 bytes as a conservative bound for supported text tokenizers, plus structured schema/message allowance. Stage context caps apply to assembled evidence; reservations also include the schema and output limit. Credential/email redaction is applied to persisted contexts/events. The source corpus itself remains accessible to authorized project users because it is the product's data. This redactor is intentionally limited and does not constitute DLP.
 
 Model output cannot change access scopes, cost limits or available tools. Models return schema-validated plans/assessments/reports. The graph stores IDs, concise gaps/contradictions and plan state rather than unrestricted transcripts. UI decision summaries are observable results; private chain-of-thought is neither requested nor exposed.

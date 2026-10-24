@@ -11,9 +11,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, HelpTip } from "@/components/ui/tooltip";
-import type { RunSnapshot } from "@/lib/contracts";
+import type { RunSnapshot, Evidence } from "@/lib/contracts";
 import type { ResearchStrategy } from "./research-state";
 import { executionNodes, nodeRecords } from "./execution-state";
+import { ContextRecordView } from "@/features/context/context-record-view";
 import styles from "./execution-view.module.css";
 import studio from "@/features/harness/studio.module.css";
 const icons = {
@@ -29,12 +30,14 @@ export function ExecutionView({
   onStrategyChange,
   onHarness,
   onEvidence,
+  onInspectEvidence,
 }: {
   snapshot: RunSnapshot | undefined;
   strategy: ResearchStrategy;
   onStrategyChange: (value: ResearchStrategy) => void;
   onHarness: () => void;
   onEvidence: () => void;
+  onInspectEvidence: (evidence: Evidence) => void;
 }) {
   const [selected, setSelected] = useState("gather");
   const run = snapshot?.detail.run;
@@ -187,7 +190,15 @@ export function ExecutionView({
                   {context.payload.selected.length} selected ·{" "}
                   {context.payload.excluded.length} excluded passages
                 </p>
-                <pre>{JSON.stringify(context.payload, null, 2)}</pre>
+                <p className="fine-print">
+                  Policy: {context.payload.policy_version} · Prompt:{" "}
+                  {context.payload.prompt_id}
+                </p>
+                <ContextRecordView
+                  context={context}
+                  evidence={snapshot?.detail.evidence}
+                  onInspect={onInspectEvidence}
+                />
               </details>
             ))}
             <div className={styles.actions}>

@@ -69,6 +69,7 @@ export type Context = {
   stage: string;
   call_key: string;
   payload: {
+    model_target?: { provider?: string; model_id?: string; adapter?: string };
     policy_version: string;
     prompt_id: string;
     prompt_hash: string;

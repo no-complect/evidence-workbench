@@ -30,6 +30,77 @@ const ui = load("features/workbench/workspace-state.ts");
 const research = load("features/workbench/research-state.ts");
 const cases = load("features/evaluations/case-state.ts");
 
+test("saved context presentation uses only recorded redacted inputs and preserves immutable records", () => {
+  const { savedContextInput } = load("features/context/context-record.ts");
+  const record = {
+    payload: {
+      assembled_input: {
+        trusted_instructions: "Saved instruction",
+        user_requirements: "[REDACTED EMAIL] question",
+        durable_summary: { iteration: 1 },
+        untrusted_sources: [
+          {
+            evidence_id: "recorded-id",
+            passage: "Saved [REDACTED EMAIL] passage",
+            source: "recorded.md",
+            section: "Controls",
+            page: null,
+            offsets: [3, 42],
+          },
+        ],
+      },
+    },
+    raw_evidence: { text: "UNREDACTED_SOURCE_MUST_NOT_BE_USED" },
+  };
+  const before = JSON.stringify(record);
+  const parsed = savedContextInput(record);
+  assert.equal(parsed.structured, true);
+  assert.equal(parsed.passages[0].passage, "Saved [REDACTED EMAIL] passage");
+  assert.equal(parsed.passages[0].evidenceId, "recorded-id");
+  assert.equal(parsed.sourcesRecorded, true);
+  assert.equal(parsed.unreadablePassages, 0);
+  assert.ok(!JSON.stringify(parsed).includes("UNREDACTED_SOURCE"));
+  assert.equal(JSON.stringify(record), before);
+});
+
+test("legacy, unreadable and known empty saved contexts remain distinct", () => {
+  const { savedContextInput } = load("features/context/context-record.ts");
+  for (const input of [null, "old input", [], { redacted: "Schema removed" }]) {
+    const parsed = savedContextInput({ payload: { assembled_input: input } });
+    assert.equal(parsed.structured, false);
+    assert.equal(parsed.sourcesRecorded, false);
+    assert.equal(parsed.passages.length, 0);
+  }
+  const empty = savedContextInput({
+    payload: {
+      assembled_input: { trusted_instructions: "Plan", untrusted_sources: [] },
+    },
+  });
+  assert.equal(empty.structured, true);
+  assert.equal(empty.sourcesRecorded, true);
+  assert.equal(empty.unreadablePassages, 0);
+  const partial = savedContextInput({
+    payload: {
+      assembled_input: {
+        untrusted_sources: [
+          null,
+          { evidence_id: 4, passage: "invalid" },
+          { evidence_id: "one", passage: "recorded", offsets: ["bad", 2] },
+        ],
+      },
+    },
+  });
+  assert.equal(partial.passages.length, 1);
+  assert.equal(partial.passages[0].offsets, null);
+  assert.equal(partial.unreadablePassages, 2);
+  assert.equal(
+    savedContextInput({
+      payload: { assembled_input: { untrusted_sources: "[REDACTED]" } },
+    }).sourcesRecorded,
+    false,
+  );
+});
+
 test("backend key mismatch and missing browser auth build are setup errors; expired sessions remain sign-in errors", async () => {
   for (const [message, mode, configuration] of [
     ["Backend authentication required", "supabase", true],

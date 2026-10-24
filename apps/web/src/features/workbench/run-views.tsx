@@ -116,6 +116,7 @@ export function RunViews({
             onStrategyChange={onStrategyChange}
             onHarness={onHarness}
             onEvidence={() => onNavigate("evidence")}
+            onInspectEvidence={onEvidence}
           />
         )}
         {tab === "report" && (
@@ -152,7 +153,12 @@ export function RunViews({
           />
         )}
         {tab === "context" && (
-          <ContextView contexts={snapshot?.detail.contexts ?? []} />
+          <ContextView
+            key={run?.id ?? "new"}
+            contexts={snapshot?.detail.contexts ?? []}
+            evidence={evidence}
+            onInspect={onEvidence}
+          />
         )}
       </section>
     </>
