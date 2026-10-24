@@ -128,6 +128,16 @@ checks do not verify production TLS, hosted resource settings or email delivery.
 The app's account control signs out the current browser session; an already issued
 access token can remain valid until expiry, as with normal Supabase JWT sessions.
 
+## Deployed HTTPS checks
+
+`scripts/verify-deployment.py` runs read-only checks against an existing web/API
+pair; see [Deployment](DEPLOYMENT.md#read-only-hosted-deployment-check) for usage,
+optional user-session handling, output and limits. It does not start services or
+provision resources. CI tests its protocol/failure handling using synthetic HTTP
+responses, including redirects, protection pages, wrong proxy keys, transport
+failures and credential-free reporting. These tests do not establish that any
+hosted deployment has passed.
+
 ## Dependency updates
 
 Normal startup, builds, and CI use the committed locks. Only regenerate them for

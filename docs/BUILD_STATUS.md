@@ -1,126 +1,61 @@
 # Verification status
 
-## Current container verification
+## Most recent completed application verification
 
-The **Fresh container journey** CI job builds the committed Dockerfiles, starts
-empty project volumes, exercises the standalone web proxy and both worker
-processes, recreates the application containers during pending approval, and runs
-desktop/mobile collection and research/evaluation browser journeys. The reusable
-command is `python3 scripts/verify-compose.py --browser`; see
-[Development](DEVELOPMENT.md#fresh-container-verification) for prerequisites.
+At source `7e0b43d` (merged in PR10 as `74c9a88`), both the
+[push run](https://github.com/no-complect/evidence-workbench/actions/runs/40053954947)
+and [pull-request run](https://github.com/no-complect/evidence-workbench/actions/runs/40053958758)
+passed all three jobs on 2026-10-23:
 
-At source `00dd052` on 2026-10-24, both the
-[push run](https://github.com/no-complect/evidence-workbench/actions/runs/40042775162)
-and [pull-request run](https://github.com/no-complect/evidence-workbench/actions/runs/40042779943)
-passed both jobs:
+| Boundary | Measured result |
+| --- | --- |
+| Python/API/domain | 114 tests, including pgvector, worker, MCP, authorization, budgets and recovery |
+| Standard desktop/mobile browser | 62 checks, including collection setup/return, explicit research, evaluation and tooltip journeys |
+| Fresh Docker images and volumes | 16 desktop/mobile checks plus real proxy, ingestion, persisted vectors, approval recovery after container recreation and both worker processes |
+| Real local Supabase | 2 desktop/mobile checks with actual Auth/PostgREST/private Storage, two identities, denied row/object access, source/citation authorization and same-browser sign-out/account reset |
+| Supporting checks | Types, production Next build, contracts, 19 state/query tests, 9 proxy tests, Ruff, formatting and publication boundaries |
 
-- **109 Python tests**, including real pgvector/worker/MCP/recovery tests and four
-  runner tests covering credential isolation, owned-project cleanup, terminal
-  failures and real HTTP transport/status handling.
-- **56 host-process desktop/mobile browser checks**, plus type, build, contract,
-  proxy, state, formatting, Ruff and publication checks.
-- **Fresh Docker image builds and empty-volume startup**, starter preparation and
-  retry, persisted vectors and worker planning through the standalone Next proxy.
-- **Application container recreation during pending approval**, followed by resumed
-  research, persisted context, citation provenance, shared source downloads, report
-  export and denied access under an unknown project.
-- **An authored evaluation across three strategies** through both independent
-  workers, plus **10 desktop/mobile browser checks against the actual containers**.
+These are remote CI results. The preparation environment has no Docker daemon.
+Supabase uses disposable local services with HTTP and synthetic accounts; it is
+not a test of hosted Supabase configuration, public TLS or email delivery. No
+paid providers were used. See [Development](DEVELOPMENT.md) for the reusable
+container and Supabase verification commands.
 
-The container runner disables provider keys and paid execution, verifies that no
-provider catalog is configured, and removes only its unique project's containers
-and volumes. CI artifacts retain synthetic logs, result IDs and browser captures.
-Docker is unavailable in the preparation environment; these are measured remote
-CI results. The older unchecked list below is historical. Hosted Supabase two-user
-identity/RLS/private storage, public TLS routing and paid quality remain unverified.
+New-project research now guides collection preparation and returns to the same
+question/settings without automatically starting a run. Existing empty or
+interrupted collections route to source setup. Loading/error states do not
+masquerade as empty data; RAG's empty selector is disabled and its action is
+**Add Collection**.
 
-## Earlier verification record — 2026-10-07
+## Hosted deployment verification
 
-The repository includes application source, locked dependencies, a containerized
-local demo, and a GitHub verification workflow. The public README describes the
-implemented behavior and separates the scripted demo from live provider paths.
-This record distinguishes checks run during repository preparation from older
-runtime artifacts. It does not certify a production deployment.
+A read-only [HTTPS deployment checker](DEPLOYMENT.md#read-only-hosted-deployment-check)
+is available for an already deployed web/API pair. It verifies application HTML,
+API/database readiness, backend-key enforcement and proxy/session routing, with
+an optional explicitly supplied user session. Its synthetic protocol tests do
+not count as a hosted result. No hosted deployment has been checked here.
 
-## Checks run during public-repository preparation
+The checker writes a timestamped summary with explicit unverified boundaries;
+it makes no mutations or paid calls. It does not prove browser sign-in settings,
+RLS/private Storage isolation or either worker's execution. Production Supabase
+evaluations use live mode and require separate explicit paid-provider authorization.
 
-Command: `UV_CACHE_DIR=.cache/uv UV_OFFLINE=1 ./scripts/test.sh`
+## Earlier measured evidence
 
-- **28 unit/policy tests passed**, with 16 database integration tests deselected.
-- **Pydantic/TypeScript contracts matched.**
-- **Full TypeScript check passed.**
-- **Next.js production build passed**, including page generation and build traces.
-- `python3 scripts/check-offline.py` passed: Python/shell syntax, ten documents,
-  41 passage/vector mappings, and fourteen evaluation cases.
-- `ruff check services tests scripts` passed.
-- Compose configuration validation passed.
-- Publication preflight passed: 117 candidate files, approximately 0.80 MiB.
-  Isolated checks confirmed tracked `.env` files and credential-like contents
-  are rejected without printing secret values.
-- A separate copy of the publishable source passed TypeScript and the Next
-  production build without preexisting generated frontend files. This reused
-  installed npm dependencies; it was not a fresh dependency download or Docker run.
-
-These host checks used Python 3.14 and the installed dependencies from the
-committed lockfiles. Containers and CI target Python 3.12 and Node 24. A build
-emitted a Node dependency deprecation warning; the build completed successfully.
-
-## Existing measured artifacts
-
-An earlier container build/start log records the local stack reaching readiness.
 The reviewed [fixture comparison](examples/fixture-comparison.md) and
-[raw JSON](examples/fixture-comparison.json) record an actual synthetic evaluation
-run with a code hash, source hashes, prompts, context policy, and per-case results.
-These demonstrate prior execution but do not replace a fresh-checkout test of the
-current source. Fixture responses/vectors do not measure live language-model
-quality. Raw local logs and repeat evaluation exports are excluded from Git.
-
-## Publication preparation
-
-The README provides the Docker quick start, reviewer walkthrough, feature guide,
-architecture overview, and links to deeper documentation. Ignore rules protect
-local environment files, dependencies, runtime data, test artifacts, raw logs,
-repeat evaluation outputs, and local authoring/configuration files. Runtime
-assets, synthetic fixtures, generated contracts, and both locks remain included.
-
-`python3 scripts/check-publication.py` checks the public candidate set, essential
-assets, common secret patterns, local links, executable scripts, and file sizes.
-CI also runs this preflight. See [RELEASING](RELEASING.md) for the final review.
-
-## Local connection proxy fix
-
-The local proxy previously validated `request.nextUrl.hostname`. Next.js can
-construct that URL using the container's `0.0.0.0` bind address, so a browser
-request to localhost could receive a 403 loopback-host error. The guard now
-validates the browser-facing Host header and uses its origin for local POST
-checks. Forwarded host headers are not trusted.
-
-Nine route regression tests pass, covering localhost/IPv4/IPv6 connection and
-submission requests, malformed/nonlocal hosts, cross-origin requests, and the
-production branch. TypeScript and the production build pass after this fix.
-The route tests use a stubbed backend response; they do not replace the real
-Docker/browser acceptance checks below. Test command:
-`npm --prefix apps/web run test:proxy`.
-
-## Checks remaining before declaring the reviewer path verified
-
-This preparation session cannot access the Docker daemon, and the local browser
-endpoint was unavailable. Consequently the following were **not rerun here**:
-
-- Fresh-checkout Compose startup with empty project volumes.
-- `./scripts/demo.sh` and the complete reviewer walkthrough.
-- The real pgvector integration/MCP/recovery suite.
-- Desktop/mobile Playwright journeys and a reviewed report screenshot.
-
-Run the sequence in [Development](DEVELOPMENT.md) and update this record with
-measured outcomes. The GitHub workflow is configured to run real integration and
-browser checks, but remote CI results should only be claimed after execution.
+[raw JSON](examples/fixture-comparison.json) retain an earlier actual synthetic
+evaluation with code/source hashes, prompts, context policy and per-case results.
+Fixture responses and vectors do not measure live language-model quality.
+Earlier preparation and container results are preserved in Git history; they do
+not supersede the exact-source CI results above.
 
 ## Live and production boundaries
 
-Hosted Supabase Auth/RLS/private Storage, paid OpenAI calls, public-web research,
-and paid semantic judging require separate environment-specific verification.
-No production-scale or hosted availability claim is made.
+Hosted Supabase Auth/RLS/private Storage, browser redirects, SMTP delivery, public
+TLS routing, deployed worker execution, paid-provider quality and production
+availability remain environment-specific checks. No production-scale or hosted
+availability claim is made. The local proxy's Host/origin and production branch
+regressions have unit coverage; full container journeys exercise the real proxy.
 
 Known scope limits: scripted demo embeddings; disabled reranker; cooperative
 cancellation/deadlines; synchronous live ingestion without its own cost ledger;
@@ -128,3 +63,12 @@ limited context redaction and annotation-based adversarial filtering; no OCR,
 invitation UI, production rate limiting, or automated retention. See
 [Architecture](ARCHITECTURE.md), [Evaluation](EVALUATION.md), and
 [Deployment](DEPLOYMENT.md).
+
+## Publication boundary
+
+Ignore rules protect environment files, authoring/context documents, dependencies,
+runtime data, test artifacts, raw logs and repeat evaluation outputs. Runtime
+assets, synthetic fixtures, generated contracts and dependency locks are included.
+`python3 scripts/check-publication.py` checks the public candidate set, required
+assets, local links, executable scripts, file sizes and common credential patterns.
+See [Releasing](RELEASING.md) for review and fresh-checkout instructions.
