@@ -7,13 +7,13 @@ import httpx
 from . import db
 from .auth import authorize
 from .config import ROOT, settings
-from .context import POLICY, CAPS
+from .context import POLICY, CAPS, PROMPTS
 from .credential_store import encrypt, decrypt
-from .models import Plan, Assessment, Report
+from .models import Plan, Assessment, SynthesisReport
 from .providers import OpenAIProvider
 from .provider_catalog import parse_catalog
 
-SCHEMAS = {'plan': Plan, 'assess': Assessment, 'report': Report}
+SCHEMAS = {'plan': Plan, 'assess': Assessment, 'report': SynthesisReport}
 CATALOG_ENDPOINT = 'https://api.openai.com/v1/models'
 CONNECTION_COLUMNS = 'id,project_id,name,provider,active,catalog,catalog_discovery,discovered_at,created_at'
 
@@ -35,7 +35,7 @@ def fingerprints():
     return {
         'adapter': 'openai-json-schema-v1', 'context_policy': POLICY, 'context_caps': CAPS,
         'output_token_cap': 2200, 'tool_policy': 'scoped-retrieval-opt-in-web-v1',
-        'prompts': {stage: digest((ROOT / 'prompts' / f'{stage}-v1.md').read_bytes()) for stage in SCHEMAS},
+        'prompts': {stage: digest((ROOT / 'prompts' / f'{PROMPTS[stage]}.md').read_bytes()) for stage in SCHEMAS},
         'contracts': {stage: digest(json.dumps(schema.model_json_schema(), sort_keys=True).encode())
                       for stage, schema in SCHEMAS.items()},
     }

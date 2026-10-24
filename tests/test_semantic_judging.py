@@ -31,8 +31,10 @@ def scenario(client, monkeypatch):
         def invoke(self, stage, payload, schema, timeout=35):
             result, _, _ = DemoProvider().invoke(stage, payload, schema)
             if stage == 'report' and result.claims:
+                for claim in result.claims:
+                    claim.support = 'model_assessed'
                 result.claims.append(Claim(text='Keep audit logs for seven days.',
-                    evidence_ids=result.claims[0].evidence_ids, support='direct_quote'))
+                    evidence_ids=result.claims[0].evidence_ids, support='model_assessed'))
             return result, 100, None
     monkeypatch.setattr(graph, 'OpenAIProvider', ResearchProvider)
     calls = []

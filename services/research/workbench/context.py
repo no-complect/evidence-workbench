@@ -5,6 +5,7 @@ from .constants import ROOT
 
 POLICY = 'context-v1'
 CAPS = {'plan': 1800, 'assess': 5000, 'report': 6500}
+PROMPTS = {'plan': 'plan-v1', 'assess': 'assess-v1', 'report': 'report-v2', 'judge': 'judge-v1'}
 
 
 class ContextOverflow(ValueError):
@@ -31,7 +32,7 @@ def redact(value):
 
 
 def assemble(stage, question, evidence, summary=None, configuration=None):
-    prompt = (ROOT / 'prompts' / f'{stage}-v1.md').read_text()
+    prompt = (ROOT / 'prompts' / f'{PROMPTS[stage]}.md').read_text()
     configuration = configuration or {}
     extra = configuration.get('system_instruction', '')
     if extra.strip():
@@ -96,7 +97,7 @@ def assemble(stage, question, evidence, summary=None, configuration=None):
     return payload, {
         'policy_version': POLICY + ('/strict' if policy == 'strict' else ''),
         'context_cap': cap,
-        'prompt_id': f'{stage}-v1',
+        'prompt_id': PROMPTS[stage],
         'prompt_hash': hashlib.sha256(prompt.encode()).hexdigest(),
         'input_tokens_estimate': estimate_tokens(json.dumps(payload)),
         'token_estimator': 'utf8-bytes-upper-bound-v1',
