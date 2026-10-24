@@ -84,13 +84,17 @@ def ingest(project_id, collection_id, name, data, metadata=None, embed=True):
             'status': 'ready',
             'deduplicated': True
         }
+    phase = 'reading'
     try:
         passages = chunks_from_file(name, data)
+        phase = 'embedding'
         vectors = embed_passages(
             passages, collection['embedding_config']) if embed else [None] * len(passages)
         media = 'application/pdf' if Path(name).suffix.lower() == '.pdf' else 'text/plain'
         key = f'{project_id}/{document_id}/{digest}'
+        phase = 'storage'
         storage().put(key, data, media)
+        phase = 'indexing'
         with db.connection() as conn:
             conn.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', (document_id, ))
             if conn.execute('SELECT id FROM source_versions WHERE id=%s',
@@ -126,8 +130,13 @@ def ingest(project_id, collection_id, name, data, metadata=None, embed=True):
             'deduplicated': False
         }
     except Exception as exc:
-        error = str(exc) if isinstance(
-            exc, IngestionError) else 'Ingestion failed; check adapter configuration'
+        fallback = {
+            'reading': 'Source file could not be read. Check its format and encoding before retrying this file.',
+            'embedding': 'Embedding preparation failed. Check the API server embedding configuration and network access before retrying this file.',
+            'storage': 'Source file could not be stored. Check server source storage availability and write permissions, then retry this file.',
+            'indexing': 'Source passages could not be indexed. Check database availability and applied migrations, then retry this file.',
+        }
+        error = str(exc) if isinstance(exc, IngestionError) else fallback[phase]
         db.execute("UPDATE source_documents SET status='error',error=%s WHERE id=%s",
                    (error, document_id))
         raise IngestionError(error) from exc

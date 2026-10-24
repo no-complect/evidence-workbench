@@ -62,3 +62,37 @@ def test_embedding_failure_is_actionable_redacted_and_persisted_without_a_versio
     assert 'current_version_id=' not in query
     assert parameters[0] == message
     assert private not in str(execute.call_args_list)
+
+
+@pytest.mark.parametrize('phase,expected', [
+    ('reading', 'Source file could not be read'),
+    ('embedding', 'Embedding preparation failed'),
+    ('storage', 'Source file could not be stored'),
+    ('indexing', 'Source passages could not be indexed'),
+])
+def test_unknown_ingestion_errors_report_only_the_failed_phase(monkeypatch, phase, expected):
+    private = 'private-provider-storage-or-database-details'
+    monkeypatch.setattr(ingest.db, 'one', lambda query, args:
+                        {'embedding_config': 'openai-small-v1'} if 'FROM collections' in query else None)
+    execute = Mock()
+    monkeypatch.setattr(ingest.db, 'execute', execute)
+    monkeypatch.setattr(ingest, 'embed_passages', Mock(return_value=[None]))
+    store = Mock()
+    monkeypatch.setattr(ingest, 'storage', lambda: store)
+    if phase == 'reading':
+        monkeypatch.setattr(ingest, 'chunks_from_file', Mock(side_effect=RuntimeError(private)))
+    elif phase == 'embedding':
+        monkeypatch.setattr(ingest, 'embed_passages', Mock(side_effect=RuntimeError(private)))
+    elif phase == 'storage':
+        store.put.side_effect = RuntimeError(private)
+    else:
+        monkeypatch.setattr(ingest.db, 'connection', Mock(side_effect=RuntimeError(private)))
+    with pytest.raises(ingest.IngestionError) as caught:
+        ingest.ingest('project', 'collection', 'policy.txt', b'Arbor retains documents for 30 days.')
+    assert expected in str(caught.value)
+    assert private not in str(caught.value)
+    query, parameters = execute.call_args.args
+    assert "status='error'" in query
+    assert 'current_version_id=' not in query
+    assert parameters[0] == str(caught.value)
+    assert private not in str(execute.call_args_list)
