@@ -41,7 +41,7 @@ class BrowserAPI:
             response = exc
         with response:
             require(response.status == status,
-                    f'{request.method} {path}: expected {status}, got {response.status}')
+                    f'{request.get_method()} {path}: expected {status}, got {response.status}')
             data = response.read()
         return data.decode() if text else json.loads(data)
 

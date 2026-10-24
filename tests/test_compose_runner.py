@@ -1,8 +1,11 @@
 """Safety boundaries for the disposable Docker verification runner, not Docker substitutes."""
 import importlib.util
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
 from pathlib import Path
 import subprocess
 import sys
+import threading
 
 import pytest
 
@@ -58,3 +61,43 @@ def test_wait_fails_immediately_on_terminal_job_error(monkeypatch):
     monkeypatch.setattr(api, 'request', lambda _: {'status': 'failed'})
     with pytest.raises(RuntimeError, match='unexpected terminal status failed'):
         api.wait('projects/synthetic/evaluation-jobs/synthetic', 'completed')
+
+
+def test_browser_http_transport_and_safe_status_errors():
+    seen = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            seen.append((self.command, self.path, self.headers['Origin']))
+            self.send_response(404 if self.path.endswith('missing') else 200)
+            self.end_headers()
+            self.wfile.write(b'{"detail":"synthetic-private-body"}')
+
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+            seen.append((self.command, self.path, self.headers['Origin'], body))
+            self.send_response(201)
+            self.end_headers()
+            self.wfile.write(b'{"id":"synthetic"}')
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        origin = f'http://127.0.0.1:{server.server_port}'
+        api = runner.BrowserAPI(origin)
+        assert api.request('bootstrap')['detail'] == 'synthetic-private-body'
+        assert api.request('projects', {'name': 'Synthetic'}, status=201)['id'] == 'synthetic'
+        assert api.request('missing', status=404)['detail'] == 'synthetic-private-body'
+        with pytest.raises(RuntimeError, match='GET missing: expected 200, got 404') as exc:
+            api.request('missing')
+        assert 'synthetic-private-body' not in str(exc.value)
+        assert seen[:2] == [('GET', '/api/backend/bootstrap', origin),
+                            ('POST', '/api/backend/projects', origin, {'name': 'Synthetic'})]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
