@@ -131,6 +131,18 @@ class Report(StrictModel):
     partial: bool = False
 
 
+class SynthesisClaim(Claim):
+    support: Literal['model_assessed'] = Field(
+        description='Model synthesis or paraphrase, not a verified direct quotation or independent judgment.',
+        # Some provider schema converters omit const but support a single-value enum.
+        json_schema_extra={'enum': ['model_assessed']})
+
+
+class SynthesisReport(Report):
+    """Live writer output; stored reports also support verified fixture excerpts."""
+    claims: list[SynthesisClaim]
+
+
 class Named(StrictModel):
     name: str = Field(min_length=1, max_length=100)
 

@@ -1,4 +1,5 @@
 import json
+from pydantic import ValidationError
 from .config import settings
 from .models import Plan, Task, Assessment, Report, Claim, TOPICS
 
@@ -107,6 +108,9 @@ def invoke_research(target, key, payload, schema, timeout):
             ('system', payload['trusted_instructions']),
             ('human', json.dumps({k: v for k, v in payload.items() if k != 'trusted_instructions'})),
         ])
+    except ValidationError:
+        # OpenAI's SDK can reject native structured output before include_raw parses it.
+        raise ModelCompatibilityError('Provider output failed schema validation') from None
     except Exception as exc:
         if getattr(exc, 'status_code', None) in {400, 403, 404, 422}:
             raise ModelCompatibilityError('Selected model could not serve the research contract') from None

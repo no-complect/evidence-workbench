@@ -33,7 +33,9 @@ def test_mixed_research_and_independent_anthropic_judge_are_pinned_and_scoped(cl
             calls.append(('openai', stage, self.target['model_id']))
             report, _, _ = DemoProvider().invoke(stage, payload, schema)
             if stage == 'report' and report.claims:
-                report.claims.append(Claim(text='Keep audit logs for seven days.', evidence_ids=report.claims[0].evidence_ids, support='direct_quote'))
+                for claim in report.claims:
+                    claim.support = 'model_assessed'
+                report.claims.append(Claim(text='Keep audit logs for seven days.', evidence_ids=report.claims[0].evidence_ids, support='model_assessed'))
             return report, 100, None
     class Anthropic(OpenAI):
         name = 'anthropic'

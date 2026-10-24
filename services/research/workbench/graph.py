@@ -6,7 +6,7 @@ from uuid import NAMESPACE_URL, uuid5
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Send, interrupt
 from . import db, budget
-from .models import Plan, Assessment, Report, Claim
+from .models import Plan, Assessment, Report, Claim, SynthesisReport
 from .context import assemble, ContextOverflow
 from .providers import DemoProvider, OpenAIProvider, AnthropicProvider
 from .model_targets import credential as environment_credential, validate_adapter
@@ -228,7 +228,8 @@ def build_graph(run, checkpointer):
         return 'synthesize'
 
     def synthesize(state):
-        result = rt.model('report', 'report', Report, state['assessment'])
+        schema = Report if run['mode'] == 'demo' else SynthesisReport
+        result = rt.model('report', 'report', schema, state['assessment'])
         if state['pending'] and run['strategy'] == 'agent' and state['iteration'] >= run['request'][
                 'limits']['iterations']:
             result.partial = True

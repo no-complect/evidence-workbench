@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends
 from . import db, harness, environment_models, harness_presets
 from .models import HarnessPresetCreate, HarnessPreset
 from .auth import identity
-from .models import ConnectionCreate, ModelVerification, HarnessCreate, StrictModel, Plan, Assessment, Report, SemanticJudgment
+from .models import ConnectionCreate, ModelVerification, HarnessCreate, StrictModel, Plan, Assessment, SynthesisReport, SemanticJudgment
 from .auth import authorize
-from .context import CAPS, POLICY
+from .context import CAPS, POLICY, PROMPTS
 from .constants import ROOT
 from pydantic import Field, ValidationError
 from typing import Literal
@@ -13,7 +13,7 @@ from typing import Literal
 router = APIRouter(prefix='/api/projects/{project_id}/harness', tags=['harness'])
 
 
-SCHEMAS = {'plan': Plan, 'assess': Assessment, 'report': Report, 'judge': SemanticJudgment}
+SCHEMAS = {'plan': Plan, 'assess': Assessment, 'report': SynthesisReport, 'judge': SemanticJudgment}
 
 
 class ContractValidation(StrictModel):
@@ -25,7 +25,7 @@ class ContractValidation(StrictModel):
 def studio(project_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     return {'schemas': {key: model.model_json_schema() for key, model in SCHEMAS.items()},
-            'prompts': {key: (ROOT / 'prompts' / f'{key}-v1.md').read_text() for key in SCHEMAS},
+            'prompts': {key: (ROOT / 'prompts' / f'{PROMPTS[key]}.md').read_text() for key in SCHEMAS},
             'context_policy': POLICY, 'context_caps': CAPS}
 
 
