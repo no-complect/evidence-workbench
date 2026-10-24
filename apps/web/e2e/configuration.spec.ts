@@ -134,7 +134,13 @@ test("optional AI setup keeps demo available with visible model guidance", async
     workspace
       .getByRole("combobox", { name: "Harness execution profile", exact: true })
       .locator("option[value=live]"),
-  ).toBeDisabled();
+  ).toHaveJSProperty("disabled", true);
+  await expect(
+    workspace.getByRole("combobox", {
+      name: "Harness execution profile",
+      exact: true,
+    }),
+  ).toHaveValue("demo");
   await expect(workspace).toContainText(
     "Set OPENAI_API_KEY or ANTHROPIC_API_KEY",
   );
