@@ -5,6 +5,21 @@ const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
 const { NextRequest } = require("next/server");
+const envSource = fs.readFileSync(
+  path.join(__dirname, "../src/lib/server-environment.ts"),
+  "utf8",
+);
+const envContext = {
+  exports: {},
+  require: (name) => (name === "server-only" ? {} : require(name)),
+  URL,
+};
+vm.runInNewContext(
+  ts.transpileModule(envSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  }).outputText,
+  envContext,
+);
 
 const source = fs.readFileSync(
   path.join(__dirname, "../src/app/api/backend/[...path]/route.ts"),
@@ -30,6 +45,8 @@ function handler(env = {}) {
       calls.push({ url, options });
       return Response.json({ projects: [] });
     },
+    require: (name) =>
+      name === "@/lib/server-environment" ? envContext.exports : require(name),
   };
   vm.runInNewContext(compiled, context);
   return { route: context.exports.GET, calls };
@@ -134,8 +151,10 @@ test("production keeps its configured HTTPS and browser origin checks", async ()
   const { route, calls } = handler({
     APP_ENV: "production",
     API_URL: "https://api.example.test",
-    API_SHARED_SECRET: "synthetic-proxy-test-secret",
+    API_SHARED_SECRET: "synthetic-proxy-test-secret-at-least-32-characters",
     NEXT_PUBLIC_AUTH_MODE: "supabase",
+    NEXT_PUBLIC_SUPABASE_URL: "https://supabase.example.test",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: "synthetic-public-anon-key",
   });
   const request = new NextRequest(
     "https://research.example.test/api/backend/projects",
@@ -152,4 +171,51 @@ test("production keeps its configured HTTPS and browser origin checks", async ()
   });
   assert.equal(response.status, 200);
   assert.equal(calls[0].url, "https://api.example.test/api/projects");
+});
+
+test("missing production settings are named without values, redirects or upstream calls", async () => {
+  const { route, calls } = handler({
+    APP_ENV: "production",
+    API_URL: "",
+    API_SHARED_SECRET: "synthetic-private-short-secret",
+  });
+  const response = await route(
+    new NextRequest("https://web.example/api/backend/bootstrap"),
+    { params: Promise.resolve({ path: ["bootstrap"] }) },
+  );
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const result = await response.json();
+  assert.equal(result.code, "configuration_error");
+  for (const variable of [
+    "API_URL",
+    "API_SHARED_SECRET",
+    "NEXT_PUBLIC_AUTH_MODE",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  ])
+    assert.ok(result.detail.includes(variable));
+  assert.ok(!JSON.stringify(result).includes("synthetic-private-short-secret"));
+  assert.equal(calls.length, 0);
+});
+
+test("invalid origins and missing APP_ENV cannot silently use local defaults", async () => {
+  for (const env of [
+    { APP_ENV: undefined },
+    { API_URL: "https://user:synthetic-private@api.example" },
+    { API_URL: "invalid-synthetic-private" },
+  ]) {
+    const { route, calls } = handler(env);
+    const response = await route(
+      new NextRequest("http://localhost:3000/api/backend/bootstrap", {
+        headers: { host: "localhost:3000" },
+      }),
+      { params: Promise.resolve({ path: ["bootstrap"] }) },
+    );
+    assert.equal(response.status, 503);
+    assert.ok(
+      !JSON.stringify(await response.json()).includes("synthetic-private"),
+    );
+    assert.equal(calls.length, 0);
+  }
 });

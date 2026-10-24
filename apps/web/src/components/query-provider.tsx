@@ -29,7 +29,7 @@ function QueryScope({ children }: { children: ReactNode }) {
               count < 2 &&
               (!(error instanceof ApiError) ||
                 error.status === 429 ||
-                error.status >= 500),
+                (error.status >= 500 && error.code !== "configuration_error")),
           },
           mutations: { retry: false, networkMode: "always" },
         },

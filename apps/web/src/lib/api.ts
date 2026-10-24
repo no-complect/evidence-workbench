@@ -18,7 +18,11 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    throw new ApiError(response.status, errorMessage(error, response.status));
+    throw new ApiError(
+      response.status,
+      errorMessage(error, response.status),
+      error?.code === "configuration_error" ? "configuration_error" : undefined,
+    );
   }
   return response.json();
 }
@@ -44,6 +48,7 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly code?: "configuration_error",
   ) {
     super(message);
     this.name = "ApiError";

@@ -201,6 +201,7 @@ export type EvaluationJob = {
 };
 
 export type Bootstrap = {
+  configuration?: { web_search_enabled: boolean; notices: string[] };
   projects: Project[];
   examples: string[];
   live_enabled: boolean;

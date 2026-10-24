@@ -4,7 +4,7 @@ from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, Query
 from fastapi.responses import Response, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from . import db
-from .config import settings
+from .config import settings, configuration_status
 from .auth import identity, authorize
 from .models import RunCreate, RunSummary, Plan, Named, CollectionCreate, CollectionSetup, SearchRequest, EXAMPLES
 from .collection_setup import options as collection_options, prepare as prepare_collection, resume as resume_collection, SetupConflict
@@ -67,7 +67,8 @@ def bootstrap(user=Depends(identity)):
         'projects': projects,
         'examples': EXAMPLES,
         'auth_mode': s.auth_mode,
-        'live_enabled': s.live_enabled,
+        'live_enabled': bool(s.live_enabled and s.openai_api_key),
+        'configuration': configuration_status(s),
         'model_catalog_enabled': True,
         'evaluations_enabled': s.app_env in {'local', 'test'} and s.auth_mode == 'demo',
         'mode_notice':

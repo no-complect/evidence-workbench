@@ -91,6 +91,50 @@ collection's embedding identity when changing research models.
 
 The local Next production build passes; a hosted deployment has not been verified. No Vercel-native durable worker support is assumed or used. No deployment action is part of the local startup scripts.
 
+## Configuration validation and recovery
+
+The Python API validates required settings before accepting requests. Both workers
+and migration commands use the same settings loader. Local/test demo defaults
+need no provider keys. Supabase authentication requires a valid `SUPABASE_URL` and
+`SUPABASE_ANON_KEY`; Supabase Storage additionally requires its server-only
+`SUPABASE_SERVICE_ROLE_KEY`. Production requires Supabase auth/storage, a random
+32+ character shared secret and an explicit PostgreSQL `DATABASE_URL` with
+`sslmode=require`, `verify-ca` or `verify-full`; the local database default is
+rejected. Use direct/session pooling as described above. This validation checks
+configuration shape and presence, not service connectivity or credential validity.
+
+An optional local preflight reads the Python process environment/root `.env`:
+
+```bash
+uv run --frozen python scripts/check-environment.py
+```
+
+Required failures name the settings and exit nonzero without printing values.
+Malformed typed values are also redacted. Missing optional provider keys leave the
+demo usable; live research remains unavailable until its OpenAI embedding key and
+explicit `LIVE_ENABLED` opt-in are present. An Anthropic key can still expose its
+catalog independently. Missing model prices leave dollar estimates unavailable;
+token/tool/time limits continue. Public web search requires `TAVILY_API_KEY` and
+`WEB_SEARCH_USD_PER_CALL`; otherwise its UI option is unavailable and collection-only
+research remains possible. A stale selected web option can be turned off.
+
+The deployed Next proxy validates `APP_ENV`, the HTTPS API origin, the matching
+shared secret and public Supabase settings before forwarding. Incomplete settings
+produce a named setup message without an upstream request or repeated automatic
+retries. Browser auth configuration is checked before SDK initialization or sign-in;
+missing settings display **Workspace setup is incomplete** with expandable setup
+details. Temporary connection failures offer **Retry**. Optional live configuration
+issues show a neutral notice while available workspace features stay usable.
+
+Correct required settings, restart the affected API/workers, rebuild/redeploy for
+`NEXT_PUBLIC_*` changes, then reload. For host Next development, provide its web
+settings through the process environment or `apps/web/.env.local`; the root Python
+`.env` is not automatically loaded by Next in that subdirectory. The provided
+Compose file fixes local auth/database/storage and container API routing; only its
+explicitly interpolated variables (keys, live opt-in, pricing, worker timing and
+host-port overrides) are taken from root `.env`. Do not use that file as a production
+deployment manifest. Startup never overwrites an existing `.env`.
+
 ## Read-only hosted deployment check
 
 Once the web and API services are deployed, run:

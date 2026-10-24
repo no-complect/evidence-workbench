@@ -138,6 +138,18 @@ responses, including redirects, protection pages, wrong proxy keys, transport
 failures and credential-free reporting. These tests do not establish that any
 hosted deployment has passed.
 
+## Configuration error paths
+
+`uv run --frozen python scripts/check-environment.py` validates the Python service
+settings without contacting services or printing values. See
+[configuration recovery](DEPLOYMENT.md#configuration-validation-and-recovery) for
+required versus optional settings and the distinct Next build-time environment.
+Tests cover production/local/Supabase requirements, redacted startup failures,
+proxy failures without upstream calls, client SDK guards and desktop/mobile setup,
+connection retry and optional-feature recovery states. Negative UI tests simulate
+API metadata/errors; the separate real Supabase job retains actual sign-in/storage
+happy-path coverage. Screenshots contain only synthetic setup states.
+
 ## Dependency updates
 
 Normal startup, builds, and CI use the committed locks. Only regenerate them for

@@ -51,6 +51,16 @@ When startup succeeds, open **[http://localhost:3000](http://localhost:3000)**. 
 
 The application runs in the background; closing this terminal does not stop it. If another copy is already running, stop that copy first to free the same ports.
 
+### Configuration feedback
+
+The default demo needs no provider keys. `.env.example` documents local ports,
+worker timing and optional live integrations; startup creates `.env` only if it is
+missing. Optional AI setup leaves the demo usable with visible guidance. Required
+Supabase/production settings fail early with variable names and no secret values.
+Incomplete web setup displays expandable correction details; temporary API failures
+offer Retry. See [configuration validation and recovery](docs/DEPLOYMENT.md#configuration-validation-and-recovery)
+for validation commands, production requirements and restart/rebuild behavior.
+
 ### Stop and restart
 
 Run these commands from the repository root:
@@ -107,7 +117,7 @@ The optional CLI commands above run inside the evaluation container and submit c
 
 ## Features to explore
 
-- **Harness:** connect a local OpenAI account, discover its model catalog, explicitly verify research contracts, and save immutable planner/reviewer/writer model targets with budgets. Inspect the selected run’s pinned targets, execution limits, and saved prompt/context fingerprints.
+- **Harness:** discover models from server environment keys, select planner/reviewer/writer targets and an optional independent judge, and save immutable presets with execution limits. Inspect each run’s pinned targets, context and prompt fingerprints. Discovery makes no inference calls and does not guarantee model compatibility.
 - **RAG:** create collections through a guided walkthrough, inspect per-file ingestion results and retries, and compare real keyword/vector/hybrid retrieval with pinned provenance. Collection preparation can resume after interruption; completed retries reuse the collection without resetting later source updates. Embedding profiles are immutable; changing the embedding model requires a new collection. Markdown, UTF-8 text, and text-based PDF uploads are limited to 8 MiB per file, 20 files per batch, and PDFs to 200 pages. Failed replacements preserve the last usable source version.
 - **Workflows:** run investigations, approve an edited plan, inspect **Decision brief**, **Evidence board**, **Research trail**, and **Context**. Findings retain citations and limitations; passage inspectors expose source identity and unavailable references. Redacted assembled inputs retain prompt hashes, token estimates, and evidence selection decisions. Private chain-of-thought is not requested or displayed.
 - **Evaluations:** queue, cancel, and inspect comparisons of basic RAG, a fixed workflow, and bounded follow-up research.

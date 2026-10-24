@@ -20,7 +20,8 @@ def test_evaluation_is_not_an_unauthenticated_execution_endpoint():
 def test_fixture_jobs_reject_hosted_authenticated_configuration():
     with patch('workbench.evaluation_api.authorize'), patch(
         'workbench.evaluation_api.settings',
-        return_value=Settings(_env_file=None, app_env='test', auth_mode='supabase')
+        return_value=Settings(_env_file=None, app_env='test', auth_mode='supabase',
+                              supabase_url='http://127.0.0.1:54321', supabase_anon_key='synthetic-anon')
     ):
         with pytest.raises(HTTPException) as exc:
             submit(uuid4(), EvaluationCreate(idempotency_key=str(uuid4())), uuid4())
