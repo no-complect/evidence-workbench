@@ -60,7 +60,8 @@ export function Workbench() {
   const needsAuth =
     process.env.NEXT_PUBLIC_AUTH_MODE === "supabase" &&
     bootstrap.error instanceof ApiError &&
-    bootstrap.error.status === 401;
+    bootstrap.error.status === 401 &&
+    bootstrap.error.code !== "configuration_error";
   if (
     configurationIssues.length ||
     (!bootstrap.data &&

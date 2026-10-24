@@ -30,6 +30,41 @@ const ui = load("features/workbench/workspace-state.ts");
 const research = load("features/workbench/research-state.ts");
 const cases = load("features/evaluations/case-state.ts");
 
+test("backend key mismatch and missing browser auth build are setup errors; expired sessions remain sign-in errors", async () => {
+  for (const [message, mode, configuration] of [
+    ["Backend authentication required", "supabase", true],
+    ["Sign in to continue", "demo", true],
+    ["Sign in to continue", "supabase", false],
+    ["Session expired or invalid", "supabase", false],
+  ]) {
+    const transport = load(
+      "lib/api.ts",
+      { "./supabase": { supabase: () => null } },
+      {
+        process: { env: { NEXT_PUBLIC_AUTH_MODE: mode } },
+        Headers,
+        fetch: async () => Response.json({ detail: message }, { status: 401 }),
+      },
+    );
+    await assert.rejects(
+      () => transport.api("bootstrap"),
+      (error) => {
+        assert.equal(
+          error.code,
+          configuration ? "configuration_error" : undefined,
+        );
+        assert.equal(error.status, 401);
+        if (configuration)
+          assert.ok(
+            error.message.includes("API_SHARED_SECRET") ||
+              error.message.includes("NEXT_PUBLIC_AUTH_MODE"),
+          );
+        return true;
+      },
+    );
+  }
+});
+
 test("incomplete browser auth never instantiates the SDK; valid configuration reuses one client", () => {
   const browser = load("lib/browser-environment.ts");
   for (const env of [

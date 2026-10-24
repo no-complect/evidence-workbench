@@ -121,7 +121,10 @@ research remains possible. A stale selected web option can be turned off.
 The deployed Next proxy validates `APP_ENV`, the HTTPS API origin, the matching
 shared secret and public Supabase settings before forwarding. Incomplete settings
 produce a named setup message without an upstream request or repeated automatic
-retries. Browser auth configuration is checked before SDK initialization or sign-in;
+retries. A mismatched backend shared secret is reported as a setup error rather
+than asking the user to sign in again. A web build without Supabase auth settings
+also explains rebuilding when the API requires sign-in. Expired configured user
+sessions still follow the sign-in flow. Browser auth configuration is checked before SDK initialization or sign-in;
 missing settings display **Workspace setup is incomplete** with expandable setup
 details. Temporary connection failures offer **Retry**. Optional live configuration
 issues show a neutral notice while available workspace features stay usable.
