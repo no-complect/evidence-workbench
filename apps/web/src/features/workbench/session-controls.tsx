@@ -20,7 +20,7 @@ export function SessionControls() {
   });
   if (!identity) return null;
   return (
-    <div className={styles.session} aria-label="Account">
+    <div className={styles.session} role="group" aria-label="Account">
       <span className={styles.identity} title={identity.email}>
         {identity.email ?? "Signed in"}
       </span>

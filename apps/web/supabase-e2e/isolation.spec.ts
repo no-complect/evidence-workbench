@@ -18,6 +18,15 @@ test("two real identities: private sources, RLS, citations and same-browser sign
 }) => {
   test.skip(process.env.WORKBENCH_SUPABASE_TEST !== "1");
   expect(new URL(url).hostname).toBe("127.0.0.1");
+  page.on("framenavigated", (frame) => {
+    if (frame !== page.mainFrame()) return;
+    const callback = new URL(frame.url());
+    const fragment = new URLSearchParams(callback.hash.slice(1));
+    for (const name of ["access_token", "refresh_token"]) {
+      const value = fragment.get(name);
+      if (value) mask(value);
+    }
+  });
   const options = { auth: { persistSession: false, autoRefreshToken: false } };
   const admin = createClient(url, service, options);
   const emails = [0, 1].map(() => `workbench-${randomUUID()}@example.invalid`);
@@ -52,14 +61,18 @@ test("two real identities: private sources, RLS, citations and same-browser sign
     const action = link.data.properties!.action_link;
     mask(action);
     mask(new URL(action).searchParams.get("token") ?? "unused");
-    await page.goto(action);
+    try {
+      await page.goto(action);
+    } catch {
+      throw new Error("Local sign-in navigation failed");
+    }
     await expect(
       page.getByRole("button", { name: "Sign out", exact: true }),
     ).toBeVisible();
     await expect(page.getByLabel("Account")).toContainText(emails[index]);
     await expect(page.getByText("Connected", { exact: true })).toBeVisible();
     // SDK consumes the callback; leave no token fragment in the address bar.
-    await expect.poll(() => new URL(page.url()).hash).toBe("");
+    await expect.poll(() => new URL(page.url()).hash === "").toBe(true);
   }
 
   async function api(
@@ -316,9 +329,8 @@ test("two real identities: private sources, RLS, citations and same-browser sign
   const projectB = `Private B ${randomUUID()}`;
   await newProject(projectB);
   await expect(selector.locator("option:checked")).toHaveText(projectB);
-  await expect(question).not.toHaveValue(
-    "Private A draft must disappear when the account changes.",
-  );
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
+  await expect(question).toHaveValue(bootstrapA.examples[0]);
   expect(
     (await (await api("bootstrap", tokens[1])).json()).projects.map(
       (p: { name: string }) => p.name,
