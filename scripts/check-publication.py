@@ -14,7 +14,7 @@ REQUIRED = {
     'fixtures/manifest.json', 'evals/cases.json', 'packages/contracts/models.ts',
     '.github/workflows/ci.yml', 'scripts/dev.sh', 'scripts/stop.sh',
     'scripts/demo.sh', 'scripts/eval.sh', 'scripts/test.sh',
-    'docs/DEVELOPMENT.md', 'docs/RELEASING.md', 'docs/BUILD_STATUS.md',
+    'docs/DEVELOPMENT.md', 'docs/BUILD_STATUS.md',
     'docs/examples/reviewer-notes.txt', 'docs/examples/fixture-comparison.md',
     'docs/examples/fixture-comparison.json',
     'docs/diagrams/architecture.png', 'docs/diagrams/architecture.svg',
@@ -65,7 +65,7 @@ def forbidden(name):
 
 
 def inspect(files):
-    errors = [f'{name}: required runtime/reviewer asset is missing or ignored'
+    errors = [f'{name}: required runtime/documentation asset is missing or ignored'
               for name in sorted(REQUIRED - set(files))]
     total = 0
     for name in files:

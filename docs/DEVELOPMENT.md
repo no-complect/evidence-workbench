@@ -1,6 +1,6 @@
 # Development and tests
 
-The [Docker quick start](../README.md#running-the-application) is the recommended reviewer
+The [Docker quick start](../README.md#running-the-application) is the recommended local startup
 path. It does not require host language tools. This guide is for changing code.
 
 ## Host setup
@@ -73,9 +73,8 @@ npm run test:e2e
 ```
 
 Tests use the actual API and database on desktop and mobile. They create research
-runs and upload synthetic files. Screenshots, traces, and HTML results stay in
-ignored `test-results/` and `playwright-report/` directories. A maintainer may
-review and copy a synthetic screenshot into `docs/examples/` for the README.
+runs and upload synthetic files. Screenshots, traces and HTML results stay in ignored `test-results/` and
+`playwright-report/` directories.
 
 ## Fresh container verification
 
@@ -164,3 +163,16 @@ npm --prefix apps/web ci
 
 Commit both manifests and any changed lockfiles together. The GitHub workflow
 runs tests and the real browser journey without paid provider calls.
+
+## Before publishing changes
+
+Run the checks relevant to the change and `python3 scripts/check-publication.py`.
+The publication check validates required runtime/documentation assets, local links,
+script permissions, file sizes and common credential patterns; it is not an
+exhaustive secret scanner. Inspect `git diff --cached --check`, the staged diff
+and tracked files. Ignore rules do not remove already tracked secrets or history.
+
+Commit dependency locks, generated contracts and required runtime assets. Keep
+credentials, uploads, logs, generated results and private working notes untracked.
+For release validation, run the fresh-container and identity/storage checks above;
+record measured source/CI evidence in [Verification status](BUILD_STATUS.md).

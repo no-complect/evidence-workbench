@@ -1,6 +1,6 @@
 # Contributing
 
-Start with the [README walkthrough](README.md#five-minute-reviewer-walkthrough).
+Start with the [first investigation](README.md#first-investigation).
 Use [Development and tests](docs/DEVELOPMENT.md) for host setup and verification.
 
 Keep changes focused and describe the user-visible behavior and checks performed.

@@ -1,6 +1,6 @@
 # Running and deploying
 
-The local reviewer path is in the [README](../README.md#running-the-application). Dependency lockfiles are included. See [verification status](BUILD_STATUS.md) before using this outside local development; hosted services and paid inference require separate checks.
+The local startup path is in the [README](../README.md#running-the-application). Dependency lockfiles are included. See [verification status](BUILD_STATUS.md) before using this outside local development; hosted services and paid inference require separate checks.
 
 ## Local containers
 
@@ -15,23 +15,12 @@ to exercise desktop/mobile journeys. See [Development](DEVELOPMENT.md#fresh-cont
 Normal startup retains ports 3000/8000/55432; `WORKBENCH_WEB_PORT`,
 `WORKBENCH_API_PORT` and `WORKBENCH_DB_PORT` can override host ports.
 
-## Local host development
-
-Run `uv sync --frozen` and `npm --prefix apps/web ci`. Start pgvector with `docker compose up -d db`, configure `.env` from `.env.example`, then use separate terminals:
-
-```bash
-uv run python -m workbench.seed
-uv run uvicorn workbench.api:app --host 127.0.0.1 --port 8000 --reload
-uv run python -m workbench.worker
-```
-
-Run `uv run python -m workbench.evaluation_worker` in its own terminal for UI evaluations.
-
-In another terminal: `APP_ENV=local npm --prefix apps/web run dev`. The Next development command binds all local interfaces; use `npm --prefix apps/web run dev -- --hostname 127.0.0.1` if running directly on a shared network. Compose host bindings remain loopback-only. The web process uses the local default proxy secret only when `APP_ENV=local/test` is explicit. Host tests can point to another database; use a dedicated `workbench_test` database and `WORKBENCH_INTEGRATION=1`.
+For host Python/Node development and local integration tests, see
+[Development](DEVELOPMENT.md#host-setup).
 
 ## Production Supabase
 
-1. Create a Supabase project only after explicitly authorizing the resources and costs. Set a direct/session-pool `DATABASE_URL` with TLS (`sslmode=require`); transaction pooling is unsuitable for the worker's session locks.
+1. Use a Supabase project. Set a direct/session-pool `DATABASE_URL` with TLS (`sslmode=require`); transaction pooling is unsuitable for the worker's session locks.
 2. On the API/worker, set `APP_ENV=production`, `AUTH_MODE=supabase`, a cryptographically random shared API secret (32+ characters), Supabase URL, anon/publishable key, and service-role key. Set `STORAGE_BACKEND=supabase`. Never put a service-role key in a `NEXT_PUBLIC_*` variable.
 3. Apply migrations as the migration owner: `uv run python -c 'from workbench.db import migrate; migrate()'`. The runner detects the Supabase `auth` schema and applies `002_supabase_rls.sql`. It creates a private `research-sources` bucket. Browser writes remain behind API validation; reads require RLS membership.
 4. The production worker initializes the separate checkpoint schema on startup. Demo seeding intentionally fails in production. Sign in and create a project/collection through the UI; project creation adds the authenticated owner membership. Invite/member management is currently an administrative SQL operation, not an implemented UI flow.
@@ -72,24 +61,12 @@ environments too. If a future deployment hosts the Python API on Vercel, its
 server-side environment uses the same variable. Never use a `NEXT_PUBLIC_` key.
 No backend hosting topology is changed by the model selector.
 
-OpenAI selections retain their existing IDs; Anthropic selections use `anthropic:`
-before the provider ID. Discovery follows Anthropic pagination without inference,
-reports safe provider-specific failures and retains successful provider catalogs.
-Research stages and the evaluation judge can target providers independently. Keys
-stay server-side and are rechecked at execution. New snapshots pin provider/adapter
-identities; old OpenAI snapshots remain supported. No automatic provider fallback
-or compatibility probe runs. Anthropic model/adapter behavior has synthetic contract
-and integration coverage; real paid-provider quality remains a separate check.
-
-Live retrieval and ingestion still use OpenAI embeddings. `OPENAI_API_KEY` is
-required for the current live RAG index even if all research/judging uses Anthropic.
-Model prices apply only to `OPENAI_MODEL`; Anthropic dollar estimates remain
-unavailable, with token/time/tool/sample limits enforced. Do not change a stored
-collection's embedding identity when changing research models.
+See [Live models](../README.md#live-models) for model selection and the OpenAI
+embedding dependency. [Evaluation](EVALUATION.md) explains grading and cost limits.
 
 **A deployed Vercel app cannot reach your laptop's localhost API.** API_URL must be the publicly reachable, authenticated TLS API endpoint. Vercel requests submit jobs and return 202; they do not host the research loop. Source uploads are bounded synchronous requests and may need a direct-storage upload design for larger future ingestion workloads.
 
-The local Next production build passes; a hosted deployment has not been verified. No Vercel-native durable worker support is assumed or used. No deployment action is part of the local startup scripts.
+Consult [Verification status](BUILD_STATUS.md) for measured checks; hosted validation remains outstanding. No Vercel-native durable worker support is assumed or used. No deployment action is part of the local startup scripts.
 
 ## Configuration validation and recovery
 
