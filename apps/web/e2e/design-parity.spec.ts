@@ -72,6 +72,10 @@ test("Harness studio → contract validation → real graph inspector → decisi
   await inspector
     .getByText("report · assembled context", { exact: true })
     .click();
+  await inspector
+    .getByText("Read saved instructions", { exact: true })
+    .first()
+    .click();
   await expect(inspector).toContainText("context-v1/strict");
   await expect(inspector).toContainText("Preserve explicit evidence gaps.");
   await page.screenshot({
@@ -201,9 +205,9 @@ test("collection suite → failed checks → exact child report and citation", a
   await page.getByRole("tab", { name: "Context", exact: true }).click();
   await expect(
     page
-      .getByRole("region", { name: "Workflows workspace", exact: true })
-      .locator(".code-header"),
-  ).toContainText("Assembled input");
+      .getByRole("tabpanel", { name: "Context", exact: true })
+      .getByRole("region", { name: "Trusted instructions", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Evaluations", exact: true }).click();
   await expect(gapCase).toBeVisible();
   await page.screenshot({

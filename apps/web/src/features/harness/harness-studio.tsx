@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { HelpTip, Tooltip } from "@/components/ui/tooltip";
 import { ContextView } from "@/components/context-view";
-import type { Context } from "@/lib/contracts";
+import type { Detail } from "@/lib/contracts";
 import type { HarnessConfiguration } from "../../../../../packages/contracts/models";
 import type {
   ResearchDraft,
@@ -29,7 +29,7 @@ export function HarnessStudio({
   onChange,
   research,
   modelSelection,
-  contexts,
+  savedRun,
   onOpenWorkflows,
   judgeSelection,
 }: {
@@ -40,9 +40,10 @@ export function HarnessStudio({
   research: { draft: ResearchDraft; dispatch: Dispatch<DraftAction> };
   modelSelection?: ModelSelectionProps;
   judgeSelection: JudgeSelection;
-  contexts: Context[];
+  savedRun: Detail | undefined;
   onOpenWorkflows: () => void;
 }) {
+  const contexts = savedRun?.contexts ?? [];
   return (
     <div className={styles.grid}>
       <section className={styles.surface} aria-label="Harness configuration">
@@ -246,7 +247,11 @@ export function HarnessStudio({
               Inspect assembled context
             </summary>
             {contexts.length ? (
-              <ContextView contexts={contexts} />
+              <ContextView
+                key={savedRun?.run.id ?? "empty"}
+                contexts={contexts}
+                evidence={savedRun?.evidence}
+              />
             ) : (
               <div className={styles.annotation}>
                 <strong>CONTEXT BOUNDARY</strong>Run an investigation to inspect
