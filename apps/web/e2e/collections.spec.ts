@@ -425,6 +425,12 @@ test("own-source walkthrough exposes per-file errors, retries and deduplicated v
   await expect(batch).toContainText("Ready · 1 passages, 0 vectors");
   await expect(batch).toContainText("Text files must be UTF-8");
   await expect(batch).toContainText("File needs correction");
+  await expect(
+    dialog.getByRole("heading", {
+      name: "Your collection is partially ready.",
+      exact: true,
+    }),
+  ).toBeVisible();
   await batch
     .getByRole("button", { name: "Retry corrupt.txt", exact: true })
     .click();
@@ -464,4 +470,89 @@ test("own-source walkthrough exposes per-file errors, retries and deduplicated v
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
+});
+
+test("failed indexing cannot appear ready; an explicit successful retry enables retrieval", async ({
+  page,
+}) => {
+  let attempts = 0;
+  let searches = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname.endsWith("/search")
+    )
+      searches++;
+  });
+  await page.route(
+    "**/api/backend/projects/*/collections/*/sources",
+    async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      attempts++;
+      if (attempts === 1)
+        return route.fulfill({
+          status: 422,
+          json: {
+            detail:
+              "Embedding provider quota is exhausted. Check the API project billing and usage limits before retrying this file.",
+          },
+        });
+      return route.fallback();
+    },
+  );
+  const dialog = await openWizard(page);
+  await dialog.getByLabel("Bring my own documents").check();
+  await dialog
+    .getByLabel("Collection source files", { exact: true })
+    .setInputFiles({
+      name: "retry-policy.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Arbor retains research documents for 30 days."),
+    });
+  await dialog
+    .getByRole("button", { name: "Review sources", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Prepare collection", exact: true })
+    .click();
+  await expect(
+    dialog.getByText(/Embedding provider quota is exhausted/),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("heading", {
+      name: "Collection saved. Sources need attention.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Search collection", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Close setup", exact: true }),
+  ).toBeEnabled();
+  expect(attempts).toBe(1);
+  expect(searches).toBe(0);
+  await dialog
+    .getByRole("button", { name: "Retry retry-policy.txt", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("heading", {
+      name: "Your collection is ready to inspect.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Search collection", exact: true }),
+  ).toBeEnabled();
+  await dialog
+    .getByRole("button", { name: "Clear finished files", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("heading", {
+      name: "Your collection is ready to inspect.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(attempts).toBe(2);
+  expect(searches).toBe(0);
 });
