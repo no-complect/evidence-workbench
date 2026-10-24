@@ -3,6 +3,7 @@
 import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ErrorNotice } from "./error-notice";
+import { SessionControls } from "@/features/workbench/session-controls";
 import { initialHarnessConfiguration } from "@/features/harness/configuration";
 import {
   initialResearchDraft,
@@ -153,6 +154,7 @@ function ProjectWorkspace({
   const closeOverlay = () => dispatch({ type: "show-overlay", overlay: null });
   return (
     <WorkspaceFrame
+      account={<SessionControls />}
       connection={connection}
       navigation={
         <WorkspaceNavigation
@@ -203,6 +205,7 @@ function ProjectWorkspace({
             modelSelection={modelSelection}
             projectId={projectId}
             collections={projectQuery.data?.collections ?? []}
+            collectionsStatus={projectQuery.status}
             collectionId={collectionId}
             examples={bootstrap?.examples ?? []}
             liveEnabled={bootstrap?.live_enabled ?? false}
@@ -211,6 +214,17 @@ function ProjectWorkspace({
               dispatch({ type: "select-collection", collectionId: id })
             }
             onStarted={(id) => dispatch({ type: "started-run", runId: id })}
+            onPrepareSources={() => {
+              if (projectQuery.status !== "success") return;
+              if (projectQuery.data.collections.length) {
+                dispatch({ type: "workspace", workspace: "rag" });
+              } else {
+                dispatch({
+                  type: "show-overlay",
+                  overlay: { kind: "create-collection", returnTo: "workflows" },
+                });
+              }
+            }}
           />
         </div>
         {run && (
@@ -294,6 +308,7 @@ function ProjectWorkspace({
       <section hidden={ui.workspace !== "rag"} aria-label="RAG workspace">
         <RagWorkspace
           projectId={projectId}
+          collectionsStatus={projectQuery.status}
           collections={projectQuery.data?.collections ?? []}
           collectionId={collectionId}
           active={ui.workspace === "rag"}
@@ -367,13 +382,21 @@ function ProjectWorkspace({
       )}
       {overlay?.kind === "create-collection" && (
         <CollectionWizard
+          initialPurpose={
+            overlay.returnTo === "workflows"
+              ? researchDraft.question
+              : undefined
+          }
           projectId={projectId}
           collections={projectQuery.data?.collections ?? []}
           uploads={uploads}
           onClose={closeOverlay}
           onFinished={(id) => {
             dispatch({ type: "select-collection", collectionId: id });
-            dispatch({ type: "workspace", workspace: "rag" });
+            dispatch({
+              type: "workspace",
+              workspace: overlay.returnTo ?? "rag",
+            });
           }}
         />
       )}

@@ -39,6 +39,12 @@ In another terminal: `APP_ENV=local npm --prefix apps/web run dev`. The Next dev
 
 If you customize the storage bucket, create the equivalent private bucket yourself and keep service-role access server-side. Browser users do not receive unrestricted object URLs; downloads pass through the authorized API route.
 
+The separate CI Supabase job exercises actual local Auth/PostgREST/private Storage
+with two identities, API/citation authorization and same-browser sign-out/account
+switching. See [Development](DEVELOPMENT.md#supabase-identity-and-storage-verification).
+It uses `APP_ENV=test` for local HTTP, not production deployment configuration.
+It does not replace the hosted two-user/TLS acceptance checks above.
+
 ## Independently hosted API and worker
 
 Build `services/research/Dockerfile`. Run the image as three independently managed processes/services:

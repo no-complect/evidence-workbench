@@ -10,8 +10,8 @@
     "test:e2e": "playwright test",
     "test:proxy": "node --test tests/api-proxy.test.cjs",
     "test:ui-state": "node --test tests/ui-state.test.cjs",
-    "format": "prettier --write src e2e tests",
-    "format:check": "prettier --check src e2e tests"
+    "format": "prettier --write src e2e supabase-e2e tests playwright.supabase.config.ts",
+    "format:check": "prettier --check src e2e supabase-e2e tests playwright.supabase.config.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
