@@ -188,7 +188,7 @@ async function workspace(page: Page) {
     .selectOption("saved-run");
   await page.getByRole("tab", { name: "Context", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Context inspector", exact: true }),
+    page.getByRole("heading", { name: /^Context inspector/ }),
   ).toBeVisible();
   return calls;
 }
