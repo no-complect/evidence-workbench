@@ -102,6 +102,32 @@ job. Synthetic logs, service status and the successful result IDs are written to
 This verifies the local demo topology; hosted Supabase identity/storage, public
 TLS routing and paid-provider behavior require separate checks.
 
+## Supabase identity and storage verification
+
+CI's **Supabase identity and storage** job uses pinned Supabase CLI 2.120.0 and a
+temporary local project, with real Auth, PostgREST and Storage services. After the
+host dependencies and Playwright Chromium are installed, the same check is:
+
+```bash
+uv run --frozen python scripts/verify-supabase.py
+```
+
+The runner ignores hosted credentials, creates two synthetic local identities,
+applies the actual migrations, builds Next with Supabase auth and runs the API and
+research worker. Desktop/mobile browsers sign in using local generated magic links
+without sending email, inspect private source data, sign out and switch accounts.
+Checks cover owner reads, denied cross-user/anonymous API access, direct PostgREST
+row policies and write denial, private bucket reads/writes, citation/source access,
+and clearing project caches/drafts on account changes. Research uses explicit
+scripted fixtures with paid integrations disabled. No hosted project is touched.
+
+Auth browser traces, screenshots, state and HTML reports are disabled. Only safe
+application logs and a success summary are retained in `.runtime/supabase-verification`.
+Cleanup stops only the temporary Supabase project and its data. These local HTTP
+checks do not verify production TLS, hosted resource settings or email delivery.
+The app's account control signs out the current browser session; an already issued
+access token can remain valid until expiry, as with normal Supabase JWT sessions.
+
 ## Dependency updates
 
 Normal startup, builds, and CI use the committed locks. Only regenerate them for

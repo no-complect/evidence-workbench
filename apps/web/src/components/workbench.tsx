@@ -3,6 +3,7 @@
 import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ErrorNotice } from "./error-notice";
+import { SessionControls } from "@/features/workbench/session-controls";
 import { initialHarnessConfiguration } from "@/features/harness/configuration";
 import {
   initialResearchDraft,
@@ -153,6 +154,7 @@ function ProjectWorkspace({
   const closeOverlay = () => dispatch({ type: "show-overlay", overlay: null });
   return (
     <WorkspaceFrame
+      account={<SessionControls />}
       connection={connection}
       navigation={
         <WorkspaceNavigation

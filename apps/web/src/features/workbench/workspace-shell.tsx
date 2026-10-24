@@ -160,11 +160,13 @@ export function WorkspaceFrame({
   navigation,
   projectBar,
   connection,
+  account,
   children,
 }: {
   navigation: ReactNode;
   projectBar: ReactNode;
   connection: "connecting" | "connected" | "offline";
+  account?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -193,6 +195,7 @@ export function WorkspaceFrame({
           </span>
         </div>
       </header>
+      {account}
       {navigation}
       <main id="workspace" className={styles.main}>
         {projectBar}
