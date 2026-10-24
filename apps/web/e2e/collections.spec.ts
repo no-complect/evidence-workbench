@@ -61,7 +61,10 @@ test("new investigation → collection walkthrough → same draft → explicit r
     name: "Create an evidence collection",
   });
   await expect(
-    dialog.getByLabel("Decision or research question", { exact: true }),
+    dialog.getByRole("textbox", {
+      name: "Decision or research question",
+      exact: true,
+    }),
   ).toHaveValue("short");
   await dialog
     .getByRole("button", { name: "Close collection walkthrough", exact: true })
@@ -84,7 +87,10 @@ test("new investigation → collection walkthrough → same draft → explicit r
   });
   await setup.click();
   await expect(
-    dialog.getByLabel("Decision or research question", { exact: true }),
+    dialog.getByRole("textbox", {
+      name: "Decision or research question",
+      exact: true,
+    }),
   ).toHaveValue(preservedQuestion);
   const name = `Investigation sources ${Date.now()}`;
   await dialog.getByLabel("Collection name", { exact: true }).fill(name);
