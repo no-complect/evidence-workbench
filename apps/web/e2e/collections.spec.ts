@@ -554,6 +554,101 @@ test("saved preparation survives leaving the walkthrough and reloading without a
   expect(uploads).toBe(1);
 });
 
+test("embedding usage shows missing accounting honestly and recovers read errors without writes", async ({
+  page,
+}, info) => {
+  let failed = false;
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST") writes.push(request.url());
+  });
+  await page.route(
+    "**/api/backend/projects/*/collections/*/embedding-usage",
+    (route) =>
+      failed
+        ? route.fulfill({
+            status: 503,
+            json: { detail: "Recorded usage is temporarily unavailable." },
+          })
+        : route.fulfill({
+            json: {
+              summary: {
+                requests: 2,
+                reported_tokens: 37,
+                unreported_requests: 1,
+                input_token_bound: 400,
+                estimated_cost_usd: null,
+              },
+              requests: [
+                {
+                  id: "reported",
+                  model: "text-embedding-3-small",
+                  dimensions: 1536,
+                  input_count: 1,
+                  input_token_bound: 200,
+                  reported_tokens: 37,
+                  usd_per_million: "0.02",
+                  estimated_cost_usd: "0.00000074",
+                  status: "reported",
+                  source_version_id: "synthetic-source-version",
+                  input_hash: "f".repeat(64),
+                  provider_request_id: "req_synthetic_reported",
+                },
+                {
+                  id: "unknown",
+                  model: "text-embedding-3-small",
+                  dimensions: 1536,
+                  input_count: 1,
+                  input_token_bound: 200,
+                  reported_tokens: null,
+                  usd_per_million: "0.02",
+                  estimated_cost_usd: null,
+                  status: "unreported",
+                  source_version_id: "synthetic-source-version",
+                  input_hash: "e".repeat(64),
+                  provider_request_id: null,
+                },
+              ],
+            },
+          }),
+  );
+  await page.goto("/");
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "RAG", exact: true }).click();
+  const usage = page.getByRole("region", {
+    name: "Embedding usage",
+    exact: true,
+  });
+  await expect(usage).toContainText("37 reported tokens");
+  await expect(usage).toContainText("1 with unreported usage");
+  await expect(usage).toContainText("Cost unavailable");
+  await usage.getByText("Inspect latest 2 requests", { exact: true }).click();
+  await expect(usage).toContainText("Usage unreported");
+  await expect(usage).toContainText("Estimate $0.00000074");
+  await expect(usage).toContainText("req_synthetic_reported");
+  await page.screenshot({
+    path: info.outputPath("embedding-usage-response-fixture.png"),
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  failed = true;
+  await page.reload();
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "RAG", exact: true }).click();
+  await expect(usage).toContainText("Embedding usage unavailable");
+  await expect(
+    usage.getByText("No embedding requests recorded.", { exact: true }),
+  ).toHaveCount(0);
+  failed = false;
+  await usage.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(usage).toContainText("37 reported tokens");
+  expect(writes).toHaveLength(0);
+});
+
 test("failed indexing cannot appear ready; an explicit successful retry enables retrieval", async ({
   page,
 }) => {

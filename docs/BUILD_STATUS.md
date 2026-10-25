@@ -33,7 +33,7 @@ run with its own source manifest. They do not measure live model quality.
   The [read-only deployment check](DEPLOYMENT.md#read-only-hosted-deployment-check)
   covers routing/readiness only; its protocol tests are not hosted results.
 - **Operational limits:** UI preparation runs in a background worker; staging and
-  the compatibility source API remain synchronous. Embeddings are outside the run cost ledger. Unpriced calls cannot be dollar-bounded. Cancellation/deadlines are
+  the compatibility source API remain synchronous. Ingestion has a separate embedding request ledger; costs are outside research-run caps and missing usage stays unknown. Unpriced calls cannot be dollar-bounded. Cancellation/deadlines are
   cooperative; context redaction and adversarial filtering are limited. No
   production-scale throughput or availability has been measured.
 

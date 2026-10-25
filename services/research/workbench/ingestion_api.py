@@ -3,8 +3,17 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from . import db, ingestion_jobs as jobs
 from .auth import authorize, identity
 from .ingest import IngestionConflict, IngestionError, MAX_BYTES
+from .embedding_usage import collection_usage
 
 router = APIRouter(prefix='/api/projects/{project_id}')
+
+
+@router.get('/collections/{collection_id}/embedding-usage')
+def embedding_usage(project_id: UUID, collection_id: UUID, user=Depends(identity)):
+    authorize(project_id, user)
+    if not db.one('SELECT id FROM collections WHERE id=%s AND project_id=%s', (collection_id, project_id)):
+        raise HTTPException(404, 'Collection not found')
+    return db.serial(collection_usage(project_id, collection_id))
 
 
 @router.get('/ingestions')

@@ -733,6 +733,34 @@ test("corrected file preparation supersedes historical failures without mixing c
   assert.equal(state.activeIngestion(corrected), false);
 });
 
+test("embedding usage keeps unknown prices and tiny positive estimates distinct from zero", () => {
+  const state = load("features/collections/embedding-usage-state.ts");
+  for (const unknown of [null, "", " ", "NaN", "Infinity", "-1"])
+    assert.equal(state.estimatedEmbeddingCost(unknown), "Cost unavailable");
+  assert.equal(state.estimatedEmbeddingCost("0"), "Estimate $0.00");
+  assert.equal(
+    state.estimatedEmbeddingCost("1e-400"),
+    "Estimate < $0.00000001",
+  );
+  assert.equal(state.estimatedEmbeddingCost("0e-400"), "Estimate $0.00");
+  assert.equal(
+    state.estimatedEmbeddingCost("0.00000074"),
+    "Estimate $0.00000074",
+  );
+  assert.equal(
+    state.estimatedEmbeddingCost("0.0000000001"),
+    "Estimate < $0.00000001",
+  );
+  assert.notEqual(
+    JSON.stringify(state.embeddingUsageKey("a", "same")),
+    JSON.stringify(state.embeddingUsageKey("b", "same")),
+  );
+  assert.notEqual(
+    JSON.stringify(state.embeddingUsageKey("a", "one")),
+    JSON.stringify(state.embeddingUsageKey("a", "two")),
+  );
+});
+
 test("retrieval snapshots are scoped, abortable and never automatically repeat model calls", async () => {
   let signal;
   const queries = load("features/collections/queries.ts", {

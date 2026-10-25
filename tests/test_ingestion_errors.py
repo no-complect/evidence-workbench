@@ -41,7 +41,7 @@ def test_embedding_failure_is_actionable_redacted_and_persisted_without_a_versio
         failure = APIStatusError(private, response=httpx.Response(status, request=request),
                                  body={'code': code, 'message': private})
     embedding_call = Mock(side_effect=failure)
-    adapter = Mock(return_value=SimpleNamespace(embed_documents=embedding_call))
+    adapter = Mock(return_value=SimpleNamespace(embed_documents=embedding_call, client=Mock()))
     monkeypatch.setattr(langchain_openai, 'OpenAIEmbeddings', adapter)
     monkeypatch.setattr(ingest, 'settings', lambda: SimpleNamespace(
         live_enabled=True, openai_api_key='synthetic-test-key',

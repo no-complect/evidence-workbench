@@ -5,6 +5,7 @@ import { workbenchApi } from "@/lib/workbench-api";
 import type { IngestionJob } from "@/lib/contracts";
 import { workspaceKeys } from "@/features/workbench/queries";
 import { activeIngestion } from "./ingestion-state";
+import { embeddingUsageKey } from "./embedding-usage-state";
 
 export const ingestionKey = (project: string) =>
   ["workbench", "project", project, "ingestions"] as const;
@@ -23,11 +24,16 @@ export function useIngestionJobs(project: string) {
     // Synchronize server projections after saved phase/outcome changes, never mirror records.
     for (const collection of new Set(
       query.data.map((job) => job.collection_id),
-    ))
+    )) {
       void client.invalidateQueries({
         queryKey: workspaceKeys.sources(project, collection),
         exact: true,
       });
+      void client.invalidateQueries({
+        queryKey: embeddingUsageKey(project, collection),
+        exact: true,
+      });
+    }
     void client.invalidateQueries({
       queryKey: workspaceKeys.project(project),
       exact: true,

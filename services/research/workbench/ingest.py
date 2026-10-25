@@ -10,6 +10,7 @@ from .config import ROOT, settings
 from . import db
 from .storage import storage
 from .parsing import chunks_from_file, IngestionError, MAX_BYTES  # re-export for API/tests
+from .embedding_usage import Recorder, RecordingClient, AccountingError
 
 MANIFEST = json.loads((ROOT / 'fixtures/manifest.json').read_text())
 
@@ -30,6 +31,7 @@ class IngestionControl(Protocol):
     def stage(self, phase: str) -> None: ...
     def finish(self, conn: psycopg.Connection, result: dict) -> None: ...
     def fail(self, conn: psycopg.Connection, error: str) -> None: ...
+    def embedding_recorder(self, project_id, collection_id, version_id) -> Recorder: ...
 
 
 @contextmanager
@@ -66,7 +68,7 @@ def _embedding_error(error: APIError) -> str:
     return 'Embedding request was rejected. Check the server embedding model and API project settings before retrying this file.'
 
 
-def embed_passages(passages, config):
+def embed_passages(passages, config, *, recorder=None):
     if config == 'demo-v1':
         # Unseen uploads remain real full-text-searchable; never invent semantic vectors.
         return [
@@ -81,14 +83,21 @@ def embed_passages(passages, config):
             'This index requires text-embedding-3-small; create a new configuration to reindex')
     from langchain_openai import OpenAIEmbeddings
     try:
-        return OpenAIEmbeddings(model=s.openai_embedding_model,
+        embeddings = OpenAIEmbeddings(model=s.openai_embedding_model,
                                 dimensions=1536,
                                 chunk_size=32,
                                 api_key=s.openai_api_key,
+                                check_embedding_ctx_length=False,
+                                model_kwargs={'encoding_format': 'float'},
                                 max_retries=0,
-                                request_timeout=30).embed_documents([p['text'] for p in passages])
+                                request_timeout=30)
+        if recorder:
+            embeddings.client = RecordingClient(embeddings.client, recorder)
+        return embeddings.embed_documents([p['text'] for p in passages])
     except APIError as exc:
         raise IngestionError(_embedding_error(exc)) from exc
+    except AccountingError as exc:
+        raise IngestionError(str(exc)) from exc
 
 
 def ingest(project_id, collection_id, name, data, metadata=None, embed=True,
@@ -133,7 +142,13 @@ def _ingest_document(project_id, collection_id, name, data, metadata, embed,
         phase = 'embedding'
         if control:
             control.stage(phase)
-        vectors = embed_passages(passages, collection['embedding_config']) if embed else [None] * len(passages)
+        if embed and collection['embedding_config'] != 'demo-v1':
+            recorder = (control.embedding_recorder(project_id, collection_id, version_id) if control else
+                        Recorder(project_id, collection_id, version_id,
+                                 rate=getattr(settings(), 'embedding_usd_per_million', None)))
+            vectors = embed_passages(passages, collection['embedding_config'], recorder=recorder)
+        else:
+            vectors = embed_passages(passages, collection['embedding_config']) if embed else [None] * len(passages)
         phase = 'storage'
         if control:
             control.stage(phase)

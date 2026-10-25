@@ -20,7 +20,7 @@ def test_mixed_research_and_independent_anthropic_judge_are_pinned_and_scoped(cl
         monkeypatch.setattr(module, 'settings', lambda: profile)
     available = ['openai-research', 'anthropic:research-a', 'anthropic:judge-b']
     monkeypatch.setattr(environment_models, 'catalog', lambda *args: {'models': available})
-    monkeypatch.setattr(ingest, 'embed_passages', lambda passages, config: [[.1] * 1536 for _ in passages])
+    monkeypatch.setattr(ingest, 'embed_passages', lambda passages, config, **kwargs: [[.1] * 1536 for _ in passages])
     monkeypatch.setattr(retrieval, 'query_vector', lambda *args: [.1] * 1536)
     calls = []
     class OpenAI:

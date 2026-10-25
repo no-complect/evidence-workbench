@@ -6,6 +6,7 @@ import { SourcesView } from "@/components/sources-view";
 import { sourceOptions } from "./queries";
 import { UploadBatch } from "@/features/collections/upload-batch";
 import type { UploadQueue } from "@/features/collections/use-upload-queue";
+import { EmbeddingUsage } from "@/features/collections/embedding-usage";
 
 export function SourcesPanel({
   projectId,
@@ -44,6 +45,13 @@ export function SourcesPanel({
         onUpload={(files) => void uploads.add(collectionId, files)}
       />
       <UploadBatch queue={uploads} collectionId={collectionId} />
+      <EmbeddingUsage
+        key={collectionId}
+        projectId={projectId}
+        collectionId={collectionId}
+        preparing={uploads.preparing(collectionId)}
+        enabled={active}
+      />
     </>
   );
 }

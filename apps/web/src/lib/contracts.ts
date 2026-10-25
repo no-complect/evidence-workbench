@@ -252,6 +252,33 @@ export type IngestionJob = {
   created_at: string;
   updated_at: string;
 };
+export type EmbeddingUsage = {
+  summary: {
+    requests: number;
+    unreported_requests: number;
+    reported_tokens: number | null;
+    input_token_bound: number | null;
+    estimated_cost_usd: string | null;
+  };
+  requests: {
+    id: string;
+    job_id: string | null;
+    source_version_id: string;
+    ordinal: number;
+    model: string;
+    dimensions: number;
+    input_hash: string;
+    input_count: number;
+    input_token_bound: number;
+    status: "reserved" | "reported" | "unreported";
+    reported_tokens: number | null;
+    usd_per_million: string | null;
+    estimated_cost_usd: string | null;
+    provider_request_id: string | null;
+    created_at: string;
+    finished_at: string | null;
+  }[];
+};
 export type SearchHit = {
   rrf: number;
   ranks: { full_text?: number; vector?: number };

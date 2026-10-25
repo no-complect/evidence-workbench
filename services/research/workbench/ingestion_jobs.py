@@ -10,6 +10,8 @@ from .auth import authorize
 from .ingest import IngestionConflict, IngestionError
 from .parsing import MAX_BYTES
 from .storage import storage
+from .config import settings
+from .embedding_usage import pin_rate
 
 PUBLIC_COLUMNS = 'id,collection_id,name,status,phase,error,result,retry_of,created_at,updated_at'
 
@@ -59,9 +61,10 @@ def enqueue(project_id, collection_id, user, request_key, name, data):
     except Exception as exc:
         raise IngestionError('Source file could not be staged. Check server source storage, then retry this upload.') from exc
     try:
-        db.execute('INSERT INTO ingestion_jobs(id,project_id,collection_id,document_id,version_id,name,content_hash,storage_key,embedding_config,created_by,request_key) '
-                   'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(id) DO NOTHING',
-                   (jid, project_id, collection_id, did, vid, name, digest, key, profile, user, request_key))
+        db.execute('INSERT INTO ingestion_jobs(id,project_id,collection_id,document_id,version_id,name,content_hash,storage_key,embedding_config,created_by,request_key,embedding_usd_per_million) '
+                   'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(id) DO NOTHING',
+                   (jid, project_id, collection_id, did, vid, name, digest, key, profile, user, request_key,
+                    pin_rate(settings().embedding_usd_per_million) if profile == 'openai-small-v1' else None))
     except UniqueViolation as exc:
         raise IngestionConflict('This source is already being prepared. Wait for that upload to finish, then retry this file.') from exc
     # A concurrent replay may have won the insert with a different request body.
@@ -84,10 +87,11 @@ def retry(project_id, job_id, user):
     if prior['status'] not in {'failed', 'cancelled'}:
         raise IngestionConflict('Only failed or cancelled file preparation can be retried.')
     try:
-        db.execute('INSERT INTO ingestion_jobs(id,project_id,collection_id,document_id,version_id,name,content_hash,storage_key,embedding_config,created_by,request_key,retry_of) '
-                   'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(id) DO NOTHING',
+        db.execute('INSERT INTO ingestion_jobs(id,project_id,collection_id,document_id,version_id,name,content_hash,storage_key,embedding_config,created_by,request_key,retry_of,embedding_usd_per_million) '
+                   'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(id) DO NOTHING',
                    (jid, project_id, prior['collection_id'], prior['document_id'], prior['version_id'],
-                    prior['name'], prior['content_hash'], prior['storage_key'], prior['embedding_config'], user, jid, job_id))
+                    prior['name'], prior['content_hash'], prior['storage_key'], prior['embedding_config'], user, jid, job_id,
+                    pin_rate(settings().embedding_usd_per_million) if prior['embedding_config'] == 'openai-small-v1' else None))
     except UniqueViolation as exc:
         raise IngestionConflict('This source is already being prepared. Wait before retrying.') from exc
     return public(jid, project_id)

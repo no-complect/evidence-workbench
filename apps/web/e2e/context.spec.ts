@@ -123,6 +123,19 @@ async function workspace(page: Page) {
     },
   };
   await page.route("**/api/backend/**", async (route) => {
+    if (new URL(route.request().url()).pathname.endsWith("/embedding-usage"))
+      return route.fulfill({
+        json: {
+          summary: {
+            requests: 0,
+            unreported_requests: 0,
+            reported_tokens: null,
+            input_token_bound: null,
+            estimated_cost_usd: null,
+          },
+          requests: [],
+        },
+      });
     if (new URL(route.request().url()).pathname.endsWith("/ingestions"))
       return route.fulfill({ json: [] });
     const request = route.request();

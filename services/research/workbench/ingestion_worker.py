@@ -11,6 +11,7 @@ from .config import settings
 from .ingest import (ingest, _document_lock, IngestionConflict, IngestionError,
                      IngestionCancelled, IngestionLeaseLost)
 from .storage import storage
+from .embedding_usage import Recorder
 
 log = logging.getLogger('workbench.ingestion_worker')
 STOP = threading.Event()
@@ -36,6 +37,17 @@ class Control:
                             "AND NOT read_only AND setup_status='ready'",
                             (row['collection_id'], row['project_id'], row['embedding_config'])).fetchone():
             raise IngestionError('The saved collection profile is no longer available for preparation.')
+
+    def before_embedding(self, conn):
+        row = self.owned(conn)
+        self.authorized(conn, row)
+        if row['cancel_requested']:
+            raise IngestionCancelled()
+
+    def embedding_recorder(self, project_id, collection_id, version_id):
+        return Recorder(project_id, collection_id, version_id, job_id=self.job['id'],
+                        owner=self.job['lease_owner'], rate=self.job['embedding_usd_per_million'],
+                        before_call=self.before_embedding)
 
     def stage(self, phase):
         with db.connection() as conn:

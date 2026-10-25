@@ -129,7 +129,7 @@ def test_live_paraphrase_survives_native_provider_queue_approval_and_citation_ch
     for module in [api, environment_models, graph, runs]:
         monkeypatch.setattr(module, 'settings', lambda: profile)
     monkeypatch.setattr(environment_models, 'catalog', lambda *args: {'models': ['synthetic-writer']})
-    monkeypatch.setattr(ingest, 'embed_passages', lambda passages, config: [[.1] * 1536 for _ in passages])
+    monkeypatch.setattr(ingest, 'embed_passages', lambda passages, config, **kwargs: [[.1] * 1536 for _ in passages])
     monkeypatch.setattr(retrieval, 'query_vector', lambda *args: [.1] * 1536)
 
     def reply(body):
