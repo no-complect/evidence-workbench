@@ -76,6 +76,8 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
 }, info) => {
   let submitted: Record<string, any> | undefined;
   let gradeReads = 0;
+  let judgePricingKnown = true;
+  let defaultModel = "judge-b";
   const hash = "a".repeat(64);
   const grade = (index: number, label: string, ungraded = false) => ({
     id: `grade-${index}-${ungraded}`,
@@ -201,10 +203,10 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
       return reply({
         configured: true,
         models: ["writer-a", "judge-b", "judge-c"],
-        default_model: "writer-a",
+        default_model: defaultModel,
         live_enabled: true,
         pricing_configured: false,
-        judge_pricing_configured: true,
+        judge_pricing_configured: judgePricingKnown,
       });
     if (path.endsWith("/harness/presets")) return reply([]);
     if (path.endsWith("/harness/studio"))
@@ -267,6 +269,9 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
     ),
   ).toBeVisible();
   await page.getByRole("button", { name: "Harness", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Available model", exact: true })
+    .selectOption("writer-a");
   await page
     .getByRole("combobox", { name: "Evaluation judge model", exact: true })
     .selectOption("judge-b");
@@ -350,10 +355,33 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
       { exact: true },
     ),
   ).toHaveCount(0);
+  // Discovery metadata can change without changing the selected judge.
+  await page.getByRole("button", { name: "Harness", exact: true }).click();
+  judgePricingKnown = false;
+  await page
+    .getByRole("button", { name: "Refresh models", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+  await expect(cost).toHaveCount(0);
+  await expect(consent).not.toBeChecked();
+  await consent.check();
+  await page.getByRole("button", { name: "Harness", exact: true }).click();
+  judgePricingKnown = true;
+  await page
+    .getByRole("button", { name: "Refresh models", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+  await expect(cost).toHaveValue("0.1");
+  await expect(consent).not.toBeChecked();
+  await consent.check();
   await page.getByRole("button", { name: "Harness", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Evaluation judge model", exact: true })
     .selectOption("judge-c");
+  defaultModel = "judge-c";
+  await page
+    .getByRole("button", { name: "Refresh models", exact: true })
+    .click();
   await page.getByRole("button", { name: "Evaluations", exact: true }).click();
   await expect(consent).not.toBeChecked();
   await consent.check();

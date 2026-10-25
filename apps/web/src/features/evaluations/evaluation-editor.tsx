@@ -85,6 +85,9 @@ export function EvaluationEditor({
       ? {
           model_id: setup.judgeModelId,
           ...judgeDraft,
+          estimated_cost_usd: setup.judgePricesKnown
+            ? judgeDraft.estimated_cost_usd
+            : initialJudgeDraft.estimated_cost_usd,
         }
       : null;
   const consentIntent = JSON.stringify({
@@ -95,6 +98,7 @@ export function EvaluationEditor({
     limits: setup?.limits,
     cases: caseDrafts.cases,
     judge,
+    judgePricesKnown: judge ? setup?.judgePricesKnown : null,
   });
   const confirmed = consent === consentIntent;
   function changeCases(action: CaseAction) {
