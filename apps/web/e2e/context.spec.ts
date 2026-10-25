@@ -123,6 +123,8 @@ async function workspace(page: Page) {
     },
   };
   await page.route("**/api/backend/**", async (route) => {
+    if (new URL(route.request().url()).pathname.endsWith("/ingestions"))
+      return route.fulfill({ json: [] });
     const request = route.request();
     const path = new URL(request.url()).pathname.replace("/api/backend/", "");
     calls.push(`${request.method()} ${path}`);

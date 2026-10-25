@@ -472,6 +472,88 @@ test("own-source walkthrough exposes per-file errors, retries and deduplicated v
   ).toBeTruthy();
 });
 
+test("saved preparation survives leaving the walkthrough and reloading without another upload", async ({
+  page,
+}, info) => {
+  let hold = true;
+  let uploads = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/collections\/[^/]+\/ingestions$/.test(new URL(request.url()).pathname)
+    )
+      uploads++;
+  });
+  await page.route("**/api/backend/projects/*/ingestions", async (route) => {
+    const response = await route.fetch();
+    const jobs = await response.json();
+    await route.fulfill({
+      response,
+      json: hold
+        ? jobs.map((job: { name: string }) =>
+            job.name === "durable-reload-policy.txt"
+              ? {
+                  ...job,
+                  status: "queued",
+                  phase: "queued",
+                  result: null,
+                  error: null,
+                }
+              : job,
+          )
+        : jobs,
+    });
+  });
+  const dialog = await openWizard(page);
+  await dialog.getByLabel("Bring my own documents").check();
+  await dialog
+    .getByLabel("Collection source files", { exact: true })
+    .setInputFiles({
+      name: "durable-reload-policy.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from(
+        "Quasar saved source preparation survives leaving the browser view.",
+      ),
+    });
+  await dialog
+    .getByRole("button", { name: "Review sources", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Prepare collection", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("region", { name: "Upload results" }),
+  ).toContainText("Queued · waiting for preparation");
+  await expect(
+    dialog.getByRole("heading", {
+      name: "Preparing your source files…",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: /^(Finish|Close) setup$/ }).click();
+  await expect(dialog).not.toBeVisible();
+  const collectionId = await page
+    .getByRole("combobox", { name: "RAG collection", exact: true })
+    .inputValue();
+  await page.reload();
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "RAG", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "RAG collection", exact: true })
+    .selectOption(collectionId);
+  const batch = page.getByRole("region", { name: "Upload results" });
+  await expect(batch).toContainText("durable-reload-policy.txt");
+  await expect(batch).toContainText("Queued · waiting for preparation");
+  await page.screenshot({
+    path: info.outputPath("saved-preparation-queued.png"),
+    fullPage: true,
+  });
+  expect(uploads).toBe(1);
+  hold = false;
+  await expect(batch).toContainText("Ready · 1 passages, 0 vectors");
+  expect(uploads).toBe(1);
+});
+
 test("failed indexing cannot appear ready; an explicit successful retry enables retrieval", async ({
   page,
 }) => {
@@ -485,7 +567,7 @@ test("failed indexing cannot appear ready; an explicit successful retry enables 
       searches++;
   });
   await page.route(
-    "**/api/backend/projects/*/collections/*/sources",
+    "**/api/backend/projects/*/collections/*/ingestions",
     async (route) => {
       if (route.request().method() !== "POST") return route.fallback();
       attempts++;

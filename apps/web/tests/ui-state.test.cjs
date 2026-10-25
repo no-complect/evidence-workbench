@@ -680,6 +680,59 @@ test("clearing a batch preserves active uploads and another collection's failure
   assert.equal(rows.length, 4);
 });
 
+test("accepted uploads release local file intent while server jobs own preparation", () => {
+  const upload = load("features/collections/upload-state.ts");
+  const rows = [
+    {
+      id: "accepted",
+      collectionId: "one",
+      file: { name: "policy.txt" },
+      status: "uploading",
+    },
+    { id: "retry", collectionId: "one", status: "failed" },
+  ];
+  assert.equal(
+    upload
+      .uploadReducer(rows, { type: "submitted", id: "accepted" })
+      .map((row) => row.id)
+      .join(","),
+    "retry",
+  );
+  assert.equal(rows.length, 2);
+});
+
+test("corrected file preparation supersedes historical failures without mixing collections", () => {
+  const state = load("features/collections/ingestion-state.ts");
+  const old = {
+    id: "old",
+    collection_id: "a",
+    name: "policy.txt",
+    status: "failed",
+    created_at: "2026-10-01",
+  };
+  const corrected = {
+    ...old,
+    id: "new",
+    status: "ready",
+    created_at: "2026-10-02",
+  };
+  const other = { ...old, id: "other", collection_id: "b", status: "queued" };
+  const shown = state.latestPreparations([corrected, other, old]);
+  assert.equal(
+    shown
+      .map((job) => job.id)
+      .sort()
+      .join(","),
+    "new,other",
+  );
+  assert.equal(
+    shown.some((job) => job.collection_id === "a" && job.status === "failed"),
+    false,
+  );
+  assert.equal(state.activeIngestion(other), true);
+  assert.equal(state.activeIngestion(corrected), false);
+});
+
 test("retrieval snapshots are scoped, abortable and never automatically repeat model calls", async () => {
   let signal;
   const queries = load("features/collections/queries.ts", {

@@ -221,6 +221,7 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
         context_caps: {},
         context_policy: "context-v1",
       });
+    if (path.endsWith("/ingestions")) return reply([]);
     if (path.endsWith("/sources"))
       return reply([
         {

@@ -15,6 +15,7 @@ from .retrieval import search
 from .runs import create_run as submit_run
 from .evaluation_api import router as evaluation_router
 from .harness_api import router as harness_router
+from .ingestion_api import router as ingestion_router
 
 
 @asynccontextmanager
@@ -26,6 +27,7 @@ async def lifespan(app):
 app = FastAPI(title='Evidence Workbench', version='0.1.0', lifespan=lifespan)
 app.include_router(evaluation_router)
 app.include_router(harness_router)
+app.include_router(ingestion_router)
 
 
 @app.exception_handler(RequestValidationError)

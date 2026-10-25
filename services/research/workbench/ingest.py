@@ -2,6 +2,7 @@ import hashlib
 import json
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Protocol
 from uuid import NAMESPACE_URL, uuid5
 import psycopg
 from openai import APIError, APIConnectionError, APITimeoutError
@@ -15,6 +16,20 @@ MANIFEST = json.loads((ROOT / 'fixtures/manifest.json').read_text())
 
 class IngestionConflict(IngestionError):
     pass
+
+
+class IngestionLeaseLost(Exception):
+    pass
+
+
+class IngestionCancelled(Exception):
+    pass
+
+
+class IngestionControl(Protocol):
+    def stage(self, phase: str) -> None: ...
+    def finish(self, conn: psycopg.Connection, result: dict) -> None: ...
+    def fail(self, conn: psycopg.Connection, error: str) -> None: ...
 
 
 @contextmanager
@@ -76,7 +91,8 @@ def embed_passages(passages, config):
         raise IngestionError(_embedding_error(exc)) from exc
 
 
-def ingest(project_id, collection_id, name, data, metadata=None, embed=True):
+def ingest(project_id, collection_id, name, data, metadata=None, embed=True,
+           control: IngestionControl | None = None):
     name = Path(name.replace('\\', '/')).name
     if not name or len(name) > 180 or any(ord(char) < 32 or ord(char) == 127 for char in name):
         raise IngestionError('Source filenames must contain 1–180 characters')
@@ -91,39 +107,45 @@ def ingest(project_id, collection_id, name, data, metadata=None, embed=True):
     # A competing upload must not overwrite the active source's status or error.
     with _document_lock(document_id):
         return _ingest_document(project_id, collection_id, name, data, metadata, embed,
-                                collection, document_id, digest, version_id)
+                                collection, document_id, digest, version_id, control)
 
 
 def _ingest_document(project_id, collection_id, name, data, metadata, embed,
-                     collection, document_id, digest, version_id):
-    db.execute(
-        "INSERT INTO source_documents(id,project_id,collection_id,name,status) VALUES(%s,%s,%s,%s,'processing') ON CONFLICT(collection_id,name) DO NOTHING",
-        (document_id, project_id, collection_id, name))
-    existing = db.one('SELECT id FROM source_versions WHERE id=%s AND project_id=%s',
-                      (version_id, project_id))
-    if existing:
-        db.execute(
-            "UPDATE source_documents SET status='ready',error=NULL,current_version_id=%s WHERE id=%s AND project_id=%s",
-            (version_id, document_id, project_id))
-        return {
-            'document_id': document_id,
-            'version_id': version_id,
-            'status': 'ready',
-            'deduplicated': True
-        }
+                     collection, document_id, digest, version_id, control):
     phase = 'reading'
     try:
+        if control:
+            control.stage(phase)
+        db.execute(
+            "INSERT INTO source_documents(id,project_id,collection_id,name,status) VALUES(%s,%s,%s,%s,'processing') ON CONFLICT(collection_id,name) DO NOTHING",
+            (document_id, project_id, collection_id, name))
+        existing = db.one('SELECT id FROM source_versions WHERE id=%s AND project_id=%s',
+                          (version_id, project_id))
+        if existing:
+            result = {'document_id': document_id, 'version_id': version_id,
+                      'status': 'ready', 'deduplicated': True}
+            with db.connection() as conn:
+                _publish(conn, project_id, document_id, version_id, result, control)
+            return result
         db.execute("UPDATE source_documents SET status='processing',error=NULL WHERE id=%s AND project_id=%s",
                    (document_id, project_id))
         passages = chunks_from_file(name, data)
         phase = 'embedding'
-        vectors = embed_passages(
-            passages, collection['embedding_config']) if embed else [None] * len(passages)
+        if control:
+            control.stage(phase)
+        vectors = embed_passages(passages, collection['embedding_config']) if embed else [None] * len(passages)
+        phase = 'storage'
+        if control:
+            control.stage(phase)
         media = 'application/pdf' if Path(name).suffix.lower() == '.pdf' else 'text/plain'
         key = f'{project_id}/{document_id}/{digest}'
-        phase = 'storage'
         storage().put(key, data, media)
         phase = 'indexing'
+        if control:
+            control.stage(phase)
+        result = {'document_id': document_id, 'version_id': version_id, 'status': 'ready',
+                  'chunks': len(passages), 'vector_chunks': sum(v is not None for v in vectors),
+                  'deduplicated': False}
         with db.connection() as conn:
             conn.execute(
                 'INSERT INTO source_versions(id,project_id,document_id,content_hash,storage_key,media_type,metadata) VALUES(%s,%s,%s,%s,%s,%s,%s)',
@@ -135,28 +157,37 @@ def _ingest_document(project_id, collection_id, name, data, metadata, embed,
                     (cid, project_id, collection_id, version_id, i, p['text'], p['page'],
                      p['section'], p['start_offset'], p['end_offset'], db.jsonb(metadata or {}),
                      collection['embedding_config'], json.dumps(vector) if vector else None))
-            conn.execute(
-                "UPDATE source_documents SET status='ready',error=NULL,current_version_id=%s WHERE id=%s",
-                (version_id, document_id))
-        return {
-            'document_id': document_id,
-            'version_id': version_id,
-            'status': 'ready',
-            'chunks': len(passages),
-            'vector_chunks': sum(v is not None for v in vectors),
-            'deduplicated': False
-        }
+            _publish(conn, project_id, document_id, version_id, result, control)
+        return result
+    except IngestionLeaseLost:
+        # Only recovery owning the document guard may change this attempt's projection.
+        raise
     except Exception as exc:
         fallback = {
             'reading': 'Source file could not be read. Check its format and encoding before retrying this file.',
-            'embedding': 'Embedding preparation failed. Check the API server embedding configuration and network access before retrying this file.',
+            'embedding': 'Embedding preparation failed. Check the server embedding configuration and network access before retrying this file.',
             'storage': 'Source file could not be stored. Check server source storage availability and write permissions, then retry this file.',
             'indexing': 'Source passages could not be indexed. Check database availability and applied migrations, then retry this file.',
         }
-        error = str(exc) if isinstance(exc, IngestionError) else fallback[phase]
-        db.execute("UPDATE source_documents SET status='error',error=%s WHERE id=%s",
-                   (error, document_id))
+        error = ('File preparation cancelled. An embedding request already in progress may still be charged.'
+                 if isinstance(exc, IngestionCancelled) else
+                 str(exc) if isinstance(exc, IngestionError) else fallback[phase])
+        if control:
+            with db.connection() as conn:
+                control.fail(conn, error)
+                conn.execute("UPDATE source_documents SET status='error',error=%s WHERE id=%s AND project_id=%s",
+                             (error, document_id, project_id))
+        else:
+            db.execute("UPDATE source_documents SET status='error',error=%s WHERE id=%s", (error, document_id))
         raise IngestionError(error) from exc
+
+
+def _publish(conn, project_id, document_id, version_id, result, control):
+    # The job and source pointer commit together; cancellation/lease checks lock the job.
+    if control:
+        control.finish(conn, result)
+    conn.execute("UPDATE source_documents SET status='ready',error=NULL,current_version_id=%s WHERE id=%s AND project_id=%s",
+                 (version_id, document_id, project_id))
 
 
 __all__ = ['ingest', 'MANIFEST', 'MAX_BYTES', 'IngestionError', 'IngestionConflict',

@@ -239,6 +239,19 @@ export type UploadResult = {
   chunks?: number;
   vector_chunks?: number;
 };
+export type IngestionJob = {
+  id: string;
+  collection_id: string;
+  name: string;
+  status: "queued" | "running" | "ready" | "failed" | "cancelled";
+  phase:
+    "queued" | "reading" | "embedding" | "storage" | "indexing" | "finished";
+  error: string | null;
+  result: UploadResult | null;
+  retry_of: string | null;
+  created_at: string;
+  updated_at: string;
+};
 export type SearchHit = {
   rrf: number;
   ranks: { full_text?: number; vector?: number };

@@ -83,6 +83,7 @@ async function providerWorkspace(page: Page, embeddings = true) {
         context_caps: {},
         context_policy: "context-v1",
       });
+    if (path.endsWith("/ingestions")) return reply([]);
     if (path.endsWith("/sources"))
       return reply([
         {

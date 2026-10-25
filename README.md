@@ -16,11 +16,11 @@ cd evidence-workbench
 bash scripts/dev.sh --no-follow
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)**. Startup creates `.env` from the example only if absent, builds the containers, applies migrations and loads synthetic sources. It starts the API, both workers and website, then waits for readiness.
+Open **[http://localhost:3000](http://localhost:3000)**. Startup creates `.env` from the example only if absent, builds the containers, applies migrations and loads synthetic sources. It starts the API, research, evaluation and ingestion workers and website, then waits for readiness.
 
 The default local mode needs no account or API key. Responses and topic vectors are **scripted fixtures**; database retrieval, orchestration, approval, persistence and evaluation execution are real. Arbitrary questions and live embeddings require [live configuration](#live-models). Local demo credentials and loopback bindings are unsuitable for a public deployment.
 
-Stop with `bash scripts/stop.sh`; restart with the startup command above. Database and uploaded documents are retained. For startup failures, inspect `docker compose ps` and `docker compose logs --tail=100 api worker eval-worker web`, then consult [Troubleshooting](docs/TROUBLESHOOTING.md).
+Stop with `bash scripts/stop.sh`; restart with the startup command above. Database and uploaded documents are retained. For startup failures, inspect `docker compose ps` and `docker compose logs --tail=100 api worker ingestion-worker eval-worker web`, then consult [Troubleshooting](docs/TROUBLESHOOTING.md).
 
 ## First investigation
 
@@ -37,7 +37,7 @@ Local scripted mode accepts the supplied research questions. Custom uploads such
 
 ## Live models
 
-Set server environment variables in the root `.env` for local Compose, or on the deployed **Python API and both workers**:
+Set server environment variables in the root `.env` for local Compose, or on the deployed **Python API and research, evaluation and ingestion workers**:
 
 ```dotenv
 OPENAI_API_KEY=your-server-key
@@ -50,7 +50,7 @@ Restart the affected services after changes. **Harness → Refresh models** list
 
 **Live RAG requires OpenAI `text-embedding-3-small` embeddings**, even when research and grading use Anthropic. Create a live collection rather than changing an existing collection's immutable embedding profile. In Workflows, select Live and explicitly authorize execution. Collection evaluations have their own paid-call acknowledgment and optional grading settings.
 
-Run snapshots pin model/provider adapters, prompts, contracts, context policy, limits and source versions. Token, tool, iteration and time limits apply. Dollar estimates require configured rates; dollar caps cannot bound unpriced calls. Live ingestion is synchronous and its embedding costs are outside the research-run ledger. Optional public-web research requires Tavily configuration.
+Run snapshots pin model/provider adapters, prompts, contracts, context policy, limits and source versions. Token, tool, iteration and time limits apply. Dollar estimates require configured rates; dollar caps cannot bound unpriced calls. UI uploads prepare in a durable background worker; embedding costs remain outside the research-run ledger. Optional public-web research requires Tavily configuration.
 
 For required/optional settings, missing-configuration behavior and separate Next.js build variables, see [Deployment and configuration](docs/DEPLOYMENT.md). Setting provider keys only on a separately deployed Vercel frontend does not configure the Python services. Never expose keys through `NEXT_PUBLIC_*`.
 

@@ -69,6 +69,17 @@ services:
       init: { condition: service_completed_successfully }
     restart: unless-stopped
     stop_grace_period: 45s
+  ingestion-worker:
+    build:
+      context: .
+      dockerfile: services/research/Dockerfile
+    environment: *research-env
+    command: ['python', '-m', 'workbench.ingestion_worker']
+    volumes: ['objects:/data/objects']
+    depends_on:
+      init: { condition: service_completed_successfully }
+    restart: unless-stopped
+    stop_grace_period: 45s
   eval-worker:
     build:
       context: .

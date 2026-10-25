@@ -22,6 +22,7 @@ Run these in separate terminals from the repository root:
 ```bash
 uv run --frozen uvicorn workbench.api:app --host 127.0.0.1 --port 8000 --reload
 uv run --frozen python -m workbench.worker
+uv run --frozen python -m workbench.ingestion_worker
 uv run --frozen python -m workbench.evaluation_worker
 APP_ENV=local npm --prefix apps/web run dev -- --hostname 127.0.0.1
 ```
@@ -89,7 +90,8 @@ volumes and random loopback ports. It ignores your `.env`, clears provider keys,
 and uses only synthetic fixtures. Checks go through the Next standalone proxy:
 starter collection setup/retry, pgvector ingestion, worker planning, approval
 resumption after application container replacement, citations/source downloads,
-and an authored evaluation across all three strategies using both workers.
+and an authored evaluation across all three strategies. Queued file preparation
+survives service recreation and completes through the ingestion worker.
 The runner removes only its own containers and volumes, including on failure.
 It does not modify the normal development stack or delete its data.
 
