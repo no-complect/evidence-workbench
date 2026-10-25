@@ -531,16 +531,16 @@ test("saved preparation survives leaving the walkthrough and reloading without a
     }),
   ).toBeVisible();
   await dialog.getByRole("button", { name: /^(Finish|Close) setup$/ }).click();
-  const label = await page
+  await expect(dialog).not.toBeVisible();
+  const collectionId = await page
     .getByRole("combobox", { name: "RAG collection", exact: true })
-    .locator("option:checked")
-    .textContent();
+    .inputValue();
   await page.reload();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "RAG", exact: true }).click();
   await page
     .getByRole("combobox", { name: "RAG collection", exact: true })
-    .selectOption({ label: label! });
+    .selectOption(collectionId);
   const batch = page.getByRole("region", { name: "Upload results" });
   await expect(batch).toContainText("durable-reload-policy.txt");
   await expect(batch).toContainText("Queued · waiting for preparation");
