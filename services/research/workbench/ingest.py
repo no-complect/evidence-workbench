@@ -1,7 +1,9 @@
 import hashlib
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
+import psycopg
 from openai import APIError, APIConnectionError, APITimeoutError
 from .config import ROOT, settings
 from . import db
@@ -9,6 +11,22 @@ from .storage import storage
 from .parsing import chunks_from_file, IngestionError, MAX_BYTES  # re-export for API/tests
 
 MANIFEST = json.loads((ROOT / 'fixtures/manifest.json').read_text())
+
+
+class IngestionConflict(IngestionError):
+    pass
+
+
+@contextmanager
+def _document_lock(document_id):
+    # A dedicated autocommit session holds the lock across provider/storage calls,
+    # without leaving a database transaction open. Closing it releases the lock.
+    with psycopg.connect(settings().database_url, autocommit=True, connect_timeout=5) as guard:
+        if not guard.execute('SELECT pg_try_advisory_lock(hashtextextended(%s,0))',
+                             (document_id,)).fetchone()[0]:
+            raise IngestionConflict(
+                'This source is already being prepared. Wait for that upload to finish, then retry this file.')
+        yield
 
 
 def _embedding_error(error: APIError) -> str:
@@ -69,6 +87,15 @@ def ingest(project_id, collection_id, name, data, metadata=None, embed=True):
     document_id = str(uuid5(NAMESPACE_URL, f'{collection_id}/{name}'))
     digest = hashlib.sha256(data).hexdigest()
     version_id = str(uuid5(NAMESPACE_URL, f'{document_id}/{digest}'))
+    # Serialize before deduplication and paid work, including failure persistence.
+    # A competing upload must not overwrite the active source's status or error.
+    with _document_lock(document_id):
+        return _ingest_document(project_id, collection_id, name, data, metadata, embed,
+                                collection, document_id, digest, version_id)
+
+
+def _ingest_document(project_id, collection_id, name, data, metadata, embed,
+                     collection, document_id, digest, version_id):
     db.execute(
         "INSERT INTO source_documents(id,project_id,collection_id,name,status) VALUES(%s,%s,%s,%s,'processing') ON CONFLICT(collection_id,name) DO NOTHING",
         (document_id, project_id, collection_id, name))
@@ -86,6 +113,8 @@ def ingest(project_id, collection_id, name, data, metadata=None, embed=True):
         }
     phase = 'reading'
     try:
+        db.execute("UPDATE source_documents SET status='processing',error=NULL WHERE id=%s AND project_id=%s",
+                   (document_id, project_id))
         passages = chunks_from_file(name, data)
         phase = 'embedding'
         vectors = embed_passages(
@@ -96,18 +125,6 @@ def ingest(project_id, collection_id, name, data, metadata=None, embed=True):
         storage().put(key, data, media)
         phase = 'indexing'
         with db.connection() as conn:
-            conn.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', (document_id, ))
-            if conn.execute('SELECT id FROM source_versions WHERE id=%s',
-                            (version_id, )).fetchone():
-                conn.execute(
-                    "UPDATE source_documents SET status='ready',error=NULL,current_version_id=%s WHERE id=%s AND project_id=%s",
-                    (version_id, document_id, project_id))
-                return {
-                    'document_id': document_id,
-                    'version_id': version_id,
-                    'status': 'ready',
-                    'deduplicated': True
-                }
             conn.execute(
                 'INSERT INTO source_versions(id,project_id,document_id,content_hash,storage_key,media_type,metadata) VALUES(%s,%s,%s,%s,%s,%s,%s)',
                 (version_id, project_id, document_id, digest, key, media, db.jsonb(metadata or {})))
@@ -142,4 +159,5 @@ def ingest(project_id, collection_id, name, data, metadata=None, embed=True):
         raise IngestionError(error) from exc
 
 
-__all__ = ['ingest', 'MANIFEST', 'MAX_BYTES', 'IngestionError', 'chunks_from_file']
+__all__ = ['ingest', 'MANIFEST', 'MAX_BYTES', 'IngestionError', 'IngestionConflict',
+           'chunks_from_file']

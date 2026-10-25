@@ -8,7 +8,7 @@ from .config import settings, configuration_status
 from .auth import identity, authorize
 from .models import RunCreate, RunSummary, Plan, Named, CollectionCreate, CollectionSetup, SearchRequest, EXAMPLES
 from .collection_setup import options as collection_options, prepare as prepare_collection, resume as resume_collection, SetupConflict
-from .ingest import ingest, IngestionError, MAX_BYTES
+from .ingest import ingest, IngestionError, IngestionConflict, MAX_BYTES
 from .evidence import for_run, markdown
 from .storage import storage
 from .retrieval import search
@@ -146,6 +146,8 @@ def upload(project_id: UUID,
             'synthetic': False,
             'uploaded': True
         })
+    except IngestionConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
     except IngestionError as exc:
         raise HTTPException(422, str(exc)) from exc
 
