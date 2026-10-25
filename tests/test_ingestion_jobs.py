@@ -165,3 +165,25 @@ def test_two_workers_lease_different_uploads(client, scope):
     for job in jobs:
         worker.execute(job)
     assert all(saved(scope, jid)['status'] == 'ready' for jid in ids)
+
+
+@pytest.mark.parametrize('boundary', ['start', 'publish'])
+def test_revoked_membership_stops_preparation_and_final_publication(client, scope, monkeypatch, boundary):
+    calls = []
+    monkeypatch.setattr(ingest, 'embed_passages', lambda passages, profile:
+                        calls.append(profile) or [None] * len(passages))
+    jid = submit(client, scope).json()['id']
+    finish = worker.Control.finish
+    def revoke():
+        db.execute('DELETE FROM project_memberships WHERE project_id=%s', (scope['pid'],))
+    if boundary == 'start':
+        revoke()
+    else:
+        def interrupted(self, conn, result):
+            revoke()
+            return finish(self, conn, result)
+        monkeypatch.setattr(worker.Control, 'finish', interrupted)
+    result = execute(scope, jid)
+    assert result['status'] == 'failed' and 'permission changed' in result['error']
+    assert len(calls) == (0 if boundary == 'start' else 1)
+    assert db.one('SELECT count(*) AS n FROM source_versions WHERE project_id=%s', (scope['pid'],))['n'] == 0

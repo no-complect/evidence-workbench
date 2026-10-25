@@ -25,9 +25,9 @@ run with its own source manifest. They do not measure live model quality.
 
 ## Outstanding acceptance
 
-- **Live execution:** own-source ingestion, retrieval, selected-model research,
-  citations/context and a custom suite with optional independent grading need an
-  actual bounded provider run. Provider contract tests use synthetic responses.
+- **Live quality:** synthetic CI does not establish live semantic accuracy,
+  negative-claim rejection sensitivity or coverage across providers/models. Small
+  bounded local samples are insufficient for a broad quality claim.
 - **Hosted deployment:** two-user Auth/RLS/private Storage, browser redirects,
   email, public TLS/proxy routing and both deployed workers remain unverified.
   The [read-only deployment check](DEPLOYMENT.md#read-only-hosted-deployment-check)

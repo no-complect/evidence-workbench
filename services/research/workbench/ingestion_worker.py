@@ -28,14 +28,27 @@ class Control:
             raise IngestionLeaseLost()
         return row
 
+    def authorized(self, conn, row):
+        if not conn.execute('SELECT 1 FROM project_memberships WHERE project_id=%s AND user_id=%s FOR KEY SHARE',
+                            (row['project_id'], row['created_by'])).fetchone():
+            raise IngestionError('File preparation permission changed. A current project member can retry this file.')
+        if not conn.execute("SELECT 1 FROM collections WHERE id=%s AND project_id=%s AND embedding_config=%s "
+                            "AND NOT read_only AND setup_status='ready'",
+                            (row['collection_id'], row['project_id'], row['embedding_config'])).fetchone():
+            raise IngestionError('The saved collection profile is no longer available for preparation.')
+
     def stage(self, phase):
         with db.connection() as conn:
-            if self.owned(conn)['cancel_requested']:
+            row = self.owned(conn)
+            self.authorized(conn, row)
+            if row['cancel_requested']:
                 raise IngestionCancelled()
             conn.execute('UPDATE ingestion_jobs SET phase=%s,updated_at=now() WHERE id=%s', (phase, self.job['id']))
 
     def finish(self, conn, result):
-        if self.owned(conn)['cancel_requested']:
+        row = self.owned(conn)
+        self.authorized(conn, row)
+        if row['cancel_requested']:
             raise IngestionCancelled()
         conn.execute("UPDATE ingestion_jobs SET status='ready',phase='finished',result=%s,error=NULL,"
                      'lease_owner=NULL,lease_until=NULL,updated_at=now() WHERE id=%s',
