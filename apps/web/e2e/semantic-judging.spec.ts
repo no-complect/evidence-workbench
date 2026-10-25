@@ -204,7 +204,7 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
         default_model: "writer-a",
         live_enabled: true,
         pricing_configured: false,
-        judge_pricing_configured: false,
+        judge_pricing_configured: true,
       });
     if (path.endsWith("/harness/presets")) return reply([]);
     if (path.endsWith("/harness/studio"))
@@ -297,6 +297,45 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
   await expect(consent).toBeChecked();
   await consent.uncheck();
   await consent.check();
+  const tokens = page.getByRole("spinbutton", {
+    name: "Judge token budget",
+    exact: true,
+  });
+  const seconds = page.getByRole("spinbutton", {
+    name: "Judge grading seconds",
+    exact: true,
+  });
+  const cost = page.getByRole("spinbutton", {
+    name: "Judge estimated cost cap · USD",
+    exact: true,
+  });
+  await expect(tokens).toHaveValue("6000");
+  await expect(seconds).toHaveValue("120");
+  await expect(cost).toHaveValue("0.25");
+  await tokens.fill("5500");
+  await expect(consent).not.toBeChecked();
+  await tokens.fill("6000");
+  await expect(consent).not.toBeChecked(); // Restoring a value never revives consent.
+  await consent.check();
+  await seconds.fill("60");
+  await expect(consent).not.toBeChecked();
+  await consent.check();
+  await cost.fill("0.1");
+  await expect(consent).not.toBeChecked();
+  await consent.check();
+  await tokens.fill("0");
+  await consent.check();
+  await page
+    .getByRole("button", { name: "Run collection evaluation", exact: true })
+    .click();
+  expect(submitted).toBeUndefined();
+  expect(
+    await tokens.evaluate(
+      (input: HTMLInputElement) => input.validity.rangeUnderflow,
+    ),
+  ).toBe(true);
+  await tokens.fill("5500");
+  await consent.check();
   await page
     .getByLabel("Claims sampled per investigation", { exact: true })
     .selectOption("1");
@@ -329,9 +368,9 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
   expect(submitted?.custom.judge).toEqual({
     model_id: "judge-c",
     max_claims_per_run: 2,
-    tokens: 24000,
-    wall_seconds: 120,
-    estimated_cost_usd: 1,
+    tokens: 5500,
+    wall_seconds: 60,
+    estimated_cost_usd: 0.1,
   });
   expect(submitted?.custom.confirm_paid).toBe(true);
   await page.getByText("Inspect 3 case results", { exact: true }).click();

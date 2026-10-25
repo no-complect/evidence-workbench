@@ -29,6 +29,78 @@ function load(relative, dependencies = {}, globals = {}) {
 const ui = load("features/workbench/workspace-state.ts");
 const research = load("features/workbench/research-state.ts");
 const cases = load("features/evaluations/case-state.ts");
+const judge = load("features/evaluations/judge-state.ts");
+
+test("judge drafts compile explicit suite limits without mutating defaults", () => {
+  const before = JSON.stringify(judge.initialJudgeDraft);
+  const compiled = judge.parseJudgeDraft(
+    {
+      ...judge.initialJudgeDraft,
+      tokens: "5500",
+      wall_seconds: "60",
+      estimated_cost_usd: "0",
+    },
+    "independent-judge",
+    true,
+  );
+  assert.equal(
+    JSON.stringify(compiled),
+    JSON.stringify({
+      model_id: "independent-judge",
+      max_claims_per_run: 2,
+      tokens: 5500,
+      wall_seconds: 60,
+      estimated_cost_usd: 0,
+    }),
+  );
+  assert.equal(JSON.stringify(judge.initialJudgeDraft), before);
+});
+
+test("invalid judge budgets cannot become a request with empty or unbounded limits", () => {
+  for (const [key, value] of [
+    ["tokens", ""],
+    ["tokens", " "],
+    ["tokens", "999"],
+    ["tokens", "6000.5"],
+    ["tokens", "200001"],
+    ["tokens", "Infinity"],
+    ["wall_seconds", "4"],
+    ["wall_seconds", "301"],
+    ["estimated_cost_usd", ""],
+    ["estimated_cost_usd", "NaN"],
+    ["estimated_cost_usd", "-0.25"],
+    ["estimated_cost_usd", "26"],
+    ["max_claims_per_run", "0"],
+    ["max_claims_per_run", "6"],
+  ]) {
+    assert.throws(
+      () =>
+        judge.parseJudgeDraft(
+          { ...judge.initialJudgeDraft, [key]: value },
+          "independent-judge",
+          true,
+        ),
+      /must be/,
+    );
+  }
+  assert.throws(
+    () => judge.parseJudgeDraft(judge.initialJudgeDraft, "", true),
+    /Select an evaluation judge/,
+  );
+});
+
+test("unpriced judges ignore a hidden invalid cost draft while still enforcing other budgets", () => {
+  const draft = { ...judge.initialJudgeDraft, estimated_cost_usd: "" };
+  const request = judge.parseJudgeDraft(draft, "unpriced-judge", false);
+  assert.equal(request.estimated_cost_usd, 0.25);
+  assert.equal(request.tokens, 6000);
+  assert.equal(request.wall_seconds, 120);
+  assert.throws(
+    () =>
+      judge.parseJudgeDraft({ ...draft, tokens: "" }, "unpriced-judge", false),
+    /Judge token budget/,
+  );
+});
 
 test("saved context presentation uses only recorded redacted inputs and preserves immutable records", () => {
   const { savedContextInput } = load("features/context/context-record.ts");
