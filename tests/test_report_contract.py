@@ -107,10 +107,10 @@ def test_studio_execution_prompt_and_fingerprint_share_the_live_contract(monkeyp
     monkeypatch.setattr(harness_api, 'authorize', lambda *args: None)
     studio = harness_api.studio('project', 'user')
     assert studio['schemas']['report'] == SynthesisReport.model_json_schema()
-    assert 'ID: report-v2' in studio['prompts']['report']
+    assert 'ID: report-v3' in studio['prompts']['report']
     payload, trace = assemble('report', 'What retention applies?', [])
     assert payload['trusted_instructions'] == studio['prompts']['report']
-    assert trace['prompt_id'] == 'report-v2'
+    assert trace['prompt_id'] == 'report-v3'
     pinned = harness.fingerprints()
     assert pinned['prompts']['report'] == trace['prompt_hash']
     assert pinned['contracts']['report'] == hashlib.sha256(json.dumps(
@@ -177,5 +177,5 @@ def test_live_paraphrase_survives_native_provider_queue_approval_and_citation_ch
     assert len(observed) == 3
     assert db.one('SELECT count(*) AS n FROM citations WHERE run_id=%s', (rid,))['n'] == 1
     context = db.one("SELECT payload FROM contexts WHERE run_id=%s AND stage='report'", (rid,))['payload']
-    assert context['prompt_id'] == 'report-v2' and len(context['selected']) == 1
+    assert context['prompt_id'] == 'report-v3' and len(context['selected']) == 1
     assert client.get(f'/api/projects/{pid}/runs/{rid}/report.md').status_code == 200

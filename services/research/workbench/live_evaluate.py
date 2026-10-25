@@ -10,6 +10,7 @@ from .runs import create_run
 from .auth import authorize
 from .config import settings, ROOT
 from .context import estimate_tokens
+from .judge_policy import rubric
 from .evidence import for_run, verify
 from .evaluate import fingerprint
 from .models import RunCreate, Limits, Report, SemanticJudgment
@@ -33,7 +34,7 @@ def evaluate(args):
     # Each strategy receives the same fraction; judge calls share the final quarter.
     per_run = args.max_cost_usd / 4
     remaining_judge = per_run
-    prompt = (ROOT / 'prompts/judge-v1.md').read_text()
+    prompt = rubric()
     judge = ChatOpenAI(model=s.openai_model,
                        api_key=s.openai_api_key,
                        max_tokens=500,
