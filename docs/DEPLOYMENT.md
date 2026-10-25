@@ -36,10 +36,11 @@ It does not replace the hosted two-user/TLS acceptance checks above.
 
 ## Independently hosted API and worker
 
-Build `services/research/Dockerfile`. Run the image as three independently managed processes/services:
+Build `services/research/Dockerfile`. Run the image as four independently managed processes/services:
 
 - API command: `uvicorn workbench.api:app --host 0.0.0.0 --port 8000` behind a TLS reverse proxy.
 - Worker command: `python -m workbench.worker` with outbound provider access and the same database/storage config. It exposes no network listener.
+- Ingestion worker command: `python -m workbench.ingestion_worker`, with shared private source storage and the same database/provider environment. It prepares staged UI uploads and exposes no listener. Expired jobs require explicit retry.
 - Evaluation worker command: `python -m workbench.evaluation_worker`, with the same database/storage and provider environment. It coordinates research jobs and performs optional separately authorized claim grading; it exposes no network listener.
 
 The worker needs persistent Postgres and reachable Supabase Storage; it does not need a persistent local filesystem in production. It must run on an always-on container host (your existing VM/container platform is sufficient). Configure a restart policy and a termination grace period longer than the longest provider timeout (45 seconds in the local Compose). Multiple replicas coordinate using leases and session advisory locks. Provider requests can duplicate in a crash window; do not claim exactly-once inference. Retention, backups and production alerting are operator responsibilities and are not provisioned by this project.
@@ -64,13 +65,13 @@ No backend hosting topology is changed by the model selector.
 See [Live models](../README.md#live-models) for model selection and the OpenAI
 embedding dependency. [Evaluation](EVALUATION.md) explains grading and cost limits.
 
-**A deployed Vercel app cannot reach your laptop's localhost API.** API_URL must be the publicly reachable, authenticated TLS API endpoint. Vercel requests submit jobs and return 202; they do not host the research loop. Source uploads are bounded synchronous requests and may need a direct-storage upload design for larger future ingestion workloads.
+**A deployed Vercel app cannot reach your laptop's localhost API.** API_URL must be the publicly reachable, authenticated TLS API endpoint. Vercel requests submit jobs and return 202; they do not host the research loop. File transfer and staging are bounded synchronous requests; UI parsing/embedding/indexing run in the ingestion worker after a 202 response. The legacy POST sources API remains synchronous. Larger transfers may need direct-storage uploads.
 
 Consult [Verification status](BUILD_STATUS.md) for measured checks; hosted validation remains outstanding. No Vercel-native durable worker support is assumed or used. No deployment action is part of the local startup scripts.
 
 ## Configuration validation and recovery
 
-The Python API validates required settings before accepting requests. Both workers
+The Python API validates required settings before accepting requests. The workers
 and migration commands use the same settings loader. Local/test demo defaults
 need no provider keys. Supabase authentication requires a valid `SUPABASE_URL` and
 `SUPABASE_ANON_KEY`; Supabase Storage additionally requires its server-only
@@ -190,7 +191,7 @@ provider execution. A green read-only check proves neither worker is running.
 | CREDENTIAL_STORE_PATH | `.runtime/credentials` on host; `/data/credentials` in Compose | Private local credential key directory, shared by API and worker | Python only |
 | OPENAI_API_KEY | Unused | Required for live model/embedding calls | Python only |
 | OPENAI_MODEL | gpt-4.1-mini | Initial model selection; UI can choose any discovered ID | Python |
-| ANTHROPIC_API_KEY | Unused | Optional Claude discovery/research/judge key | Python API + both workers only |
+| ANTHROPIC_API_KEY | Unused | Optional Claude discovery/research/judge key | Python API + the research/evaluation workers only |
 | ANTHROPIC_MODEL | Unused | Optional initial Claude ID when no OpenAI key is configured | Python |
 | OPENAI_EMBEDDING_MODEL | Unused | text-embedding-3-small, dimension 1536 | Python |
 | MODEL_INPUT_USD_PER_MILLION / MODEL_OUTPUT_USD_PER_MILLION | Unused | Optional estimate for OPENAI_MODEL only | Python |

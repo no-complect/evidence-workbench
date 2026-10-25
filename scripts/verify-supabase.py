@@ -165,6 +165,7 @@ file_size_limit = "8MiB"
             start('api', [sys.executable, '-m', 'uvicorn', 'workbench.api:app',
                           '--host', '127.0.0.1', '--port', str(backend_port)])
             start('worker', [sys.executable, '-m', 'workbench.worker'])
+            start('ingestion-worker', [sys.executable, '-m', 'workbench.ingestion_worker'])
             start('web', ['npm', 'run', 'start', '--', '--hostname', '127.0.0.1',
                           '--port', str(web_port)], cwd=ROOT / 'apps/web')
             ready(env['API_URL'] + '/health')

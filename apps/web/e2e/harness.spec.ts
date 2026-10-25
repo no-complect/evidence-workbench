@@ -11,6 +11,8 @@ async function mockModels(page: Page, liveEnabled = true) {
   let submitted: Record<string, unknown> | undefined;
   let mutations = 0;
   await page.route("**/api/backend/**", async (route) => {
+    if (new URL(route.request().url()).pathname.endsWith("/ingestions"))
+      return route.fulfill({ json: [] });
     const path = new URL(route.request().url()).pathname.replace(
       "/api/backend/",
       "",

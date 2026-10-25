@@ -57,7 +57,19 @@ class BrowserAPI:
         raise RuntimeError(f'{path}: timed out waiting for {desired}')
 
 
-def verify(api, recreate):
+    def upload(self, path, name, data, key):
+        boundary = 'workbench-' + uuid4().hex
+        body = (f'--{boundary}\r\nContent-Disposition: form-data; name="idempotency_key"\r\n\r\n{key}\r\n'
+                f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{name}"\r\n'
+                'Content-Type: text/plain\r\n\r\n').encode() + data + f'\r\n--{boundary}--\r\n'.encode()
+        request = Request(self.origin + '/api/backend/' + path, data=body,
+                          headers={'Origin': self.origin, 'Content-Type': f'multipart/form-data; boundary={boundary}'})
+        with self.opener.open(request, timeout=55) as response:
+            require(response.status == 202, 'Upload staging did not return202')
+            return json.loads(response.read())
+
+
+def verify(api, recreate, pause_ingestion):
     bootstrap = api.request('bootstrap')
     require(bootstrap['auth_mode'] == 'demo' and not bootstrap['live_enabled'],
             'Verification requires fixture execution with demo authentication')
@@ -87,12 +99,28 @@ def verify(api, recreate):
     require(planned['run']['plan']['tasks'], 'Worker did not persist a plan')
     print('PASS: fresh migrations, starter collection, vectors and worker planning', flush=True)
 
+    # Hold the preparation worker so accepted intent must survive recreation.
+    pause_ingestion()
+    upload_collection = api.request(base + '/collections', {'name': 'Durable files'}, status=201)['id']
+    upload_path = f'{base}/collections/{upload_collection}/ingestions'
+    upload_key = str(uuid4())
+    upload_data = b'Quasar queued file survives API and preparation-worker recreation.'
+    preparation = api.upload(upload_path, 'durable-policy.txt', upload_data, upload_key)
+    require(preparation['status'] == 'queued', 'Preparation was not durably queued')
+    require(api.upload(upload_path, 'durable-policy.txt', upload_data, upload_key)['id'] == preparation['id'],
+            'Upload replay duplicated preparation')
+
     # Replace all application containers while approval is pending. Named volumes
     # survive, so this also tests the real checkpoint/approval resume path.
     recreate()
     require(api.request(run_path)['run']['status'] == 'awaiting_approval',
             'Pending approval did not survive container recreation')
     require(api.request(sources_path) == sources, 'Source identities changed after recreation')
+    prepared = api.wait(f"{base}/ingestions/{preparation['id']}", 'ready')
+    require(prepared['result']['chunks'] == 1, 'Recreated preparation worker did not index the source')
+    require(api.request(f"{base}/versions/{prepared['result']['version_id']}/download", text=True) == upload_data.decode(),
+            'Prepared upload lost shared source bytes')
+    print('PASS: queued upload survives recreation and independent preparation publishes its saved source', flush=True)
     api.request(run_path + '/approve', planned['run']['plan'], status=202)
     detail = api.wait(run_path, 'completed', research=True)
     require(detail['contexts'] and detail['evidence'] and detail['run']['report']['claims'],
@@ -135,6 +163,7 @@ def verify(api, recreate):
     print('PASS: independent evaluation worker, three child strategies and persisted results',
           flush=True)
     return {'project_id': pid, 'collection_id': cid, 'run_id': rid,
+            'ingestion_job_id': preparation['id'],
             'evaluation_job_id': job['id'], 'evaluation_result_id': saved['id']}
 
 
@@ -191,11 +220,11 @@ def main():
 
             def recreate():
                 compose('up', '-d', '--no-deps', '--force-recreate', '--wait',
-                        '--wait-timeout', '120', 'api', 'worker', 'eval-worker', 'web')
+                        '--wait-timeout', '120', 'api', 'worker', 'ingestion-worker', 'eval-worker', 'web')
                 # Ephemeral host ports can change when containers are replaced.
                 api.origin = origin('web', 3000)
 
-            result = verify(api, recreate)
+            result = verify(api, recreate, lambda: compose('stop', 'ingestion-worker'))
             if args.browser:
                 browser_env = {**env, 'WORKBENCH_WEB_URL': api.origin}
                 subprocess.run(['npm', '--prefix', 'apps/web', 'run', 'test:e2e', '--',

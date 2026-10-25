@@ -59,9 +59,13 @@ export function CollectionWizard({
   const collection =
     collections.find((item) => item.id === createdId) ?? prepare.data;
   const busy = prepare.isPending || uploads.busy;
+  const preparing = uploads.preparing(createdId);
   const usableSources =
     sources.data?.some((source) => source.chunk_count > 0) ?? false;
   const needsCorrection =
+    uploads.visibleJobs.some(
+      (job) => job.collection_id === createdId && job.status === "failed",
+    ) ||
     sources.data?.some((source) => source.status === "error") ||
     uploads.rows.some(
       (row) =>
@@ -336,7 +340,7 @@ export function CollectionWizard({
             <div className={notebook.note}>
               {draft.source_kind === "starter"
                 ? "The server prepares the real bundled documents and fixture vectors. Retrying an interrupted preparation resumes the same collection."
-                : "Supported files upload and index one at a time. Invalid files are skipped and server-side extraction errors remain visible per file. Live indexing calls your configured embedding provider."}
+                : "Files upload one at a time, then prepare in the background. Invalid files are skipped and extraction errors remain visible per file. Live indexing calls your configured embedding provider."}
             </div>
           </>
         )}
@@ -385,9 +389,9 @@ export function CollectionWizard({
       {step === 3 && collection && (
         <>
           <h3 ref={headingRef} tabIndex={-1}>
-            {busy
+            {busy || preparing
               ? "Preparing your source files…"
-              : sources.isError
+              : sources.isError || uploads.jobsError
                 ? "Collection saved. Source status unavailable."
                 : sources.isPending
                   ? "Checking prepared sources…"
@@ -409,6 +413,7 @@ export function CollectionWizard({
             onRetry={() => void sources.refetch()}
           />
           {!busy &&
+            !preparing &&
             !sources.isPending &&
             !sources.isError &&
             !usableSources && (
@@ -438,7 +443,7 @@ export function CollectionWizard({
             <RetrievalExperiment
               projectId={projectId}
               collection={collection}
-              indexing={uploads.busy}
+              indexing={busy || preparing}
             />
           )}
           <div className={styles.actions}>

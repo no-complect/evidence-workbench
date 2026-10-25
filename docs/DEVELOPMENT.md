@@ -22,6 +22,7 @@ Run these in separate terminals from the repository root:
 ```bash
 uv run --frozen uvicorn workbench.api:app --host 127.0.0.1 --port 8000 --reload
 uv run --frozen python -m workbench.worker
+uv run --frozen python -m workbench.ingestion_worker
 uv run --frozen python -m workbench.evaluation_worker
 APP_ENV=local npm --prefix apps/web run dev -- --hostname 127.0.0.1
 ```

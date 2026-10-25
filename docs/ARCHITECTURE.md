@@ -26,13 +26,29 @@ Concurrent uploads of the same collection/filename receive a retryable 409 witho
 provider calls or source-status changes; different documents can proceed independently.
 An explicit retry after completion reuses identical indexed bytes. This prevents
 overlapping duplicate embedding work, not a repeat call after a crash between a
-provider response and the database commit. Uploads remain synchronous and embedding
-costs are outside the research ledger. Source counts and vector coverage describe that current
+provider response and the database commit. The compatibility POST sources API remains
+synchronous. Embedding costs remain outside the research ledger. Source counts and vector coverage describe that current
 version, while version counts retain history. Retrieval experiments submit explicit
 snapshots, use scoped abortable queries and disable automatic embedding-call retries
 and refetches. Keyword retrieval makes no model call; Vector and Hybrid use the
 collection's embedding profile. Component ranks and reciprocal-rank scores are
 retrieval measurements, not calibrated confidence.
+
+UI file transfers stage bounded bytes with a request key and return202. Durable
+`ingestion_jobs` records pin content identity and collection profile; an independent
+worker parses, embeds and indexes. Scoped abortable query caches own job records;
+local file drafts are released after acceptance. Reloading restores saved progress,
+with separate transfer, status-polling and retry/cancel errors. Job reads make no
+provider calls. The API exposes only safe projections, never staging keys/leases.
+
+The worker leases queued jobs and heartbeats ownership. Every stage and final
+publication checks ownership; source versions and ready job outcomes commit in the
+same transaction. Cancellation is cooperative and cannot retract an in-flight
+charge. Recovery respects the document session guard and marks expired attempts
+interrupted without automatic provider replay. Explicit retry creates one durable
+child attempt, idempotently; prior results remain immutable. Queued jobs survive
+restart. The worker requires private shared object storage; upload retention and
+orphan cleanup are not provisioned. Embedding costs have no independent ledger yet.
 
 `research_runs` is the durable queue and run projection. `research_tasks`, `evidence`, `claims`, and `citations` retain structured results. Composite foreign keys protect project/run relationships. `run_events` gives ordered cursors; `contexts` retains redacted assembled model inputs; `usage_records` records reservations and reconciled usage. `effects` stores replayable node results outside graph state. `evaluation_runs` stores measured demo aggregates; raw files contain per-case data. Large source bytes live in a local volume or a private Supabase bucket.
 

@@ -13,7 +13,7 @@ import type {
   EvaluationJob,
   EvaluationSplit,
   CollectionOptions,
-  UploadResult,
+  IngestionJob,
   SearchHit,
 } from "./contracts";
 import { sourceFileError } from "./ingestion";
@@ -74,13 +74,26 @@ export const workbenchApi = {
       ...post(body),
       signal,
     }),
-  upload: (project: string, collection: string, file: File) => {
+  ingestionJobs: (project: string, signal?: AbortSignal) =>
+    api<IngestionJob[]>(`${projectPath(project)}/ingestions`, { signal }),
+  retryIngestion: (project: string, job: string) =>
+    api<IngestionJob>(
+      `${projectPath(project)}/ingestions/${job}/retry`,
+      post(),
+    ),
+  cancelIngestion: (project: string, job: string) =>
+    api<IngestionJob>(
+      `${projectPath(project)}/ingestions/${job}/cancel`,
+      post(),
+    ),
+  upload: (project: string, collection: string, file: File, key: string) => {
     const error = sourceFileError(file);
     if (error) throw new Error(error);
     const body = new FormData();
     body.append("file", file);
-    return api<UploadResult>(
-      `${projectPath(project)}/collections/${collection}/sources`,
+    body.append("idempotency_key", key);
+    return api<IngestionJob>(
+      `${projectPath(project)}/collections/${collection}/ingestions`,
       {
         method: "POST",
         body,
