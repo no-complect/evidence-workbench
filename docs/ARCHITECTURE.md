@@ -48,7 +48,7 @@ charge. Recovery respects the document session guard and marks expired attempts
 interrupted without automatic provider replay. Explicit retry creates one durable
 child attempt, idempotently; prior results remain immutable. Queued jobs survive
 restart. The worker requires private shared object storage; upload retention and
-orphan cleanup are not provisioned. Embedding costs have no independent ledger yet.
+orphan cleanup are not provisioned. Ingestion embedding requests have the separate ledger described below.
 
 `research_runs` is the durable queue and run projection. `research_tasks`, `evidence`, `claims`, and `citations` retain structured results. Composite foreign keys protect project/run relationships. `run_events` gives ordered cursors; `contexts` retains redacted assembled model inputs; `usage_records` records reservations and reconciled usage. `effects` stores replayable node results outside graph state. `evaluation_runs` stores measured demo aggregates; raw files contain per-case data. Large source bytes live in a local volume or a private Supabase bucket.
 
@@ -61,6 +61,34 @@ The shipped local demo explicitly sets `APP_ENV=local`, `AUTH_MODE=demo`, and lo
 `chunks.embedding` is a genuine pgvector column. Separate partial HNSW expression indexes support 16-dimensional fixture vectors and 1536-dimensional OpenAI vectors. Model identity, dimensions, and configuration version are stored in `embedding_configs`; chunk checks constrain dimensions, and queries filter project, collection, config and pinned source versions before ranking. Full-text retrieval uses an English `tsvector` GIN index and `websearch_to_tsquery`; vector retrieval uses cosine distance. Reciprocal-rank fusion uses `sum(1/(60+rank))`; top-k is bounded to 1–20. `DisabledReranker` is an explicit adapter, never reported as an applied reranker.
 
 The LangChain integration is a small `BaseRetriever` wrapper returning `Document` objects, with the SQL repository as the authorization boundary. Demo queries select a versioned topic fixture; they do not claim arbitrary semantic embeddings. Unseeded demo uploads have NULL vectors and remain full-text searchable. Reindexing means choosing a new collection/configuration and ingesting again. No API mutates embedding identity in place. Web fetches create immutable source versions with URL/time metadata and bounded text chunks; they enter that run directly and are full-text searchable later, without an additional unbudgeted embedding call.
+
+## Ingestion embedding accounting
+
+`embedding_usage` records each ingestion embedding request before transmission,
+independently of source-index and research-run transactions. Both durable UI jobs
+and the compatibility upload API use the LangChain transport wrapper. Raw passages
+are bounded to1,600 characters and batches to32, preserving the fixed1536-dimensional
+profile without tokenizer downloads or hidden retries. Each boundary pins model,
+input fingerprint/count/byte-based token bound, target source version and optional
+USD-per-million rate; no source text, keys or provider error bodies enter this ledger.
+
+Durable submissions/retries snapshot the optional embedding rate on the API. A
+legacy synchronous attempt snapshots its process rate before embedding. Final
+provider-reported usage is immutable and remains recorded if cancellation, lease
+loss, denied access or indexing failure follows. Every durable batch reservation
+checks current ownership, membership and cancellation; an existing reservation
+cannot be replayed. A response without usage, a failed call or a crash before
+reconciliation remains unreported. Late responses may reconcile their own reserved
+row even after the job stops. Recording failure stops additional calls; it cannot
+recover lost provider usage. This is accounting, not a dollar spending cap.
+
+The membership-checked collection endpoint aggregates all recorded requests and
+returns the latest20 safe request projections. RAG shows reported tokens separately
+from unreported requests, optional estimates and input bounds. Costs are unavailable
+if any request lacks usage or a price. No records does not certify past free usage:
+older uploads may predate tracking. Fixture indexing/dedup makes no embedding call.
+Retrieval/query embeddings and research/judge usage remain separate; this ledger
+is not an account-wide billing total. Clearing upload rows does not clear usage.
 
 ## Environment model boundary
 
@@ -157,6 +185,7 @@ Reviewed 2026-10-06, then mapped to the code paths in this repository:
 
 - [Next.js App Router installation](https://nextjs.org/docs/app/getting-started/installation) and [Next.js 16 upgrade guide](https://nextjs.org/docs/app/guides/upgrading/version-16).
 - [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence), [interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts), and [PostgresSaver implementation](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint-postgres/langgraph/checkpoint/postgres/__init__.py).
+- [OpenAI embedding response/usage](https://developers.openai.com/api/reference/resources/embeddings/methods/create).
 - [LangChain ChatOpenAI](https://docs.langchain.com/oss/python/integrations/chat/openai).
 - [Supabase vector columns](https://supabase.com/docs/guides/ai/vector-columns), [permission-aware RAG](https://supabase.com/docs/guides/ai/rag-with-permissions), and [auth client guidance](https://supabase.com/docs/guides/auth/server-side/creating-a-client?queryGroups=framework&framework=nextjs).
 - [shadcn Next.js integration](https://ui.shadcn.com/docs/installation/next).

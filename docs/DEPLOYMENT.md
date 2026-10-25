@@ -195,7 +195,7 @@ provider execution. A green read-only check proves neither worker is running.
 | ANTHROPIC_MODEL | Unused | Optional initial Claude ID when no OpenAI key is configured | Python |
 | OPENAI_EMBEDDING_MODEL | Unused | text-embedding-3-small, dimension 1536 | Python |
 | MODEL_INPUT_USD_PER_MILLION / MODEL_OUTPUT_USD_PER_MILLION | Unused | Optional estimate for OPENAI_MODEL only | Python |
-| EMBEDDING_USD_PER_MILLION | Unused | Optional embedding estimate | Python |
+| EMBEDDING_USD_PER_MILLION | Unused | Optional USD per million embedding tokens, pinned for each ingestion attempt; not a spending cap | Python |
 | TAVILY_API_KEY / WEB_SEARCH_USD_PER_CALL | Unused | Required only when web research is enabled | Python |
 | LEASE_SECONDS / POLL_SECONDS | 30 / 0.5 | Tune after testing | Worker |
 

@@ -22,7 +22,7 @@ def scenario(client, monkeypatch):
     for module in [api, evaluation_api, environment_models, graph, runs, worker, judging]:
         monkeypatch.setattr(module, 'settings', lambda: profile)
     monkeypatch.setattr(environment_models, 'catalog', lambda *a: {'models': ['writer-family', 'judge-family']})
-    monkeypatch.setattr(ingest, 'embed_passages', lambda passages, config: [[.1] * 1536 for p in passages])
+    monkeypatch.setattr(ingest, 'embed_passages', lambda passages, config, **kwargs: [[.1] * 1536 for p in passages])
     monkeypatch.setattr(retrieval, 'query_vector', lambda *a: [.1] * 1536)
 
     class ResearchProvider:

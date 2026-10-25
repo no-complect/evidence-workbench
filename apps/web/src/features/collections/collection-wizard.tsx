@@ -21,6 +21,7 @@ import {
 } from "./wizard-state";
 import type { UploadQueue } from "./use-upload-queue";
 import { UploadBatch } from "./upload-batch";
+import { EmbeddingUsage } from "./embedding-usage";
 import { RetrievalExperiment } from "./retrieval-experiment";
 import styles from "./collections.module.css";
 import notebook from "@/features/workbench/notebook.module.css";
@@ -407,6 +408,12 @@ export function CollectionWizard({
             checks.
           </p>
           <UploadBatch queue={uploads} collectionId={createdId} />
+          <EmbeddingUsage
+            key={createdId}
+            projectId={projectId}
+            collectionId={createdId}
+            preparing={preparing}
+          />
           <ErrorNotice
             error={sources.error}
             title="Source status could not load"

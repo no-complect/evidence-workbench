@@ -295,3 +295,17 @@
     font-size: 16px;
   }
 }
+.usageMetadata {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  margin-top: 0.75rem;
+}
+.usageMetadata dt {
+  font-weight: 600;
+}
+.usageMetadata dd {
+  margin: 0 0 0.4rem;
+  overflow-wrap: anywhere;
+}

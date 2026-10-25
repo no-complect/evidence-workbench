@@ -14,6 +14,7 @@ import type {
   EvaluationSplit,
   CollectionOptions,
   IngestionJob,
+  EmbeddingUsage,
   SearchHit,
 } from "./contracts";
 import { sourceFileError } from "./ingestion";
@@ -76,6 +77,11 @@ export const workbenchApi = {
     }),
   ingestionJobs: (project: string, signal?: AbortSignal) =>
     api<IngestionJob[]>(`${projectPath(project)}/ingestions`, { signal }),
+  embeddingUsage: (project: string, collection: string, signal?: AbortSignal) =>
+    api<EmbeddingUsage>(
+      `${projectPath(project)}/collections/${collection}/embedding-usage`,
+      { signal },
+    ),
   retryIngestion: (project: string, job: string) =>
     api<IngestionJob>(
       `${projectPath(project)}/ingestions/${job}/retry`,

@@ -50,7 +50,7 @@ Restart the affected services after changes. **Harness → Refresh models** list
 
 **Live RAG requires OpenAI `text-embedding-3-small` embeddings**, even when research and grading use Anthropic. Create a live collection rather than changing an existing collection's immutable embedding profile. In Workflows, select Live and explicitly authorize execution. Collection evaluations have their own paid-call acknowledgment and optional grading settings.
 
-Run snapshots pin model/provider adapters, prompts, contracts, context policy, limits and source versions. Token, tool, iteration and time limits apply. Dollar estimates require configured rates; dollar caps cannot bound unpriced calls. UI uploads prepare in a durable background worker; embedding costs remain outside the research-run ledger. Optional public-web research requires Tavily configuration.
+Run snapshots pin model/provider adapters, prompts, contracts, context policy, limits and source versions. Token, tool, iteration and time limits apply. Dollar estimates require configured rates; dollar caps cannot bound unpriced calls. UI uploads prepare in a durable background worker; file-preparation embedding requests have a separate collection ledger with reported tokens, unreported requests and optional price estimates. These costs remain outside research-run caps; missing prices/usage never imply free execution. Optional public-web research requires Tavily configuration.
 
 For required/optional settings, missing-configuration behavior and separate Next.js build variables, see [Deployment and configuration](docs/DEPLOYMENT.md). Setting provider keys only on a separately deployed Vercel frontend does not configure the Python services. Never expose keys through `NEXT_PUBLIC_*`.
 

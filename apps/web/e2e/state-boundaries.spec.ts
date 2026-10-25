@@ -65,6 +65,19 @@ async function mockWorkspace(
   handle?: (route: Route, path: string) => Promise<boolean>,
 ) {
   await page.route("**/api/backend/**", async (route) => {
+    if (new URL(route.request().url()).pathname.endsWith("/embedding-usage"))
+      return route.fulfill({
+        json: {
+          summary: {
+            requests: 0,
+            unreported_requests: 0,
+            reported_tokens: null,
+            input_token_bound: null,
+            estimated_cost_usd: null,
+          },
+          requests: [],
+        },
+      });
     const path = new URL(route.request().url()).pathname.replace(
       "/api/backend/",
       "",
