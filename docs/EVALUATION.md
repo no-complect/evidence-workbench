@@ -50,13 +50,16 @@ there are no live provider calls; live missing-price costs stay unavailable.
 Select an independent **evaluation judge** in Harness, then enable grading in a
 live collection suite. Research stages and judge may use different configured
 OpenAI or Anthropic models. The worker samples cited claims and sends each with
-its authorized passages under the versioned `judge-v1` rubric. Saved results
-include supported/contradicted/insufficient judgments, concise reasons, model and
+its authorized passages under the versioned `judge-v2` rubric. The rubric checks
+every material assertion, including document versus system scope and unsupported
+process or timing inferences. Missing information is insufficient evidence, not
+an explicit contradiction. Saved results include supported/contradicted/insufficient
+judgments, concise reasons, model and
 contract hashes, source identities and usage. Raw provider responses and private
 chain-of-thought are not retained.
 
-Grading has separate suite-wide limits: by default 24,000 tokens, 120 seconds and
-a $1 estimated-cost cap at pinned rates, plus the configured claim sample. Unknown
+Grading has separate suite-wide limits. The UI starts with 6,000 tokens, 120 seconds,
+two claims per investigation and a $0.25 estimated-cost cap at pinned rates. Unknown
 rates disable dollar estimates/enforcement; token/sample/time limits still apply.
 Research limits and costs are separate. Ingestion embedding costs precede the
 suite and are outside its budget.
@@ -67,6 +70,11 @@ automatically. Missing usage retains the reservation; cancellation prevents new
 calls and preserves saved grades. Unsampled, failed and budget-stopped claims stay
 visible. Support ratios cover graded samples only. Model grades are fallible,
 potentially correlated with the writer, and separate from deterministic checks.
+Versioned writer and judge instructions are shared with the Harness inspector;
+the operator CLI uses the same judge rubric. A changed prompt fingerprint stops
+pending execution rather than silently changing a submitted experiment. Saved
+reports and grades remain readable. Deterministic provider tests check this
+wiring and recovery behavior; they do not establish live semantic accuracy.
 
 ## Operator commands
 
@@ -82,5 +90,5 @@ not reproduce the UI suite's durable judge ledger. Prefer UI suites for inspecti
 saved grades and recovery. CLI exports are separate under `evals/results/live/`.
 
 See [Verification status](BUILD_STATUS.md) for executed checks. CI uses synthetic
-provider responses; actual live quality remains unmeasured. Evaluate held-out
+provider responses and does not establish live semantic accuracy. Evaluate held-out
 real documents and audit judge agreement before using grades for product decisions.

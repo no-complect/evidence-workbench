@@ -2,7 +2,7 @@
 import hashlib
 import json
 from .constants import ROOT
-from .context import estimate_tokens, redact
+from .context import PROMPTS, estimate_tokens, redact
 from .models import SemanticJudgment
 from .model_targets import target_for, JUDGE_ADAPTERS
 from .providers import structured_model
@@ -16,7 +16,7 @@ def digest(value):
 
 
 def rubric():
-    return (ROOT / 'prompts/judge-v1.md').read_text()
+    return (ROOT / 'prompts' / f'{PROMPTS["judge"]}.md').read_text()
 
 
 def snapshot(configuration, available, settings):

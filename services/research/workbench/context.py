@@ -5,7 +5,7 @@ from .constants import ROOT
 
 POLICY = 'context-v1'
 CAPS = {'plan': 1800, 'assess': 5000, 'report': 6500}
-PROMPTS = {'plan': 'plan-v1', 'assess': 'assess-v1', 'report': 'report-v2', 'judge': 'judge-v1'}
+PROMPTS = {'plan': 'plan-v1', 'assess': 'assess-v1', 'report': 'report-v3', 'judge': 'judge-v2'}
 
 
 class ContextOverflow(ValueError):
