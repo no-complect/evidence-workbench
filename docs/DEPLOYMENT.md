@@ -115,9 +115,22 @@ explicitly interpolated variables (keys, live opt-in, pricing, worker timing and
 host-port overrides) are taken from root `.env`. Do not use that file as a production
 deployment manifest. Startup never overwrites an existing `.env`.
 
-## Read-only hosted deployment check
+## Read-only local or hosted check
 
-Once the web and API services are deployed, run:
+Leave the web/API URL options omitted or empty to check the existing local Docker
+stack at `http://localhost:3000` and `http://localhost:8000`:
+
+```bash
+uv run --frozen python scripts/verify-deployment.py
+```
+
+Blank settings stay blank; the runner resolves defaults for the check only. It
+does not start containers or update environment files. Local checks verify web
+HTML, API/database readiness, direct backend-key enforcement and demo identity
+routing through the web proxy. Explicit loopback URLs support custom host ports.
+Local results are labeled `local_docker`, separate from hosted acceptance.
+
+For a hosted deployment, supply both URLs:
 
 ```bash
 uv run --frozen python scripts/verify-deployment.py \
@@ -125,7 +138,8 @@ uv run --frozen python scripts/verify-deployment.py \
   --api-url https://your-api.example
 ```
 
-Use the final canonical HTTPS origins. The check verifies the Workbench HTML,
+Use the final canonical HTTPS origins. A mixed local/hosted pair is rejected.
+Hosted checks verify the Workbench HTML,
 API/database readiness, direct API key enforcement, the web proxy's configured
 backend key, missing user sessions and invalid sessions. TLS verification stays
 on, redirects are rejected, and response reads are bounded. A hosting protection
@@ -135,7 +149,8 @@ not pass a token-bearing URL to this command.
 
 For an additional authenticated bootstrap request, supply a short-lived user
 access token through the process environment as `WORKBENCH_ACCESS_TOKEN` and
-add `--authenticated`. Never put the token in the command line, a committed file,
+add `--authenticated` with hosted HTTPS origins. Local checks reject this option
+before making requests. Never put the token in the command line, a committed file,
 or the result report. The runner does not load `.env`, and ignores an inherited
 token unless this flag is present. Expired sessions fail the check; no refresh
 or sign-in is attempted. It needs no backend shared secret, service-role key,
