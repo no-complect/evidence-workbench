@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from contextlib import nullcontext
 from unittest.mock import Mock
 
 import httpx
@@ -6,6 +7,12 @@ import pytest
 from openai import APIConnectionError, APIStatusError, APITimeoutError
 
 from workbench import ingest
+
+
+@pytest.fixture(autouse=True)
+def document_guard(monkeypatch):
+    # Provider/error tests have no database; real lock behavior is integration-tested.
+    monkeypatch.setattr(ingest, '_document_lock', lambda _: nullcontext())
 
 
 @pytest.mark.parametrize('kind,status,code,expected', [

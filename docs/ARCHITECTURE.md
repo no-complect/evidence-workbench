@@ -20,7 +20,14 @@ Incomplete setup blocks uploads, retrieval and research until preparation resume
 The browser owns local file intent in a project-scoped sequential upload queue.
 Each row reports its actual response or validation/indexing error; it does not
 simulate pipeline progress. Failed replacement ingestion leaves the previous
-current version available. Source counts and vector coverage describe that current
+current version available. A document-scoped session advisory lock is acquired
+before deduplication, parsing or embedding and held through status persistence.
+Concurrent uploads of the same collection/filename receive a retryable 409 without
+provider calls or source-status changes; different documents can proceed independently.
+An explicit retry after completion reuses identical indexed bytes. This prevents
+overlapping duplicate embedding work, not a repeat call after a crash between a
+provider response and the database commit. Uploads remain synchronous and embedding
+costs are outside the research ledger. Source counts and vector coverage describe that current
 version, while version counts retain history. Retrieval experiments submit explicit
 snapshots, use scoped abortable queries and disable automatic embedding-call retries
 and refetches. Keyword retrieval makes no model call; Vector and Hybrid use the
