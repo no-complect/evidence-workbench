@@ -3,6 +3,11 @@ import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Play, FlaskConical, Layers, Loader2 } from "lucide-react";
 import { JudgingOptions } from "./judging-options";
+import {
+  initialJudgeDraft,
+  parseJudgeDraft,
+  type JudgeDraft,
+} from "./judge-state";
 import { EvaluationMeasurements } from "./evaluation-measurements";
 import { EvaluationCasesEditor } from "./evaluation-cases-editor";
 import {
@@ -66,7 +71,7 @@ export function EvaluationEditor({
   );
   const [consent, setConsent] = useState<string | null>(null);
   const [judgeEnabled, setJudgeEnabled] = useState(false);
-  const [judgeClaims, setJudgeClaims] = useState(2);
+  const [judgeDraft, setJudgeDraft] = useState(initialJudgeDraft);
   const [error, setError] = useState("");
   const custom = suite === "collection";
   const sourceQuery = useQuery({
@@ -79,10 +84,10 @@ export function EvaluationEditor({
     mode === "live" && judgeEnabled && setup?.judgeModelId
       ? {
           model_id: setup.judgeModelId,
-          max_claims_per_run: judgeClaims,
-          tokens: 24000,
-          wall_seconds: 120,
-          estimated_cost_usd: 1,
+          ...judgeDraft,
+          estimated_cost_usd: setup.judgePricesKnown
+            ? judgeDraft.estimated_cost_usd
+            : initialJudgeDraft.estimated_cost_usd,
         }
       : null;
   const consentIntent = JSON.stringify({
@@ -93,10 +98,16 @@ export function EvaluationEditor({
     limits: setup?.limits,
     cases: caseDrafts.cases,
     judge,
+    judgePricesKnown: judge ? setup?.judgePricesKnown : null,
   });
   const confirmed = consent === consentIntent;
   function changeCases(action: CaseAction) {
     dispatchCases(action);
+    setConsent(null);
+    setError("");
+  }
+  function changeJudge(key: keyof JudgeDraft, value: string) {
+    setJudgeDraft((previous) => ({ ...previous, [key]: value }));
     setConsent(null);
     setError("");
   }
@@ -124,7 +135,9 @@ export function EvaluationEditor({
         harness_config: setup.configuration,
         limits: parseLimits(setup.limits),
         confirm_paid: mode === "live" && confirmed,
-        judge,
+        judge: judge
+          ? parseJudgeDraft(judgeDraft, judge.model_id, setup.judgePricesKnown)
+          : null,
         cases: compileCases(
           caseDrafts,
           sources.map((s) => s.name),
@@ -260,9 +273,13 @@ export function EvaluationEditor({
               live={mode === "live"}
               modelId={setup.judgeModelId}
               enabled={judgeEnabled}
-              onEnabled={setJudgeEnabled}
-              claims={judgeClaims}
-              onClaims={setJudgeClaims}
+              onEnabled={(value) => {
+                setJudgeEnabled(value);
+                setConsent(null);
+                setError("");
+              }}
+              draft={judgeDraft}
+              onChange={changeJudge}
               pricesKnown={setup.judgePricesKnown}
             />
           )}
@@ -287,7 +304,7 @@ export function EvaluationEditor({
                   I authorize paid calls for these {investigationCount}{" "}
                   evaluation runs
                   {judge
-                    ? ` and up to ${investigationCount * judgeClaims} sampled claim judgments`
+                    ? ` and up to ${investigationCount * Number(judgeDraft.max_claims_per_run)} sampled claim judgments`
                     : ""}
                   .
                 </span>

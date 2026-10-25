@@ -231,6 +231,18 @@ test("independent Anthropic judge selection reaches the explicitly authorized ev
   await page
     .getByRole("checkbox", { name: "Enable semantic judging", exact: true })
     .check();
+  await expect(
+    page.getByRole("spinbutton", {
+      name: "Judge estimated cost cap · USD",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("region", {
+      name: "Semantic evaluation settings",
+      exact: true,
+    }),
+  ).toContainText("Dollar estimates and the dollar cap are unavailable");
   await page
     .getByRole("button", { name: "Run collection evaluation", exact: true })
     .click();
@@ -250,6 +262,12 @@ test("independent Anthropic judge selection reaches the explicitly authorized ev
   expect(writes[0].body.custom).toMatchObject({
     model_id: "openai-research",
     confirm_paid: true,
-    judge: { model_id: "anthropic:account-judge" },
+    judge: {
+      model_id: "anthropic:account-judge",
+      tokens: 6000,
+      wall_seconds: 120,
+      estimated_cost_usd: 0.25,
+      max_claims_per_run: 2,
+    },
   });
 });
