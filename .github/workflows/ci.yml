@@ -107,7 +107,16 @@ jobs:
           npm --prefix apps/web run start > .runtime/web.log 2>&1 &
           web_pid=$!
           trap 'kill "$api_pid" "$worker_pid" "$evaluation_pid" "$web_pid" 2>/dev/null || true' EXIT
-          for i in $(seq 1 45); do if curl -fsS http://localhost:3000 > /dev/null; then break; fi; sleep 1; done
+          workbench_ready=false
+          for i in $(seq 1 45); do
+            if curl -fsS http://localhost:3000 > /dev/null && curl -fsS http://localhost:8000/health > /dev/null; then
+              workbench_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$workbench_ready" != true ]; then echo 'Web/API services did not become ready'; exit 1; fi
+          .venv/bin/python scripts/verify-deployment.py
           npm --prefix apps/web run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
@@ -115,5 +124,6 @@ jobs:
           name: verification-results
           path: |
             .runtime/*.log
+            .runtime/deployment-verification/result.json
             apps/web/playwright-report
             apps/web/test-results

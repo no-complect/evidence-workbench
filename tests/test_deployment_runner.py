@@ -154,3 +154,104 @@ def test_cli_does_not_load_env_or_implicitly_use_session(monkeypatch, tmp_path, 
     monkeypatch.delenv('WORKBENCH_ACCESS_TOKEN')
     assert runner.main([*args, '--authenticated']) == 1
     assert 'synthetic-user-session' not in capsys.readouterr().out
+
+
+def local_docker(request):
+    assert request.method == 'GET'
+    assert 'authorization' not in request.headers and 'x-workbench-key' not in request.headers
+    if request.url.path == '/':
+        return httpx.Response(200, text='<title>Evidence Workbench</title>',
+                              headers={'content-type': 'text/html'})
+    if request.url.path == '/health':
+        return httpx.Response(200, json={'status': 'ok', 'version': '0.1.0'})
+    if request.url.path == '/api/bootstrap':
+        return httpx.Response(401, json={'detail': 'Backend authentication required'})
+    assert request.url.path == '/api/backend/bootstrap'
+    return httpx.Response(200, json={'auth_mode': 'demo', 'projects': []})
+
+
+@pytest.mark.parametrize('urls,web,api', [
+    ([], 'http://localhost:3000', 'http://localhost:8000'),
+    (['--web-url', '', '--api-url', ''], 'http://localhost:3000', 'http://localhost:8000'),
+    (['--web-url', '  ', '--api-url', '\t'], 'http://localhost:3000', 'http://localhost:8000'),
+    (['--web-url', 'http://127.0.0.1:3100', '--api-url', ''],
+     'http://127.0.0.1:3100', 'http://localhost:8000'),
+    (['--web-url', 'http://[::1]:3100/', '--api-url', 'http://127.0.0.1:8100'],
+     'http://[::1]:3100', 'http://127.0.0.1:8100'),
+])
+def test_cli_blank_urls_check_local_docker_without_changing_settings_or_sending_session(
+        monkeypatch, tmp_path, urls, web, api):
+    config = tmp_path / '.env'
+    config.write_text('WEB_URL=\nFASTAPI_URL=\nWORKBENCH_ACCESS_TOKEN=synthetic-file-session\n')
+    original_config, original_urls = config.read_bytes(), list(urls)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('WORKBENCH_ACCESS_TOKEN', 'synthetic-inherited-session')
+    requests = []
+    original_client = httpx.Client
+
+    def transport(request):
+        requests.append(str(request.url))
+        return local_docker(request)
+
+    monkeypatch.setattr(runner.httpx, 'Client', lambda **options: original_client(
+        transport=httpx.MockTransport(transport), **options))
+    output = tmp_path / 'result.json'
+    assert runner.main([*urls, '--output', str(output)]) == 0
+    report = json.loads(output.read_text())
+    assert report['status'] == 'passed' and report['target'] == 'local_docker'
+    assert report['web_origin'] == web and report['api_origin'] == api
+    assert report['passed'] == ['web_html', 'api_database_readiness',
+                                'direct_api_requires_backend_key', 'local_web_proxy_uses_demo_identity']
+    assert requests == [web + '/', api + '/health', api + '/api/bootstrap',
+                        web + '/api/backend/bootstrap']
+    assert report['authenticated_check'] == 'not_requested'
+    assert not report['writes_performed'] and not report['provider_calls']
+    assert config.read_bytes() == original_config and urls == original_urls
+    assert 'synthetic-' not in output.read_text()
+
+
+@pytest.mark.parametrize('urls', [
+    ['--web-url', WEB],
+    ['--api-url', API],
+    ['--web-url', 'http://web.example', '--api-url', API],
+    ['--web-url', 'http://user:sensitive-marker@localhost:3000'],
+    ['--api-url', 'http://localhost:8000?token=sensitive-marker'],
+    ['--authenticated'],
+])
+def test_invalid_local_hosted_pairs_or_local_session_checks_stop_before_network(
+        monkeypatch, tmp_path, capsys, urls):
+    def unexpected_client(**options):
+        pytest.fail('Invalid target configuration must not create a network client')
+
+    monkeypatch.setattr(runner.httpx, 'Client', unexpected_client)
+    monkeypatch.setenv('WORKBENCH_ACCESS_TOKEN', 'sensitive-marker')
+    assert runner.main([*urls, '--output', str(tmp_path / 'result.json')]) == 1
+    assert not (tmp_path / 'result.json').exists()
+    assert 'sensitive-marker' not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('bootstrap', [
+    {'auth_mode': 'supabase', 'projects': []},
+    {'auth_mode': 'demo', 'projects': 'unexpected'},
+])
+def test_local_checks_do_not_claim_hosted_identity_verification(bootstrap):
+    def transport(request):
+        if request.url.path == '/api/backend/bootstrap':
+            return httpx.Response(200, json=bootstrap)
+        return local_docker(request)
+
+    with httpx.Client(transport=httpx.MockTransport(transport)) as client:
+        report = runner.verify(client, runner.LOCAL_WEB, runner.LOCAL_API, local=True)
+    assert report['status'] == 'failed'
+    assert report['passed'] == ['web_html', 'api_database_readiness', 'direct_api_requires_backend_key']
+
+
+def test_local_verification_never_transmits_an_explicit_hosted_session():
+    def unexpected_request(request):
+        pytest.fail('A hosted session must not be sent to local Docker')
+
+    with httpx.Client(transport=httpx.MockTransport(unexpected_request)) as client:
+        report = runner.verify(client, runner.LOCAL_WEB, runner.LOCAL_API,
+                               'synthetic-hosted-session', local=True)
+    assert report['status'] == 'failed' and not report['passed']
+    assert 'synthetic-hosted-session' not in json.dumps(report)
