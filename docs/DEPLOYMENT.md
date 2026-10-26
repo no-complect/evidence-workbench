@@ -4,9 +4,9 @@ The local startup path is in the [README](../README.md#running-the-application).
 
 ## Local containers
 
-`./scripts/dev.sh` checks Docker/Compose, creates a private `.env` from the secret-free example, builds the project containers, applies migrations, seeds idempotently, waits for health checks, prints URLs and follows logs. It binds only `127.0.0.1:3000`, `:8000` and `:55432` on the host. Container processes bind to their private interfaces so Compose networking works. The API and worker share the database and object volume; there is no extra object-storage microservice.
+`./scripts/dev.sh` checks Docker/Compose, creates a private `.env` from the secret-free example, builds the project containers, applies migrations, seeds idempotently, waits for health checks, prints URLs and follows logs. It binds only `127.0.0.1:3000`, `:8000` and `:55432` on the host. Container processes bind to their private interfaces so Compose networking works. The API and all three workers share the database and object volume; there is no extra object-storage microservice.
 
-The local shared secret and database password are explicitly local-demo values. Do not expose this Compose stack publicly. Use `docker compose logs --follow worker api web` to reconnect to logs. Shutdown retains volumes; reset requires a separate destructive flag.
+The local shared secret and database password are explicitly local-demo values. Do not expose this Compose stack publicly. Use `docker compose logs --follow api worker eval-worker ingestion-worker web` to reconnect to logs. Shutdown retains volumes; reset requires a separate destructive flag.
 
 `python3 scripts/verify-compose.py` builds and tests a separate disposable stack,
 using fresh volumes and random loopback ports without loading your environment
@@ -21,7 +21,7 @@ For host Python/Node development and local integration tests, see
 ## Production Supabase
 
 1. Use a Supabase project. Set a direct/session-pool `DATABASE_URL` with TLS (`sslmode=require`); transaction pooling is unsuitable for the worker's session locks.
-2. On the API/worker, set `APP_ENV=production`, `AUTH_MODE=supabase`, a cryptographically random shared API secret (32+ characters), Supabase URL, anon/publishable key, and service-role key. Set `STORAGE_BACKEND=supabase`. Never put a service-role key in a `NEXT_PUBLIC_*` variable.
+2. On the API and all three workers, set `APP_ENV=production`, `AUTH_MODE=supabase`, a cryptographically random shared API secret (32+ characters), Supabase URL, anon/publishable key, and service-role key. Set `STORAGE_BACKEND=supabase`. Never put a service-role key in a `NEXT_PUBLIC_*` variable.
 3. Apply migrations as the migration owner: `uv run python -c 'from workbench.db import migrate; migrate()'`. The runner detects the Supabase `auth` schema and applies `002_supabase_rls.sql`. It creates a private `research-sources` bucket. Browser writes remain behind API validation; reads require RLS membership.
 4. The production worker initializes the separate checkpoint schema on startup. Demo seeding intentionally fails in production. Sign in and create a project/collection through the UI; project creation adds the authenticated owner membership. Invite/member management is currently an administrative SQL operation, not an implemented UI flow.
 5. Verify two real user accounts, denied cross-project storage/citation access, private bucket behavior, and live requests before exposing the deployment. These hosted checks have not run here.
@@ -34,7 +34,7 @@ switching. See [Development](DEVELOPMENT.md#supabase-identity-and-storage-verifi
 It uses `APP_ENV=test` for local HTTP, not production deployment configuration.
 It does not replace the hosted two-user/TLS acceptance checks above.
 
-## Independently hosted API and worker
+## Independently hosted API and workers
 
 Build `services/research/Dockerfile`. Run the image as four independently managed processes/services:
 
@@ -43,7 +43,7 @@ Build `services/research/Dockerfile`. Run the image as four independently manage
 - Ingestion worker command: `python -m workbench.ingestion_worker`, with shared private source storage and the same database/provider environment. It prepares staged UI uploads and exposes no listener. Expired jobs require explicit retry.
 - Evaluation worker command: `python -m workbench.evaluation_worker`, with the same database/storage and provider environment. It coordinates research jobs and performs optional separately authorized claim grading; it exposes no network listener.
 
-The worker needs persistent Postgres and reachable Supabase Storage; it does not need a persistent local filesystem in production. It must run on an always-on container host (your existing VM/container platform is sufficient). Configure a restart policy and a termination grace period longer than the longest provider timeout (45 seconds in the local Compose). Multiple replicas coordinate using leases and session advisory locks. Provider requests can duplicate in a crash window; do not claim exactly-once inference. Retention, backups and production alerting are operator responsibilities and are not provisioned by this project.
+The workers need persistent Postgres and reachable Supabase Storage; they do not need a persistent local filesystem in production. They must run on an always-on container host (your existing VM/container platform is sufficient). Configure a restart policy and a termination grace period longer than the longest provider timeout (45 seconds in the local Compose). Multiple replicas coordinate using leases and session advisory locks. Provider requests can duplicate in a crash window; do not claim exactly-once inference. Retention, backups and production alerting are operator responsibilities and are not provisioned by this project.
 
 Use `/health` for API readiness. Monitor queue age, expired leases, retries, failed jobs, and usage records. Do not log raw provider exceptions, secrets or entire source bodies. Scale only after measuring actual workload; there are no measured throughput/capacity claims in this repository.
 
@@ -169,7 +169,7 @@ Browser sign-in/redirect settings, two-user RLS/private Storage, worker executio
 SMTP, paid quality and availability require separate measured checks. In particular,
 scripted UI evaluations are currently enabled only for local/test demo auth;
 production Supabase evaluations use live mode and require explicitly authorized
-provider execution. A green read-only check proves neither worker is running.
+provider execution. A green read-only check does not prove that the research, evaluation or ingestion worker is running.
 
 ## Environment matrix
 

@@ -1,8 +1,17 @@
 # Architecture and engineering boundaries
 
-![Application architecture showing the browser, API, database, independent worker, research graph, retrieval, models, and checkpoints.](./diagrams/architecture.png)
+![Application architecture showing the web proxy, API, database and usage ledgers, private storage, three independent workers, research graph, retrieval and model boundary.](./diagrams/architecture.png)
 
 [Scalable diagram](./diagrams/architecture.svg) · [Mermaid source](./diagrams/architecture.mmd)
+
+The API submits durable jobs; independent research, evaluation and ingestion
+workers lease them from Postgres. Evaluation schedules research through saved jobs
+and may call a separately authorized judge. Ingestion reads staged objects and
+records embedding usage independently of source publication. Postgres also owns
+immutable source identities, pgvector/full-text retrieval, research/judge usage and
+LangGraph checkpoints. Arrows show data or provider access, not a single sequential
+pipeline. Provider credentials remain on the Python services. Fixture execution
+makes no provider calls.
 
 ## Data and authorization
 
