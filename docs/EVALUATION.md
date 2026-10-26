@@ -89,6 +89,68 @@ It uses the configured OpenAI judge and a separate orchestration path; it does
 not reproduce the UI suite's durable judge ledger. Prefer UI suites for inspecting
 saved grades and recovery. CLI exports are separate under `evals/results/live/`.
 
+## Judge challenge calibration
+
+The operator-only `workbench.calibrate_judge` command evaluates the judge directly,
+without generating research reports or embedding documents. Its versioned
+[development set](../evals/judge-cases.json) contains 18 synthetic, author-annotated
+claims: six supported, six contradicted and six insufficient. Contrastive cases
+cover document versus system scope, missing backup schedules, separate processes,
+compound claims, explicit contradictions, proposal qualifiers, synthetic results,
+multiple sources and embedded source instructions. The reference annotations are
+reviewable assumptions, not independently established ground truth or held-out data.
+
+Validate the set offline (the default makes no model calls and reads no credentials):
+
+```bash
+uv run --frozen python -m workbench.calibrate_judge
+```
+
+For a deliberately authorized live calibration, use `--live --allow-paid` and an
+explicit `--model`. Existing server credentials and `LIVE_ENABLED=true` are required.
+For example, the following would request **at most six judge calls**, with 24,000
+suite tokens, 120 seconds and an optional $0.25 estimate cap:
+
+```bash
+uv run --frozen python -m workbench.calibrate_judge \
+  --live --allow-paid --model gpt-4.1 \
+  --max-calls 6 --tokens 24000 --wall-seconds 120 --max-cost-usd 0.25
+```
+
+Calls follow dataset order. Repeat `--case ID` to choose a smaller explicit subset.
+Cases beyond any limit remain ungraded. Prices apply only when configured for the
+selected model; otherwise estimates and dollar enforcement are unavailable while
+token/time/call limits remain. A conservative reservation may stop execution before
+reported usage reaches the token limit. Reported over-reservation usage stops new
+calls. The existing OpenAI/Anthropic structured adapter, `judge-v2` rubric and
+cited-passages/redaction boundary are reused. Labels and annotation rationales
+never enter the model input. This command adds no UI grading controls or new rubric.
+
+Each run saves a new ignored report under `evals/results/judge-calibration/`,
+including dataset/implementation/prompt/schema/model fingerprints, selected IDs,
+per-call input provenance, usage and scores. Reservations are saved before sending;
+unknown outcomes retain their reservations. Provider failures or invalid outputs
+stop without retries. A storage failure stops execution; an interrupted reservation
+stays ambiguous. This diagnostic command does not resume or replace the durable UI
+suite ledger. Starting another live command is a fresh, potentially charged run.
+
+Rescore a saved report offline using its printed path:
+
+```bash
+uv run --frozen python -m workbench.calibrate_judge --predictions PATH_TO_REPORT.json
+```
+
+Changed dataset fingerprints and unknown or duplicate case IDs are rejected.
+Inspect the confusion matrix, per-case errors, per-label recall and **false support
+rate** (unsupported reference claims incorrectly labeled supported / graded
+non-supported reference claims). Always read the denominator and grading coverage;
+missing, reserved, failed and skipped outcomes are not correct predictions. A rate
+with no observations stays unavailable. Accuracy on a small completed subset is
+not full-suite accuracy. A synthetic always-supported judge has a 100% false support
+rate on this balanced set, rather than appearing successful merely for producing
+valid structured output. CI tests the harness with stubbed responses; it establishes
+no live agreement rate, research improvement or correctness of the judge's reasons.
+
 See [Verification status](BUILD_STATUS.md) for executed checks. CI uses synthetic
 provider responses and does not establish live semantic accuracy. Evaluate held-out
 real documents and audit judge agreement before using grades for product decisions.
