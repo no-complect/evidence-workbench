@@ -1,9 +1,22 @@
-flowchart LR
-    UI["Next.js workspace"] --> API["FastAPI via Next.js proxy"]
-    API --> DB[("Postgres / pgvector")]
-    Worker["Independent Python worker"] --> DB
-    Worker --> Graph["LangGraph research loop"]
-    Graph --> Search["Vector + full-text retrieval"]
-    Search --> DB
-    Graph --> Model["Scripted demo or live AI"]
-    Graph --> Checkpoints[("Persisted checkpoints")]
+flowchart TB
+    UI["Next.js workspace and authenticated proxy"]
+    API["FastAPI: authorization and job submission"]
+    DB[("Postgres / pgvector: queues, sources, checkpoints and usage ledgers")]
+    Storage["Private source and staging storage"]
+    Research["Research worker"]
+    Evaluation["Evaluation worker"]
+    Ingestion["Ingestion worker"]
+    Graph["LangGraph research; LangChain retrieval and models"]
+    Model["Fixture execution or live providers"]
+    UI --> API
+    API --> DB
+    API --> Storage
+    Research --> DB
+    Research --> Graph
+    Graph --> DB
+    Graph --> Model
+    Evaluation --> DB
+    Evaluation --> Model
+    Ingestion --> DB
+    Ingestion --> Storage
+    Ingestion --> Model
