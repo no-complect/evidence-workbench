@@ -36,7 +36,7 @@ run with its own source manifest. They do not measure live model quality.
 - **Hosted deployment:** two-user Auth/RLS/private Storage, browser redirects,
   email, public TLS/proxy routing and the deployed research, evaluation and ingestion
   workers remain unverified.
-  The [read-only deployment check](DEPLOYMENT.md#read-only-hosted-deployment-check)
+  The [read-only deployment check](DEPLOYMENT.md#read-only-local-or-hosted-check)
   covers routing/readiness only; its protocol tests are not hosted results.
 - **Operational limits:** UI preparation runs in a background worker; staging and
   the compatibility source API remain synchronous. Ingestion has a separate embedding request ledger; costs are outside research-run caps and missing usage stays unknown. Unpriced calls cannot be dollar-bounded. Cancellation/deadlines are

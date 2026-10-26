@@ -132,7 +132,7 @@ access token can remain valid until expiry, as with normal Supabase JWT sessions
 ## Deployed HTTPS checks
 
 `scripts/verify-deployment.py` runs read-only checks against an existing web/API
-pair; see [Deployment](DEPLOYMENT.md#read-only-hosted-deployment-check) for usage,
+pair; see [Deployment](DEPLOYMENT.md#read-only-local-or-hosted-check) for usage,
 optional user-session handling, output and limits. It does not start services or
 provision resources. CI tests its protocol/failure handling using synthetic HTTP
 responses, including redirects, protection pages, wrong proxy keys, transport
