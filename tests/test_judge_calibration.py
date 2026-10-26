@@ -122,6 +122,8 @@ def test_call_cap_pre_call_checkpoint_and_reference_blinding(tmp_path):
     assert result['scores']['coverage'] == 1 / 18
     assert all(row['prediction']['reason'] == 'Call limit reached' for row in result['results'][1:])
     assert 'synthetic-test-value' not in output.read_text()
+    assert 'max_claims_per_run' not in result['manifest']['judge']['configuration']
+    assert result['manifest']['judge']['sampling'].startswith('Selected challenge IDs')
 
 
 def test_insufficient_token_budget_makes_no_calls(tmp_path):

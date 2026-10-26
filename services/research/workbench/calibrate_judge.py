@@ -48,6 +48,8 @@ def run(dataset, configuration, server, *, allow_paid, max_calls, case_ids, outp
         raise ValueError('Select known challenge IDs')
     # The operator explicitly selects this model; this is not a catalog/discovery assertion.
     pinned = judge_policy.snapshot(configuration, [configuration.model_id], server)
+    pinned['configuration'].pop('max_claims_per_run')
+    pinned['sampling'] = 'Selected challenge IDs in dataset order; ungraded cases are not correct predictions'
     key = credential(pinned, server)
     prepared = {case.id: prepare(case) for case in selected}
     manifest = {'version': 'judge-calibration-v1', 'dataset_version': dataset.version,
