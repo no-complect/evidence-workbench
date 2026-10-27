@@ -187,8 +187,9 @@ export function ExecutionView({
               <details className={styles.event} key={context.id}>
                 <summary>{context.stage} · assembled context</summary>
                 <p>
-                  {context.payload.selected.length} selected ·{" "}
-                  {context.payload.excluded.length} excluded passages
+                  {context.payload.selected?.length ?? "not recorded"} selected
+                  · {context.payload.excluded?.length ?? "not recorded"}{" "}
+                  excluded passages
                 </p>
                 <p className="fine-print">
                   Policy: {context.payload.policy_version} · Prompt:{" "}

@@ -131,7 +131,7 @@ def execute_job(job):
                 'WHERE id=%s AND lease_owner=%s', (job['id'], job['lease_owner']))
 
 
-def main():
+def run_worker():
     logging.basicConfig(level=logging.INFO)
     db.migrate()
     owner = db.uid()
@@ -149,6 +149,11 @@ def main():
             execute_job(job)
         else:
             STOP.wait(settings().poll_seconds)
+
+
+def main():
+    with db.pooled_connections():
+        run_worker()
 
 
 if __name__ == '__main__':

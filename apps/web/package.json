@@ -11,7 +11,8 @@
     "test:proxy": "node --test tests/api-proxy.test.cjs",
     "test:ui-state": "node --test tests/ui-state.test.cjs",
     "format": "prettier --write src e2e supabase-e2e tests playwright.supabase.config.ts",
-    "format:check": "prettier --check src e2e supabase-e2e tests playwright.supabase.config.ts"
+    "format:check": "prettier --check src e2e supabase-e2e tests playwright.supabase.config.ts",
+    "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
@@ -27,13 +28,19 @@
     "tailwind-merge": "3.6.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@next/eslint-plugin-next": "^16.3.4",
     "@playwright/test": "1.62.1",
     "@tailwindcss/postcss": "4.2.2",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
     "prettier": "^3.9.10",
     "tailwindcss": "4.2.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1"
   }
 }

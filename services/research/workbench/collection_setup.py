@@ -45,7 +45,7 @@ def resume(project_id, cid, user):
     authorize(project_id, user)
     # Serialize retries while ingestion commits independently. A completed setup
     # never re-seeds documents that the user may subsequently have replaced.
-    with db.connection() as lock:
+    with db.dedicated_connection() as lock:
         lock.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', ('collection-setup/' + cid,))
         collection = db.one('SELECT * FROM collections WHERE id=%s AND project_id=%s', (cid, project_id))
         if not collection or not collection['setup_request'] or collection['read_only']:

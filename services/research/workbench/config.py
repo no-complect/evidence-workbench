@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     supabase_storage_bucket: str = 'research-sources'
     lease_seconds: int = Field(30, ge=1, le=3600)
     poll_seconds: float = Field(0.5, gt=0, le=60, allow_inf_nan=False)
+    db_pool_max_size: int = Field(10, ge=2, le=100)
 
     @model_validator(mode='after')
     def secure_configuration(self):

@@ -9,7 +9,7 @@ from uuid import uuid4
 from pydantic import ValidationError
 from . import judge_policy
 from .config import settings
-from .constants import ROOT
+from .constants import RESULTS
 from .context import PROMPTS, redact
 from .evaluate import fingerprint
 from .judge_calibration import CASES, load_cases, prepare, score
@@ -149,7 +149,7 @@ def main(argv=None):
                 raise ValueError('Live calibration requires --allow-paid and an explicit --model')
             configuration = JudgeConfiguration(model_id=args.model, tokens=args.tokens,
                 wall_seconds=args.wall_seconds, estimated_cost_usd=args.max_cost_usd)
-            output = ROOT / 'evals/results/judge-calibration' / f'{uuid4()}.json'
+            output = RESULTS / 'judge-calibration' / f'{uuid4()}.json'
             report = run(dataset, configuration, settings(), allow_paid=True,
                          max_calls=args.max_calls, case_ids=args.case_ids, output=output)
             print(json.dumps({'path': str(output), 'status': report['status'], 'scores': report['scores']}, indent=2))

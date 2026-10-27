@@ -22,9 +22,14 @@ collections and stable per-case keys let the coordinator recover completed work.
 
 These small hand-authored fixtures test integration and retrieval behavior. Their
 responses and vectors are scripted; they do not establish live-model quality or
-a general advantage for iterative research. The bundled [comparison](examples/fixture-comparison.md)
-and [JSON](examples/fixture-comparison.json) are historical measurements with their
-own version manifest. New exports remain ignored under `evals/results/`.
+a general advantage for iterative research. Run the benchmark on the revision
+being evaluated to obtain its measurements and version manifest. Exports remain
+local and ignored under `evals/results/`.
+
+Evaluation fingerprints include every file in the prompt directory. Removing
+superseded prompts changes those fingerprints even when the active prompts are
+unchanged. Queued evaluations pinned to the previous file set must be resubmitted;
+the existing compatibility check rejects changed inputs. Saved results remain readable.
 
 ## Collection suites
 
@@ -151,6 +156,6 @@ rate on this balanced set, rather than appearing successful merely for producing
 valid structured output. CI tests the harness with stubbed responses; it establishes
 no live agreement rate, research improvement or correctness of the judge's reasons.
 
-See [Verification status](BUILD_STATUS.md) for executed checks. CI uses synthetic
-provider responses and does not establish live semantic accuracy. Evaluate held-out
+See [Verification scope](DEVELOPMENT.md#verification-scope) for CI evidence and limits.
+CI uses synthetic provider responses and does not establish live semantic accuracy. Evaluate held-out
 real documents and audit judge agreement before using grades for product decisions.

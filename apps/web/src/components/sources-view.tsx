@@ -54,6 +54,7 @@ export function SourcesView({
             accept=".md,.txt,.pdf"
             className="sr-only"
             aria-label="Upload source file"
+            disabled={!canUpload || busy}
             onChange={(e) => {
               if (e.target.files?.length) onUpload(Array.from(e.target.files));
               e.target.value = "";

@@ -3,6 +3,7 @@ import hashlib
 from uuid import UUID
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException
+from . import responses as r
 from . import db
 from .auth import authorize, identity
 from .config import ROOT, settings
@@ -35,7 +36,7 @@ def get_job(project_id, job_id, user):
     return row
 
 
-@router.get('/evaluation-jobs')
+@router.get('/evaluation-jobs', response_model=list[r.EvaluationJob], response_model_exclude_unset=True)
 def jobs(project_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     return db.serial(db.all_rows(
@@ -43,7 +44,7 @@ def jobs(project_id: UUID, user=Depends(identity)):
         'ORDER BY created_at DESC LIMIT 20', (project_id,)))
 
 
-@router.post('/evaluation-jobs', status_code=202)
+@router.post('/evaluation-jobs', status_code=202, response_model=r.EvaluationJob, response_model_exclude_unset=True)
 def submit(project_id: UUID, body: EvaluationCreate, user=Depends(identity)):
     authorize(project_id, user)
     s = settings()
@@ -80,12 +81,12 @@ def submit(project_id: UUID, body: EvaluationCreate, user=Depends(identity)):
     return db.serial(row)
 
 
-@router.get('/evaluation-jobs/{job_id}')
+@router.get('/evaluation-jobs/{job_id}', response_model=r.EvaluationJob, response_model_exclude_unset=True)
 def detail(project_id: UUID, job_id: UUID, user=Depends(identity)):
     return db.serial(get_job(project_id, job_id, user))
 
 
-@router.post('/evaluation-jobs/{job_id}/cancel')
+@router.post('/evaluation-jobs/{job_id}/cancel', response_model=r.StatusResponse, response_model_exclude_unset=True)
 def cancel(project_id: UUID, job_id: UUID, user=Depends(identity)):
     job = get_job(project_id, job_id, user)
     if job['status'] in {'completed', 'failed', 'cancelled'}:
@@ -106,7 +107,7 @@ def cancel(project_id: UUID, job_id: UUID, user=Depends(identity)):
     return {'status': 'cancellation_requested' if row else job['status']}
 
 
-@router.get('/evaluation-jobs/{job_id}/judgments')
+@router.get('/evaluation-jobs/{job_id}/judgments', response_model=list[r.SemanticGrade], response_model_exclude_unset=True)
 def judgments(project_id: UUID, job_id: UUID, user=Depends(identity)):
     get_job(project_id, job_id, user)
     from .judging import public_rows

@@ -2,10 +2,52 @@ from contextlib import contextmanager
 from uuid import uuid4
 import json
 import psycopg
+from psycopg_pool import ConnectionPool
+from threading import Lock
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from .config import ROOT, settings
 from .context import redact
+
+_pool = None
+_pool_users = 0
+_pool_lock = Lock()
+
+
+def connection_options():
+    return {'row_factory': dict_row, 'connect_timeout': 5,
+            'options': '-c search_path=public,extensions -c statement_timeout=30000'}
+
+
+@contextmanager
+def pooled_connections():
+    """One bounded query pool per process, owned by API/worker lifecycles."""
+    global _pool, _pool_users
+    with _pool_lock:
+        if _pool is None:
+            _pool = ConnectionPool(settings().database_url, kwargs=connection_options(),
+                                   min_size=0, max_size=settings().db_pool_max_size, timeout=5, open=False,
+                                   name='workbench-db')
+            _pool.open()
+        pool = _pool
+        _pool_users += 1
+    try:
+        yield pool
+    finally:
+        with _pool_lock:
+            _pool_users -= 1
+            close = _pool_users == 0
+            if close:
+                _pool = None
+        if close:
+            pool.close()
+
+
+@contextmanager
+def dedicated_connection():
+    """Session/transaction locks that span nested queries cannot borrow from the query pool."""
+    with psycopg.connect(settings().database_url, **connection_options()) as conn:
+        yield conn
 
 
 def uid():
@@ -18,11 +60,9 @@ def serial(value):
 
 @contextmanager
 def connection():
-    with psycopg.connect(
-            settings().database_url,
-            row_factory=dict_row,
-            connect_timeout=5,
-            options='-c search_path=public,extensions -c statement_timeout=30000') as conn:
+    pool = _pool
+    manager = pool.connection() if pool is not None else dedicated_connection()
+    with manager as conn:
         yield conn
 
 

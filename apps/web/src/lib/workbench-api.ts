@@ -6,7 +6,7 @@ import type {
   Collection,
   Source,
   Detail,
-  Run,
+  RunSummary,
   RunEvent,
   Plan,
   Evaluation,
@@ -107,7 +107,7 @@ export const workbenchApi = {
     );
   },
   start: (project: string, request: RunCreate) =>
-    api<Run>(`${projectPath(project)}/runs`, post(request)),
+    api<RunSummary>(`${projectPath(project)}/runs`, post(request)),
   approve: (project: string, run: string, plan: Plan) =>
     api(`${projectPath(project)}/runs/${run}/approve`, post(plan)),
   cancel: (project: string, run: string) =>

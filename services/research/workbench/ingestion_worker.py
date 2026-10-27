@@ -147,7 +147,7 @@ def execute(job):
         thread.join(timeout=2)
 
 
-def main():
+def run_worker():
     logging.basicConfig(level=logging.INFO)
     db.migrate()
     owner = db.uid()
@@ -164,6 +164,11 @@ def main():
         except psycopg.Error:
             log.warning('Preparation database unavailable; queued jobs remain durable')
             STOP.wait(max(1, settings().poll_seconds))
+
+
+def main():
+    with db.pooled_connections():
+        run_worker()
 
 
 if __name__ == '__main__':

@@ -140,7 +140,7 @@ def execute_run(run):
                 (run['id'], run['lease_owner']))
 
 
-def main():
+def run_worker():
     logging.basicConfig(level=logging.INFO)
     db.migrate()
     setup_checkpoints()
@@ -157,6 +157,11 @@ def main():
             execute_run(run)
         else:
             STOP.wait(settings().poll_seconds)
+
+
+def main():
+    with db.pooled_connections():
+        run_worker()
 
 
 if __name__ == '__main__':

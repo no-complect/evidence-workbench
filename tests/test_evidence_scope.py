@@ -10,7 +10,6 @@ from unittest.mock import Mock
 import pytest
 from workbench import harness_api, judge_policy, judging, live_evaluate
 from workbench.config import Settings
-from workbench.constants import ROOT
 from workbench.context import assemble
 from workbench.models import Claim, JudgeConfiguration, SemanticJudgment
 from test_report_contract import mock_provider_transport
@@ -99,10 +98,10 @@ def test_scope_instructions_keep_both_sources_within_existing_writer_context_bud
     assert studio['prompts']['judge'] == judge_policy.rubric() == live_evaluate.rubric()
 
 
-def test_old_judge_rubric_stops_before_reservation_or_provider_call(monkeypatch):
+def test_changed_judge_rubric_stops_before_reservation_or_provider_call(monkeypatch):
     pinned = judge_policy.snapshot(JudgeConfiguration(model_id='judge'), ['judge'],
                                    Settings(_env_file=None))
-    pinned['prompt_sha256'] = hashlib.sha256((ROOT / 'prompts/judge-v1.md').read_bytes()).hexdigest()
+    pinned['prompt_sha256'] = hashlib.sha256(b'Synthetic superseded judge rubric').hexdigest()
     for module, name in [(judging, 'reserve'), (judging, 'for_run'),
                          (judge_policy, 'SemanticJudge')]:
         monkeypatch.setattr(module, name, Mock(side_effect=AssertionError('Unexpected side effect')))

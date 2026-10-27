@@ -312,6 +312,12 @@ test("upload ingestion status and arbitrary demo error are visible", async ({
   await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "RAG", exact: true }).click();
+  await expect(page.getByLabel("Upload source file")).toBeEnabled();
+  const accepted = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname.endsWith("/ingestions"),
+  );
   await page.getByLabel("Upload source file").setInputFiles({
     name: "browser-test.txt",
     mimeType: "text/plain",
@@ -319,9 +325,11 @@ test("upload ingestion status and arbitrary demo error are visible", async ({
       "Security requirements: all source access must be scoped to the selected project. Synthetic test upload.",
     ),
   });
+  expect((await accepted).status()).toBe(202);
+  // Preparation is queued on the independent worker, shared by these journeys.
   await expect(
     page.getByRole("table").getByText("browser-test.txt", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 60_000 });
   await page.getByRole("button", { name: "Workflows", exact: true }).click();
   await page
     .getByRole("textbox", {

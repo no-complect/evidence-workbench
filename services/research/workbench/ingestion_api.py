@@ -1,5 +1,6 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from . import responses as r
 from . import db, ingestion_jobs as jobs
 from .auth import authorize, identity
 from .ingest import IngestionConflict, IngestionError, MAX_BYTES
@@ -8,7 +9,7 @@ from .embedding_usage import collection_usage
 router = APIRouter(prefix='/api/projects/{project_id}')
 
 
-@router.get('/collections/{collection_id}/embedding-usage')
+@router.get('/collections/{collection_id}/embedding-usage', response_model=r.EmbeddingUsage, response_model_exclude_unset=True)
 def embedding_usage(project_id: UUID, collection_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     if not db.one('SELECT id FROM collections WHERE id=%s AND project_id=%s', (collection_id, project_id)):
@@ -16,7 +17,7 @@ def embedding_usage(project_id: UUID, collection_id: UUID, user=Depends(identity
     return db.serial(collection_usage(project_id, collection_id))
 
 
-@router.get('/ingestions')
+@router.get('/ingestions', response_model=list[r.IngestionJob], response_model_exclude_unset=True)
 def list_jobs(project_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     # Keep every active job and the latest 40 terminal records, without internal keys.
@@ -27,7 +28,7 @@ def list_jobs(project_id: UUID, user=Depends(identity)):
         (project_id, project_id)))
 
 
-@router.post('/collections/{collection_id}/ingestions', status_code=202)
+@router.post('/collections/{collection_id}/ingestions', status_code=202, response_model=r.IngestionJob, response_model_exclude_unset=True)
 def stage(project_id: UUID, collection_id: UUID, file: UploadFile = File(...),
           idempotency_key: UUID = Form(...), user=Depends(identity)):
     # Authorize before reading/storing bytes; parsing and models are worker-only.
@@ -43,7 +44,7 @@ def stage(project_id: UUID, collection_id: UUID, file: UploadFile = File(...),
         raise HTTPException(422, str(exc)) from exc
 
 
-@router.get('/ingestions/{job_id}')
+@router.get('/ingestions/{job_id}', response_model=r.IngestionJob, response_model_exclude_unset=True)
 def get_job(project_id: UUID, job_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     job = jobs.public(job_id, project_id)
@@ -52,7 +53,7 @@ def get_job(project_id: UUID, job_id: UUID, user=Depends(identity)):
     return db.serial(job)
 
 
-@router.post('/ingestions/{job_id}/retry', status_code=202)
+@router.post('/ingestions/{job_id}/retry', status_code=202, response_model=r.IngestionJob, response_model_exclude_unset=True)
 def retry(project_id: UUID, job_id: UUID, user=Depends(identity)):
     try:
         return db.serial(jobs.retry(project_id, job_id, user))
@@ -62,7 +63,7 @@ def retry(project_id: UUID, job_id: UUID, user=Depends(identity)):
         raise HTTPException(404, str(exc)) from exc
 
 
-@router.post('/ingestions/{job_id}/cancel')
+@router.post('/ingestions/{job_id}/cancel', response_model=r.IngestionJob, response_model_exclude_unset=True)
 def cancel(project_id: UUID, job_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     if not jobs.public(job_id, project_id):

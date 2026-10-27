@@ -72,7 +72,8 @@ export function ContextView({
                 />
               </span>
               <strong>
-                {chosen.payload.input_tokens_estimate.toLocaleString()}
+                {chosen.payload.input_tokens_estimate?.toLocaleString() ??
+                  "Not recorded"}
               </strong>
             </div>
             <div>
@@ -84,8 +85,8 @@ export function ContextView({
                 />
               </span>
               <strong>
-                {chosen.payload.selected.length} /{" "}
-                {chosen.payload.excluded.length}
+                {chosen.payload.selected?.length ?? "not recorded"} /{" "}
+                {chosen.payload.excluded?.length ?? "not recorded"}
               </strong>
             </div>
           </div>

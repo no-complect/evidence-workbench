@@ -13,6 +13,32 @@ LangGraph checkpoints. Arrows show data or provider access, not a single sequent
 pipeline. Provider credentials remain on the Python services. Fixture execution
 makes no provider calls.
 
+## Design decisions
+
+- **Supabase for database, authentication and private objects:** one authorization
+  model covers memberships, relational provenance, vector retrieval and source
+  bytes. Local development uses plain pgvector Postgres and filesystem storage.
+  A database-only alternative such as Neon would require separate authentication,
+  object storage and equivalent access enforcement. Supabase integration and
+  application authorization both need testing; hosted behavior remains unverified.
+- **pgvector with Postgres full-text search:** keeping retrieval beside provenance
+  and membership avoids synchronization and authorization contracts with another
+  database. Reciprocal-rank fusion combines ranks rather than incomparable raw
+  scores. A dedicated vector database needs workload evidence to justify its
+  additional complexity; no universal speed advantage is claimed. Reranking is disabled.
+- **One LangGraph with bounded branches:** LangGraph owns typed state, routing,
+  interrupts, checkpoints and joins; LangChain supplies integrations. The default
+  researcher is sequential, with at most three concurrent tasks combining evidence
+  IDs through an order-independent reducer. Budgets and deterministic effects stay
+  outside model control. Basic RAG and a fixed workflow share adapters so extra
+  autonomy can be judged through measured comparison.
+- **Research outlives HTTP requests:** FastAPI persists jobs and returns 202;
+  independent workers lease and recover them while browsers poll persisted state.
+  This requires always-on workers but avoids unbounded frontend requests. Closing
+  a browser does not cancel work. Locks and idempotent effects reduce duplicates
+  without guaranteeing exactly-once provider charges. Vercel-native durable
+  execution would require a separate, verified architecture decision.
+
 ## Data and authorization
 
 Application migrations are ordered SQL files in `db/migrations`, recorded in `schema_migrations` under a migration advisory lock. LangGraph owns its checkpoint tables exclusively in `graph_checkpoints`; that schema is not exposed to Supabase clients. Use a direct or session-pooled Postgres connection, not transaction pooling, for checkpoint connections and session advisory locks.
@@ -200,7 +226,9 @@ Reviewed 2026-10-06, then mapped to the code paths in this repository:
 - [shadcn Next.js integration](https://ui.shadcn.com/docs/installation/next).
 - [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search) and [MCP server development](https://modelcontextprotocol.io/docs/develop/build-server).
 
-Documentation review is not a substitute for runtime verification. Dependency locks and the frontend build are available; see [BUILD_STATUS](BUILD_STATUS.md) for the current check scope and remaining integration/hosted verification.
+Documentation review is not a substitute for runtime verification. See
+[Verification scope](DEVELOPMENT.md#verification-scope) for CI evidence and remaining
+live/hosted checks.
 
 ## Durable semantic grading
 

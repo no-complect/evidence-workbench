@@ -70,8 +70,8 @@ Workers lease jobs and resume checkpoints. Parallel tasks share database budget 
 - [Architecture](docs/ARCHITECTURE.md) — state, authorization, provenance, context and recovery.
 - [Evaluation methodology](docs/EVALUATION.md) — deterministic measures, model grades and their interpretation.
 - [Deployment](docs/DEPLOYMENT.md) — configuration, service topology and hosted validation.
-- [Verification status](docs/BUILD_STATUS.md) — measured evidence and outstanding live/hosted checks.
-- [Troubleshooting](docs/TROUBLESHOOTING.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md).
+- [Verification scope](docs/DEVELOPMENT.md#verification-scope) — CI evidence and outstanding live/hosted checks.
+- [Troubleshooting](docs/TROUBLESHOOTING.md) · [Contributing](docs/CONTRIBUTING.md) · [Security](docs/SECURITY.md).
 
 OCR, reranking, invitation UI, production rate limiting and automated retention are not implemented. Context filtering/redaction is limited; exact quotes do not establish semantic correctness. Fixture tests establish integration behavior, not live-model quality or hosted availability.
 

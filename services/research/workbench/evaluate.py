@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timezone
 from . import db
 from .config import ROOT, DEMO_PROJECT, DEMO_USER, settings
+from .constants import PACKAGE_ROOT, RESULTS
 from .models import EXAMPLES, RunCreate
 from .runs import create_run
 from .retrieval import search
@@ -20,12 +21,13 @@ def mean(values):
 
 
 def fingerprint():
-    files = sorted(
-        p for directory in
-        ['services/research/workbench', 'prompts', 'db/migrations', 'packages/contracts']
-        for p in (ROOT / directory).rglob('*') if p.is_file() and '__pycache__' not in str(p))
+    # Logical names keep source and wheel installations comparable. Generated
+    # frontend types are not backend implementation inputs.
+    files = {f'services/research/workbench/{p.name}': p for p in PACKAGE_ROOT.glob('*.py')}
+    files.update({str(p.relative_to(ROOT)): p for directory in ('prompts', 'db/migrations')
+                  for p in (ROOT / directory).rglob('*') if p.is_file()})
     return hashlib.sha256(b''.join(
-        str(p.relative_to(ROOT)).encode() + p.read_bytes() for p in files)).hexdigest()
+        name.encode() + path.read_bytes() for name, path in sorted(files.items()))).hexdigest()
 
 
 def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
@@ -236,7 +238,7 @@ def run_evaluation(split='all', *, project_id=DEMO_PROJECT, user_id=DEMO_USER,
     db.execute(
         'INSERT INTO evaluation_runs(id,project_id,mode,versions,results,raw) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(id) DO NOTHING',
         (eid, project_id, custom['mode'] if custom else 'demo', db.jsonb(versions), db.jsonb(aggregate), db.jsonb(raw)))
-    out = ROOT / 'evals/results'
+    out = RESULTS
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     (out / f'{stamp}-{eid}.json').write_text(

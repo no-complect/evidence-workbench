@@ -1,11 +1,11 @@
 import hmac
 import httpx
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 from .config import settings, DEMO_USER
 from . import db
 
 
-def identity(authorization: str = Header(''), x_workbench_key: str = Header('')):
+def identity(request: Request, authorization: str = Header(''), x_workbench_key: str = Header('')):
     s = settings()
     if not hmac.compare_digest(x_workbench_key, s.api_shared_secret):
         raise HTTPException(401, 'Backend authentication required')
@@ -14,7 +14,7 @@ def identity(authorization: str = Header(''), x_workbench_key: str = Header(''))
     if not authorization.startswith('Bearer '):
         raise HTTPException(401, 'Sign in to continue')
     try:
-        response = httpx.get(s.supabase_url + '/auth/v1/user',
+        response = request.state.auth_client.get(s.supabase_url + '/auth/v1/user',
                              headers={
                                  'Authorization': authorization,
                                  'apikey': s.supabase_anon_key

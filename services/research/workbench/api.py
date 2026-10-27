@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+import httpx
 from uuid import UUID
 from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, Query
 from fastapi.responses import Response, JSONResponse
 from fastapi.exceptions import RequestValidationError
+from . import responses as r
 from . import db
 from .config import settings, configuration_status
 from .auth import identity, authorize
@@ -21,7 +23,11 @@ from .ingestion_api import router as ingestion_router
 @asynccontextmanager
 async def lifespan(app):
     settings()  # Fail closed before accepting traffic.
-    yield
+    with db.pooled_connections(), httpx.Client(
+            timeout=10, follow_redirects=False,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10)) as client:
+        # Lifespan state is copied into each request; user headers remain per-request.
+        yield {'auth_client': client}
 
 
 app = FastAPI(title='Evidence Workbench', version='0.1.0', lifespan=lifespan)
@@ -50,7 +56,7 @@ def get_run(project_id, run_id, user):
     return run
 
 
-@app.get('/health')
+@app.get('/health', response_model=r.HealthResponse, response_model_exclude_unset=True)
 def health():
     try:
         db.one('SELECT 1')
@@ -59,7 +65,7 @@ def health():
     return {'status': 'ok', 'version': '0.1.0'}
 
 
-@app.get('/api/bootstrap')
+@app.get('/api/bootstrap', response_model=r.Bootstrap, response_model_exclude_unset=True)
 def bootstrap(user=Depends(identity)):
     projects = db.all_rows(
         'SELECT p.* FROM projects p JOIN project_memberships m ON p.id=m.project_id WHERE m.user_id=%s ORDER BY p.created_at,p.id',
@@ -79,7 +85,7 @@ def bootstrap(user=Depends(identity)):
     })
 
 
-@app.post('/api/projects', status_code=201)
+@app.post('/api/projects', status_code=201, response_model=r.Project, response_model_exclude_unset=True)
 def create_project(body: Named, user=Depends(identity)):
     project_id = db.uid()
     with db.connection() as conn:
@@ -88,7 +94,7 @@ def create_project(body: Named, user=Depends(identity)):
     return {'id': project_id, 'name': body.name}
 
 
-@app.get('/api/projects/{project_id}')
+@app.get('/api/projects/{project_id}', response_model=r.ProjectData, response_model_exclude_unset=True)
 def project(project_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     return serialize({
@@ -103,7 +109,7 @@ def project(project_id: UUID, user=Depends(identity)):
     })
 
 
-@app.post('/api/projects/{project_id}/collections', status_code=201)
+@app.post('/api/projects/{project_id}/collections', status_code=201, response_model=r.CreatedCollection, response_model_exclude_unset=True)
 def create_collection(project_id: UUID, body: CollectionCreate, user=Depends(identity)):
     authorize(project_id, user)
     if body.embedding_config == 'openai-small-v1' and not settings().live_enabled:
@@ -114,7 +120,7 @@ def create_collection(project_id: UUID, body: CollectionCreate, user=Depends(ide
     return {'id': cid, 'name': body.name, 'embedding_config': body.embedding_config}
 
 
-@app.get('/api/projects/{project_id}/collections/{collection_id}/sources')
+@app.get('/api/projects/{project_id}/collections/{collection_id}/sources', response_model=list[r.Source], response_model_exclude_unset=True)
 def sources(project_id: UUID, collection_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     if not db.one('SELECT id FROM collections WHERE id=%s AND project_id=%s', (collection_id, project_id)):
@@ -128,7 +134,7 @@ def sources(project_id: UUID, collection_id: UUID, user=Depends(identity)):
             (project_id, collection_id)))
 
 
-@app.post('/api/projects/{project_id}/collections/{collection_id}/sources', status_code=201)
+@app.post('/api/projects/{project_id}/collections/{collection_id}/sources', status_code=201, response_model=r.UploadResult, response_model_exclude_unset=True)
 def upload(project_id: UUID,
            collection_id: UUID,
            file: UploadFile = File(...),
@@ -154,7 +160,7 @@ def upload(project_id: UUID,
         raise HTTPException(422, str(exc)) from exc
 
 
-@app.post('/api/projects/{project_id}/search')
+@app.post('/api/projects/{project_id}/search', response_model=list[r.SearchHit], response_model_exclude_unset=True)
 def search_corpus(project_id: UUID, body: SearchRequest, user=Depends(identity)):
     authorize(project_id, user)
     try:
@@ -163,13 +169,13 @@ def search_corpus(project_id: UUID, body: SearchRequest, user=Depends(identity))
         raise HTTPException(422, str(exc)) from exc
 
 
-@app.get('/api/projects/{project_id}/collection-options')
+@app.get('/api/projects/{project_id}/collection-options', response_model=r.CollectionOptions, response_model_exclude_unset=True)
 def setup_options(project_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     return collection_options()
 
 
-@app.post('/api/projects/{project_id}/collection-setups', status_code=201)
+@app.post('/api/projects/{project_id}/collection-setups', status_code=201, response_model=r.Collection, response_model_exclude_unset=True)
 def setup_collection(project_id: UUID, body: CollectionSetup, user=Depends(identity)):
     try:
         return serialize(prepare_collection(project_id, user, body))
@@ -179,7 +185,7 @@ def setup_collection(project_id: UUID, body: CollectionSetup, user=Depends(ident
         raise HTTPException(422, str(exc)) from exc
 
 
-@app.post('/api/projects/{project_id}/collections/{collection_id}/prepare')
+@app.post('/api/projects/{project_id}/collections/{collection_id}/prepare', response_model=r.Collection, response_model_exclude_unset=True)
 def retry_collection_preparation(project_id: UUID, collection_id: UUID, user=Depends(identity)):
     try:
         return serialize(resume_collection(project_id, str(collection_id), user))
@@ -193,7 +199,7 @@ def retry_collection_preparation(project_id: UUID, collection_id: UUID, user=Dep
 def create_run(project_id: UUID, body: RunCreate, user=Depends(identity)):
     return submit_run(project_id, body, user)
 
-@app.get('/api/projects/{project_id}/runs/{run_id}')
+@app.get('/api/projects/{project_id}/runs/{run_id}', response_model=r.Detail, response_model_exclude_unset=True)
 def run_detail(project_id: UUID, run_id: UUID, user=Depends(identity)):
     run = get_run(project_id, run_id, user)
     run.pop('lease_owner', None)
@@ -212,7 +218,7 @@ def run_detail(project_id: UUID, run_id: UUID, user=Depends(identity)):
     })
 
 
-@app.get('/api/projects/{project_id}/runs/{run_id}/events')
+@app.get('/api/projects/{project_id}/runs/{run_id}/events', response_model=r.EventPage, response_model_exclude_unset=True)
 def events(project_id: UUID, run_id: UUID, after: int = Query(0, ge=0), user=Depends(identity)):
     get_run(project_id, run_id, user)
     rows = db.all_rows(
@@ -221,7 +227,7 @@ def events(project_id: UUID, run_id: UUID, after: int = Query(0, ge=0), user=Dep
     return serialize({'events': rows, 'cursor': rows[-1]['id'] if rows else after})
 
 
-@app.post('/api/projects/{project_id}/runs/{run_id}/approve', status_code=202)
+@app.post('/api/projects/{project_id}/runs/{run_id}/approve', status_code=202, response_model=r.StatusResponse, response_model_exclude_unset=True)
 def approve(project_id: UUID, run_id: UUID, body: Plan, user=Depends(identity)):
     run = get_run(project_id, run_id, user)
     if len({t.id for t in body.tasks}) != len(body.tasks):
@@ -239,7 +245,7 @@ def approve(project_id: UUID, run_id: UUID, body: Plan, user=Depends(identity)):
     return {'status': 'queued'}
 
 
-@app.post('/api/projects/{project_id}/runs/{run_id}/cancel')
+@app.post('/api/projects/{project_id}/runs/{run_id}/cancel', response_model=r.StatusResponse, response_model_exclude_unset=True)
 def cancel(project_id: UUID, run_id: UUID, user=Depends(identity)):
     run = get_run(project_id, run_id, user)
     if run['status'] in {'completed', 'failed', 'partial', 'cancelled'}:
@@ -251,7 +257,8 @@ def cancel(project_id: UUID, run_id: UUID, user=Depends(identity)):
     return {'status': 'cancellation_requested'}
 
 
-@app.get('/api/projects/{project_id}/runs/{run_id}/report.md')
+@app.get('/api/projects/{project_id}/runs/{run_id}/report.md', response_class=Response,
+         responses={200: {'content': {'text/markdown': {'schema': {'type': 'string'}}}}})
 def export(project_id: UUID, run_id: UUID, user=Depends(identity)):
     run = get_run(project_id, run_id, user)
     if not run['report']:
@@ -261,7 +268,7 @@ def export(project_id: UUID, run_id: UUID, user=Depends(identity)):
                     headers={'Content-Disposition': 'attachment; filename="research-report.md"'})
 
 
-@app.get('/api/projects/{project_id}/evidence/{evidence_id}')
+@app.get('/api/projects/{project_id}/evidence/{evidence_id}', response_model=r.EvidenceLookup, response_model_exclude_unset=True)
 def evidence_lookup(project_id: UUID, evidence_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     row = db.one(
@@ -272,7 +279,8 @@ def evidence_lookup(project_id: UUID, evidence_id: UUID, user=Depends(identity))
     return serialize(row)
 
 
-@app.get('/api/projects/{project_id}/versions/{version_id}/download')
+@app.get('/api/projects/{project_id}/versions/{version_id}/download', response_class=Response,
+         responses={200: {'content': {'application/octet-stream': {'schema': {'type': 'string', 'format': 'binary'}}}}})
 def download(project_id: UUID, version_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     row = db.one('SELECT * FROM source_versions WHERE id=%s AND project_id=%s',
@@ -287,7 +295,7 @@ def download(project_id: UUID, version_id: UUID, user=Depends(identity)):
                     })
 
 
-@app.get('/api/projects/{project_id}/evaluations')
+@app.get('/api/projects/{project_id}/evaluations', response_model=list[r.Evaluation], response_model_exclude_unset=True)
 def evaluations(project_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     return serialize(

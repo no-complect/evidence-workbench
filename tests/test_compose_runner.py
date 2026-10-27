@@ -2,6 +2,7 @@
 import importlib.util
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -101,3 +102,37 @@ def test_browser_http_transport_and_safe_status_errors():
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+@pytest.mark.parametrize('changed', ['services/research/workbench/feature.py', 'prompts/plan-v1.md'])
+def test_installed_file_check_rejects_stale_code_and_assets(tmp_path, monkeypatch, changed):
+    source = tmp_path / 'source'
+    installed = tmp_path / 'installed'
+    package = installed / 'workbench'
+    assets = installed / 'assets'
+    files = {'services/research/workbench/feature.py': 'current implementation',
+             'prompts/plan-v1.md': 'current prompt', 'evals/cases.json': '{}',
+             'evals/judge-cases.json': '{}'}
+    for name, content in files.items():
+        path = source / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+        target = (package / 'feature.py' if name.endswith('feature.py') else assets / name)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content)
+    (package / '__init__.py').write_text('')
+    (package / 'constants.py').write_text(
+        'from pathlib import Path\nPACKAGE_ROOT = Path(__file__).parent\nROOT = PACKAGE_ROOT.parent / "assets"\n')
+    monkeypatch.setattr(runner, 'ROOT', source)
+
+    def compose(*arguments, input):
+        return subprocess.run([sys.executable, '-c', arguments[-1]],
+                              input=input, text=True, capture_output=True, check=True,
+                              env={**os.environ, 'PYTHONPATH': str(installed)})
+
+    runner.verify_installed_files(compose)
+    target = package / 'feature.py' if changed.endswith('feature.py') else assets / changed
+    target.write_text('stale cached content')
+    with pytest.raises(subprocess.CalledProcessError) as exc:
+        runner.verify_installed_files(compose)
+    assert changed in exc.value.stderr

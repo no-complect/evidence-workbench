@@ -3,6 +3,28 @@
 The [Docker quick start](../README.md#running-the-application) is the recommended local startup
 path. It does not require host language tools. This guide is for changing code.
 
+## Verification scope
+
+The [verification workflow](../.github/workflows/ci.yml) runs Python/API checks,
+desktop/mobile browser journeys, fresh-container recovery, and local Supabase
+Auth/RLS/private Storage checks with two disposable identities. Consult the
+[CI runs](https://github.com/no-complect/evidence-workbench/actions/workflows/ci.yml)
+for results and the exact source revision tested. Commands below reproduce those
+checks; a passing run applies to its tested revision.
+
+CI uses synthetic provider responses. It establishes integration behavior, not
+live-model quality, judge agreement or production readiness. Hosted two-user
+authorization/storage, browser redirects, email, public TLS/proxy routing and
+the deployed research, evaluation and ingestion workers still require validation.
+No production-scale throughput or availability has been measured. The read-only
+deployment check covers routing/readiness only.
+
+Cancellation and deadlines are cooperative; context redaction and adversarial
+filtering are limited. Ingestion embedding costs are separate from research-run
+caps, missing usage remains unknown, and unpriced calls cannot be dollar-bounded.
+See [Architecture](ARCHITECTURE.md), [Evaluation](EVALUATION.md) and
+[Deployment](DEPLOYMENT.md) for the implemented boundaries and remaining checks.
+
 ## Host setup
 
 Install Python 3.12+, uv, and Node 24. `scripts/install-deps-macos.sh` can inspect
@@ -36,14 +58,18 @@ API schema. Do not also start the container API/web on those same ports.
 ./scripts/test.sh
 uv run --frozen ruff check services tests scripts
 python3 scripts/check-offline.py
+uv run --frozen python scripts/check-package.py
 python3 scripts/check-publication.py
 ```
 
 If your environment restricts the default uv cache, set
 `UV_CACHE_DIR=.cache/uv`. An internet connection is required for initial installs.
 
+The frontend lint command is `npm --prefix apps/web run lint`; CI runs the Next.js,
+TypeScript and React Hooks rules separately from formatting and type checking.
+
 The Pydantic-to-TypeScript generator is `scripts/check-contracts.py`; use its
-`--write` flag after changing shared request/report models, then rerun the check.
+`--write` flag after changing shared request or response models, then rerun the check.
 
 ## Real integration tests
 
@@ -74,7 +100,10 @@ npm run test:e2e
 ```
 
 Tests use the actual API and database on desktop and mobile. They create research
-runs and upload synthetic files. Screenshots, traces and HTML results stay in ignored `test-results/` and
+runs and upload synthetic files. Journeys run serially because they share seeded
+database fixtures and background workers; backend integration tests separately
+exercise concurrent reservations and isolation.
+Screenshots, traces and HTML results stay in ignored `test-results/` and
 `playwright-report/` directories.
 
 ## Fresh container verification
@@ -96,7 +125,7 @@ The runner removes only its own containers and volumes, including on failure.
 It does not modify the normal development stack or delete its data.
 
 After installing frontend dependencies and Playwright Chromium, add `--browser`
-to also run the existing desktop/mobile collection and research/evaluation journeys
+to also run the complete desktop/mobile browser suite
 against these containers. CI runs this as the separate **Fresh container journey**
 job. Synthetic logs, service status and the successful result IDs are written to
 `.runtime/compose-verification`; browser artifacts use the normal ignored folders.
@@ -176,5 +205,32 @@ and tracked files. Ignore rules do not remove already tracked secrets or history
 
 Commit dependency locks, generated contracts and required runtime assets. Keep
 credentials, uploads, logs, generated results and private working notes untracked.
-For release validation, run the fresh-container and identity/storage checks above;
-record measured source/CI evidence in [Verification status](BUILD_STATUS.md).
+For release validation, run the fresh-container and identity/storage checks above
+and link their measured source/CI evidence in the release or pull request. Keep
+the [verification scope](#verification-scope) aligned with the checks performed.
+
+## Package and process boundaries
+
+The wheel bundles the authoritative prompts, ordered migrations, synthetic corpus
+and evaluation cases. `scripts/check-package.py` builds the wheel and exercises
+its API and assets outside the checkout, including matching implementation
+fingerprints. The uv cache keys include backend source and bundled assets, and
+the Docker verifier compares installed files with build inputs to reject stale
+wheels. Generated evaluation output is separate from package resources:
+`evals/results/` relative to the process working directory, or the process
+`WORKBENCH_RESULTS_PATH` override. Compose fixes the writable mount at
+`/app/evals/results`. Source and wheel execution use the same logical fingerprint
+paths; application changes still invalidate pinned queued evaluations normally.
+
+Public JSON responses have Pydantic contracts in `workbench/responses.py` and the
+existing request/summary models. The generator emits transport types into
+`packages/contracts/models.ts`; query-cache projections remain in the frontend.
+Response serialization preserves existing extra projection fields and does not
+inject unset defaults, including for legacy saved context records.
+
+API and worker lifecycles own bounded, lazily opened database pools. Configure
+`DB_POOL_MAX_SIZE` per process (default 10), budgeting for all replicas and the
+separate dedicated lock/checkpoint sessions. API lifespan also owns the shared
+HTTPX authentication client. Bearer headers and identity validation stay per
+request. Collection preparation locks, worker locks and checkpoints retain
+dedicated connections so nested query work does not exhaust its own pool.

@@ -50,6 +50,11 @@ def test_complete_journey_and_idempotency(client):
     assert completed['status'] == 'completed', completed['error']
     data = client.get(BASE + f'/runs/{run["id"]}').json()
     assert len(data['evidence']) > 0 and len(data['contexts']) >= 3
+    passage = data['evidence'][0]
+    lookup = client.get(BASE + f'/evidence/{passage["id"]}')
+    assert lookup.status_code == 200, lookup.text
+    assert lookup.json()['text'] == passage['text']
+    assert lookup.json()['version_id'] == passage['version_id']
     assert len(data['run']['report']['claims']) > 0
     verify(completed, Report.model_validate(completed['report']))
     events = client.get(BASE + f'/runs/{run["id"]}/events').json()

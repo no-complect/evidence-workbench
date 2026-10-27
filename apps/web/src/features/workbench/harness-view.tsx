@@ -170,8 +170,9 @@ export function HarnessView({
                     <dd>{context.payload.output_token_reservation} tokens</dd>
                     <dt>Selected / excluded</dt>
                     <dd>
-                      {context.payload.selected.length} /{" "}
-                      {context.payload.excluded.length} passages
+                      {context.payload.selected?.length ?? "not recorded"} /{" "}
+                      {context.payload.excluded?.length ?? "not recorded"}{" "}
+                      passages
                     </dd>
                   </dl>
                 </details>

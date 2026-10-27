@@ -14,9 +14,10 @@ REQUIRED = {
     'fixtures/manifest.json', 'evals/cases.json', 'packages/contracts/models.ts',
     '.github/workflows/ci.yml', 'scripts/dev.sh', 'scripts/stop.sh',
     'scripts/demo.sh', 'scripts/eval.sh', 'scripts/test.sh',
-    'docs/DEVELOPMENT.md', 'docs/BUILD_STATUS.md',
-    'docs/examples/reviewer-notes.txt', 'docs/examples/fixture-comparison.md',
-    'docs/examples/fixture-comparison.json',
+    'docs/DEVELOPMENT.md', 'docs/ARCHITECTURE.md', 'docs/DEPLOYMENT.md',
+    'docs/EVALUATION.md', 'docs/TROUBLESHOOTING.md', 'docs/examples/reviewer-notes.txt',
+    'docs/CONTRIBUTING.md', 'docs/SECURITY.md',
+    'prompts/plan-v1.md', 'prompts/assess-v1.md', 'prompts/report-v3.md', 'prompts/judge-v2.md',
     'docs/diagrams/architecture.png', 'docs/diagrams/architecture.svg',
     'docs/diagrams/architecture.mmd',
 }

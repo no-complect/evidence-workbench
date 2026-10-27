@@ -1,6 +1,6 @@
 # Running and deploying
 
-The local startup path is in the [README](../README.md#running-the-application). Dependency lockfiles are included. See [verification status](BUILD_STATUS.md) before using this outside local development; hosted services and paid inference require separate checks.
+The local startup path is in the [README](../README.md#running-the-application). Dependency lockfiles are included. See [verification scope](DEVELOPMENT.md#verification-scope) before using this outside local development; hosted services and paid inference require separate checks.
 
 ## Local containers
 
@@ -67,7 +67,7 @@ embedding dependency. [Evaluation](EVALUATION.md) explains grading and cost limi
 
 **A deployed Vercel app cannot reach your laptop's localhost API.** API_URL must be the publicly reachable, authenticated TLS API endpoint. Vercel requests submit jobs and return 202; they do not host the research loop. File transfer and staging are bounded synchronous requests; UI parsing/embedding/indexing run in the ingestion worker after a 202 response. The legacy POST sources API remains synchronous. Larger transfers may need direct-storage uploads.
 
-Consult [Verification status](BUILD_STATUS.md) for measured checks; hosted validation remains outstanding. No Vercel-native durable worker support is assumed or used. No deployment action is part of the local startup scripts.
+Consult [Verification scope](DEVELOPMENT.md#verification-scope) for CI evidence and limits; hosted validation remains outstanding. No Vercel-native durable worker support is assumed or used. No deployment action is part of the local startup scripts.
 
 ## Configuration validation and recovery
 
@@ -197,8 +197,10 @@ provider execution. A green read-only check does not prove that the research, ev
 | MODEL_INPUT_USD_PER_MILLION / MODEL_OUTPUT_USD_PER_MILLION | Unused | Optional estimate for OPENAI_MODEL only | Python |
 | EMBEDDING_USD_PER_MILLION | Unused | Optional USD per million embedding tokens, pinned for each ingestion attempt; not a spending cap | Python |
 | TAVILY_API_KEY / WEB_SEARCH_USD_PER_CALL | Unused | Required only when web research is enabled | Python |
+| DB_POOL_MAX_SIZE | 10 per API/worker process | Tune across replicas and database connection limits; dedicated locks/checkpoints are additional | Python |
+| WORKBENCH_RESULTS_PATH | /app/evals/results in Compose | Writable evaluation export directory; defaults to evals/results under the working directory | Python process environment |
 | LEASE_SECONDS / POLL_SECONDS | 30 / 0.5 | Tune after testing | Worker |
 
 ## Read-only MCP
 
-Run `uv run python -m workbench.mcp_server` over stdio from an MCP-compatible client. Configure `WORKBENCH_API_URL`, `WORKBENCH_PROJECT_ID`, `API_SHARED_SECRET`, and (production) `WORKBENCH_ACCESS_TOKEN`. The token is verified by the same API. Tools: `corpus_search`, `evidence_lookup`, `run_status`. There is no upload, write, cancellation or start-run tool. The real MCP client integration test starts an actual API subprocess and exercises tool listing, scoped search and rejected collection access. It requires the disposable test database described in [Development](DEVELOPMENT.md); consult [BUILD_STATUS](BUILD_STATUS.md) for the verification record.
+Run `uv run python -m workbench.mcp_server` over stdio from an MCP-compatible client. Configure `WORKBENCH_API_URL`, `WORKBENCH_PROJECT_ID`, `API_SHARED_SECRET`, and (production) `WORKBENCH_ACCESS_TOKEN`. The token is verified by the same API. Tools: `corpus_search`, `evidence_lookup`, `run_status`. There is no upload, write, cancellation or start-run tool. The real MCP client integration test starts an actual API subprocess and exercises tool listing, scoped search and rejected collection access. It requires the disposable test database described in [Development](DEVELOPMENT.md); consult [Verification scope](DEVELOPMENT.md#verification-scope) for CI evidence and limits.

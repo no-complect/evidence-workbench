@@ -8,7 +8,8 @@ from uuid import UUID
 from . import db
 from .runs import create_run
 from .auth import authorize
-from .config import settings, ROOT
+from .config import settings
+from .constants import RESULTS
 from .context import estimate_tokens
 from .judge_policy import rubric
 from .evidence import for_run, verify
@@ -159,7 +160,7 @@ def evaluate(args):
         'max_cost_usd': args.max_cost_usd,
         'judge_cost_charged_estimate': per_run - remaining_judge
     }
-    out = ROOT / 'evals/results/live'
+    out = RESULTS / 'live'
     out.mkdir(parents=True, exist_ok=True)
     path = out / f'{eid}.json'
     path.write_text(

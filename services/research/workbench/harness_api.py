@@ -1,5 +1,6 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends
+from . import responses as r
 from . import db, harness, environment_models, harness_presets
 from .models import HarnessPresetCreate, HarnessPreset
 from .auth import identity
@@ -21,7 +22,7 @@ class ContractValidation(StrictModel):
     payload: str = Field(max_length=16000)
 
 
-@router.get('/studio')
+@router.get('/studio', response_model=r.HarnessStudioState, response_model_exclude_unset=True)
 def studio(project_id: UUID, user=Depends(identity)):
     authorize(project_id, user)
     return {'schemas': {key: model.model_json_schema() for key, model in SCHEMAS.items()},
@@ -29,7 +30,7 @@ def studio(project_id: UUID, user=Depends(identity)):
             'context_policy': POLICY, 'context_caps': CAPS}
 
 
-@router.post('/validate-contract')
+@router.post('/validate-contract', response_model=r.ContractValidationResult, response_model_exclude_unset=True)
 def validate_contract(project_id: UUID, body: ContractValidation, user=Depends(identity)):
     authorize(project_id, user)
     try:
@@ -40,7 +41,7 @@ def validate_contract(project_id: UUID, body: ContractValidation, user=Depends(i
                 'type': error['type']} for error in exc.errors(include_input=False, include_context=False)]}
 
 
-@router.get('/models')
+@router.get('/models', response_model=r.ModelCatalog, response_model_exclude_unset=True)
 def models(project_id: UUID, user=Depends(identity)):
     return environment_models.catalog(project_id, user)
 
@@ -55,32 +56,32 @@ def save_preset(project_id: UUID, body: HarnessPresetCreate, user=Depends(identi
     return harness_presets.save_preset(project_id, user, body)
 
 
-@router.get('')
+@router.get('', response_model=r.HarnessState, response_model_exclude_unset=True)
 def state(project_id: UUID, user=Depends(identity)):
     return db.serial(harness.list_state(project_id, user))
 
 
-@router.post('/connections', status_code=201)
+@router.post('/connections', status_code=201, response_model=r.ProviderConnection, response_model_exclude_unset=True)
 def connect(project_id: UUID, body: ConnectionCreate, user=Depends(identity)):
     return db.serial(harness.create_connection(project_id, user, body))
 
 
-@router.post('/connections/{connection_id}/discover')
+@router.post('/connections/{connection_id}/discover', response_model=list[str], response_model_exclude_unset=True)
 def discover(project_id: UUID, connection_id: UUID, user=Depends(identity)):
     return harness.discover(project_id, connection_id, user)
 
 
-@router.post('/connections/{connection_id}/disconnect')
+@router.post('/connections/{connection_id}/disconnect', response_model=r.StatusResponse, response_model_exclude_unset=True)
 def disconnect(project_id: UUID, connection_id: UUID, user=Depends(identity)):
     harness.disconnect(project_id, connection_id, user)
     return {'status': 'disconnected'}
 
 
-@router.post('/connections/{connection_id}/verify')
+@router.post('/connections/{connection_id}/verify', response_model=r.ProviderCheck, response_model_exclude_unset=True)
 def verify(project_id: UUID, connection_id: UUID, body: ModelVerification, user=Depends(identity)):
     return db.serial(harness.verify_model(project_id, connection_id, user, body))
 
 
-@router.post('/revisions', status_code=201)
+@router.post('/revisions', status_code=201, response_model=r.HarnessRevision, response_model_exclude_unset=True)
 def revision(project_id: UUID, body: HarnessCreate, user=Depends(identity)):
     return db.serial(harness.save_revision(project_id, user, body))

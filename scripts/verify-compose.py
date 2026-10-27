@@ -1,5 +1,6 @@
 """Build and verify an isolated, disposable local stack without paid providers."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,27 @@ TERMINAL = {'completed', 'partial', 'failed', 'cancelled'}
 def require(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def verify_installed_files(compose):
+    """A cached wheel must match the source and assets used for this image build."""
+    paths = [path for directory in ('services/research/workbench', 'prompts',
+                                    'fixtures', 'db/migrations')
+             for path in (ROOT / directory).rglob('*')
+             if path.is_file() and '__pycache__' not in path.parts]
+    paths += [ROOT / 'evals/cases.json', ROOT / 'evals/judge-cases.json']
+    expected = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in paths}
+    probe = '''
+import hashlib, json, sys
+from workbench.constants import PACKAGE_ROOT, ROOT
+for name, digest in json.load(sys.stdin).items():
+    prefix = 'services/research/workbench/'
+    path = PACKAGE_ROOT / name.removeprefix(prefix) if name.startswith(prefix) else ROOT / name
+    assert path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == digest, name
+print('PASS: installed backend code and runtime assets match the build inputs')
+'''
+    compose('exec', '-T', 'api', 'python', '-c', probe, input=json.dumps(expected))
 
 
 class BrowserAPI:
@@ -170,7 +192,7 @@ def verify(api, recreate, pause_ingestion):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--browser', action='store_true',
-                        help='Also run existing collection and research browser journeys')
+                        help='Also run the complete desktop/mobile browser suite')
     parser.add_argument('--output', type=Path, default=ROOT / '.runtime/compose-verification')
     args = parser.parse_args()
     require(shutil.which('docker'), 'Docker Engine and Compose v2 are required')
@@ -199,10 +221,10 @@ def main():
         command = ['docker', 'compose', '--project-name', project, '--project-directory',
                    str(ROOT), '--env-file', str(empty_env), '-f', str(ROOT / 'compose.yaml')]
 
-        def compose(*arguments, capture=False, check=True, timeout=300):
+        def compose(*arguments, capture=False, check=True, timeout=300, input=None):
             return subprocess.run(command + list(arguments), cwd=ROOT, env=env, check=check,
                                   text=True, stdout=subprocess.PIPE if capture else None,
-                                  stderr=subprocess.STDOUT if capture else None, timeout=timeout)
+                                  stderr=subprocess.STDOUT if capture else None, timeout=timeout, input=input)
 
         def origin(service, port):
             address = compose('port', service, str(port), capture=True).stdout.strip()
@@ -214,6 +236,7 @@ def main():
             compose('version')
             compose('build', timeout=900)
             compose('up', '-d', '--wait', '--wait-timeout', '240')
+            verify_installed_files(compose)
             web = origin('web', 3000)
             api = BrowserAPI(web)
             require(api.request('bootstrap')['projects'], 'Initial seed is missing')
@@ -227,8 +250,7 @@ def main():
             result = verify(api, recreate, lambda: compose('stop', 'ingestion-worker'))
             if args.browser:
                 browser_env = {**env, 'WORKBENCH_WEB_URL': api.origin}
-                subprocess.run(['npm', '--prefix', 'apps/web', 'run', 'test:e2e', '--',
-                                'e2e/collections.spec.ts', 'e2e/journey.spec.ts'],
+                subprocess.run(['npm', '--prefix', 'apps/web', 'run', 'test:e2e'],
                                cwd=ROOT, env=browser_env, check=True, timeout=600)
             result.update(browser=args.browser, provider_calls=False, compose_project=project)
             (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
