@@ -1,4 +1,5 @@
 "use client";
+
 import { type Dispatch } from "react";
 import {
   SlidersHorizontal,
@@ -10,7 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HelpTip, Tooltip } from "@/components/ui/tooltip";
-import { ContextView } from "@/components/context-view";
+import { ContextView } from "@/features/context/context-view";
 import type { Detail } from "@/lib/contracts";
 import type { HarnessConfiguration } from "../../../../../packages/contracts/models";
 import type {

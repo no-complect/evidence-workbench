@@ -1,11 +1,14 @@
 """Author-annotated judge challenges and offline, coverage-aware scoring."""
+
 import json
 from typing import Literal
 from uuid import NAMESPACE_URL, uuid5
+
 from pydantic import Field, model_validator
+
 from .constants import ROOT
 from .judge_policy import digest, prepare_claim
-from .models import StrictModel, Claim, SemanticJudgment
+from .models import Claim, SemanticJudgment, StrictModel
 
 LABELS = ('supported', 'contradicted', 'insufficient')
 CASES = ROOT / 'evals/judge-cases.json'
@@ -60,8 +63,11 @@ def prepare(case):
     evidence = {}
     for index, passage in enumerate(case.passages):
         eid = str(uuid5(NAMESPACE_URL, f'judge-calibration/{case.id}/{index}'))
-        evidence[eid] = {'text': passage, 'metadata': {},
-                         'version_id': str(uuid5(NAMESPACE_URL, digest(passage)))}
+        evidence[eid] = {
+            'text': passage,
+            'metadata': {},
+            'version_id': str(uuid5(NAMESPACE_URL, digest(passage))),
+        }
     claim = Claim(text=case.claim, evidence_ids=list(evidence), support='model_assessed')
     return prepare_claim(claim, evidence)
 
@@ -82,21 +88,39 @@ def score(cases, predictions):
         label = prediction.judgment.label if prediction and prediction.judgment else None
         if label is not None:
             matrix[case.expected][label] += 1
-        rows.append({'case_id': case.id, 'category': case.category,
-                     'expected': case.expected, 'predicted': label,
-                     'status': prediction.status if prediction else 'missing',
-                     'correct': label == case.expected if label is not None else None})
+        rows.append(
+            {
+                'case_id': case.id,
+                'category': case.category,
+                'expected': case.expected,
+                'predicted': label,
+                'status': prediction.status if prediction else 'missing',
+                'correct': label == case.expected if label is not None else None,
+            }
+        )
     graded = sum(sum(row.values()) for row in matrix.values())
     non_support = sum(sum(matrix[label].values()) for label in LABELS if label != 'supported')
     false_support = sum(matrix[label]['supported'] for label in LABELS if label != 'supported')
-    recall = {label: matrix[label][label] / sum(matrix[label].values())
-              if sum(matrix[label].values()) else None for label in LABELS}
-    return {'total': len(cases), 'graded': graded, 'coverage': graded / len(cases) if cases else None,
-            'accuracy_on_graded': sum(matrix[label][label] for label in LABELS) / graded if graded else None,
-            'false_support_rate': false_support / non_support if non_support else None,
-            'non_supported_graded': non_support, 'false_support_count': false_support,
-            'recall_on_graded': recall,
-            'confusion_matrix': matrix, 'cases': rows,
-            'limitations': 'Small author-annotated synthetic development set, not held-out ground truth. '
-                'Rates cover graded cases only; inspect coverage, denominators and individual failures. '
-                'Scores measure judge agreement, not research quality or rationale correctness.'}
+    recall = {
+        label: matrix[label][label] / sum(matrix[label].values())
+        if sum(matrix[label].values())
+        else None
+        for label in LABELS
+    }
+    return {
+        'total': len(cases),
+        'graded': graded,
+        'coverage': graded / len(cases) if cases else None,
+        'accuracy_on_graded': sum(matrix[label][label] for label in LABELS) / graded
+        if graded
+        else None,
+        'false_support_rate': false_support / non_support if non_support else None,
+        'non_supported_graded': non_support,
+        'false_support_count': false_support,
+        'recall_on_graded': recall,
+        'confusion_matrix': matrix,
+        'cases': rows,
+        'limitations': 'Small author-annotated synthetic development set, not held-out ground truth. '
+        'Rates cover graded cases only; inspect coverage, denominators and individual failures. '
+        'Scores measure judge agreement, not research quality or rationale correctness.',
+    }

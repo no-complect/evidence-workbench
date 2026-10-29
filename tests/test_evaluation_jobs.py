@@ -1,10 +1,13 @@
 """Exercise queue authorization, idempotency, real execution and crash recovery."""
+
 import threading
 from contextlib import contextmanager
+
 import pytest
 from workbench import db
-from workbench.evaluation_worker import lease, execute_job, EvaluationLeaseLost
-from workbench.worker import lease as research_lease, execute_run
+from workbench.evaluation_worker import EvaluationLeaseLost, execute_job, lease
+from workbench.worker import execute_run
+from workbench.worker import lease as research_lease
 
 pytestmark = pytest.mark.integration
 
@@ -34,7 +37,7 @@ def research_executor():
                 if run:
                     execute_run(run)
                 else:
-                    stop.wait(.02)
+                    stop.wait(0.02)
         except Exception as exc:
             errors.append(exc)
 
@@ -64,11 +67,15 @@ def test_evaluation_authorization_idempotency_and_queue_cancellation(client):
     assert client.get(f'/api/projects/{unknown}/evaluation-jobs/{job["id"]}').status_code == 404
     client.post(path + f'/{job["id"]}/cancel')
     assert client.get(path + f'/{job["id"]}').json()['status'] == 'cancelled'
-    assert client.post(path, json={**body, 'split': 'live', 'idempotency_key': db.uid()}).status_code == 422
+    assert (
+        client.post(path, json={**body, 'split': 'live', 'idempotency_key': db.uid()}).status_code
+        == 422
+    )
 
 
 def test_evaluation_executes_and_reuses_cases_after_worker_restart(client, monkeypatch):
     from workbench import evaluation_worker
+
     pid = project(client)
     job, _ = submit(client, pid)
     original = evaluation_worker.run_evaluation
@@ -98,8 +105,9 @@ def test_evaluation_executes_and_reuses_cases_after_worker_restart(client, monke
     detail = client.get(f'/api/projects/{pid}/evaluation-jobs/{job["id"]}').json()
     assert detail['status'] == 'completed', detail
     assert detail['progress']['completed'] == detail['progress']['total'] == 15
-    result = db.one('SELECT * FROM evaluation_runs WHERE id=%s AND project_id=%s',
-                    (detail['result_id'], pid))
+    result = db.one(
+        'SELECT * FROM evaluation_runs WHERE id=%s AND project_id=%s', (detail['result_id'], pid)
+    )
     assert len(result['raw']) == 15 and len(result['results']) == 3
     children = db.all_rows('SELECT * FROM research_runs WHERE evaluation_job_id=%s', (job['id'],))
     assert len(children) == 15  # the completed first case was not executed a second time
@@ -110,29 +118,38 @@ def test_evaluation_executes_and_reuses_cases_after_worker_restart(client, monke
     assert all(r['mode'] == 'demo' for r in children)
     upload = client.post(
         f'/api/projects/{pid}/collections/{job["id"]}/sources',
-        files={'file': ('unknown.txt', b'Unknown collection', 'text/plain')})
+        files={'file': ('unknown.txt', b'Unknown collection', 'text/plain')},
+    )
     assert upload.status_code == 404
     upload = client.post(
         f'/api/projects/{pid}/collections/{result["versions"]["collection_id"]}/sources',
-        files={'file': ('attempt.txt', b'Mutate the benchmark corpus', 'text/plain')})
+        files={'file': ('attempt.txt', b'Mutate the benchmark corpus', 'text/plain')},
+    )
     assert upload.status_code == 409 and 'read-only' in upload.json()['detail']
 
 
 def test_active_evaluation_cancellation_stops_child_runs(client, monkeypatch):
     from workbench import evaluation_worker
-    from workbench.models import RunCreate, EXAMPLES
-    from workbench.runs import create_run
     from workbench.config import DEMO_USER
+    from workbench.models import EXAMPLES, RunCreate
+    from workbench.runs import create_run
+
     pid = project(client)
     job, _ = submit(client, pid)
 
     def cancel_during_execution(*args, **kwargs):
         collection = db.uid()
-        db.execute("INSERT INTO collections(id,project_id,name,embedding_config) "
-                   "VALUES(%s,%s,'Cancel test','demo-v1')", (collection, pid))
-        create_run(pid, RunCreate(collection_id=collection, question=EXAMPLES[0],
-                                 idempotency_key=db.uid()), DEMO_USER,
-                   evaluation_job_id=job['id'])
+        db.execute(
+            'INSERT INTO collections(id,project_id,name,embedding_config) '
+            "VALUES(%s,%s,'Cancel test','demo-v1')",
+            (collection, pid),
+        )
+        create_run(
+            pid,
+            RunCreate(collection_id=collection, question=EXAMPLES[0], idempotency_key=db.uid()),
+            DEMO_USER,
+            evaluation_job_id=job['id'],
+        )
         response = client.post(f'/api/projects/{pid}/evaluation-jobs/{job["id"]}/cancel')
         assert response.status_code == 200
         kwargs['check_active']()
@@ -141,42 +158,93 @@ def test_active_evaluation_cancellation_stops_child_runs(client, monkeypatch):
     leased = lease('cancel-evaluator')
     assert str(leased['id']) == job['id']
     execute_job(leased)
-    assert db.one('SELECT status FROM evaluation_jobs WHERE id=%s',
-                  (job['id'],))['status'] == 'cancelled'
+    assert (
+        db.one('SELECT status FROM evaluation_jobs WHERE id=%s', (job['id'],))['status']
+        == 'cancelled'
+    )
     children = db.all_rows('SELECT * FROM research_runs WHERE evaluation_job_id=%s', (job['id'],))
     assert children and all(r['cancel_requested'] and r['status'] == 'cancelled' for r in children)
 
 
 def test_benchmark_drift_fails_before_any_research_run(client, monkeypatch):
     from workbench import evaluation_worker
+
     pid = project(client)
     job, _ = submit(client, pid)
     monkeypatch.setattr(evaluation_worker, 'benchmark_versions', lambda: {'code_sha256': 'changed'})
     leased = lease('drift-evaluator')
     assert str(leased['id']) == job['id']
     execute_job(leased)
-    assert db.one('SELECT status FROM evaluation_jobs WHERE id=%s', (job['id'],))['status'] == 'failed'
+    assert (
+        db.one('SELECT status FROM evaluation_jobs WHERE id=%s', (job['id'],))['status'] == 'failed'
+    )
     assert not db.all_rows('SELECT id FROM research_runs WHERE evaluation_job_id=%s', (job['id'],))
 
 
 def test_collection_evaluation_freezes_sources_expectations_and_configuration(client):
     from workbench.models import EXAMPLES
+
     pid = project(client)
-    collection = client.post(f'/api/projects/{pid}/collections', json={'name':'Evaluation collection','embedding_config':'demo-v1'}).json()['id']
+    collection = client.post(
+        f'/api/projects/{pid}/collections',
+        json={'name': 'Evaluation collection', 'embedding_config': 'demo-v1'},
+    ).json()['id']
     endpoint = f'/api/projects/{pid}/collections/{collection}/sources'
     old_text = 'Original retention requirement: security controls are required for the AI assistant. Investigate security evidence and unresolved assumptions. Keep audit data for seven days and restrict access to authorized staff only. '
-    upload = client.post(endpoint, files={'file':('security.md',old_text.encode(),'text/markdown')})
+    upload = client.post(
+        endpoint, files={'file': ('security.md', old_text.encode(), 'text/markdown')}
+    )
     assert upload.status_code == 201, upload.text
     original_version = upload.json()['version_id']
-    custom = {'collection_id':collection,'mode':'demo','harness_config':{'system_instruction':'Preserve missing evidence.','context_policy':'strict'},
-              'cases':[{'question':EXAMPLES[1],'query':'security retention','expected_sources':['security.md']},
-                       {'question':EXAMPLES[1],'query':'security retention','expect_no_evidence':True}]}
+    custom = {
+        'collection_id': collection,
+        'mode': 'demo',
+        'harness_config': {
+            'system_instruction': 'Preserve missing evidence.',
+            'context_policy': 'strict',
+        },
+        'cases': [
+            {
+                'question': EXAMPLES[1],
+                'query': 'security retention',
+                'expected_sources': ['security.md'],
+            },
+            {'question': EXAMPLES[1], 'query': 'security retention', 'expect_no_evidence': True},
+        ],
+    }
     job, body = submit(client, pid, custom=custom)
     path = f'/api/projects/{pid}/evaluation-jobs'
-    assert client.post(path,json=body).json()['id'] == job['id']
-    assert client.post(path,json={**body,'custom':{**custom,'cases':[{'question':EXAMPLES[1],'query':'security','expected_sources':['wrong.md']}]}}).status_code == 409
+    assert client.post(path, json=body).json()['id'] == job['id']
+    assert (
+        client.post(
+            path,
+            json={
+                **body,
+                'custom': {
+                    **custom,
+                    'cases': [
+                        {
+                            'question': EXAMPLES[1],
+                            'query': 'security',
+                            'expected_sources': ['wrong.md'],
+                        }
+                    ],
+                },
+            },
+        ).status_code
+        == 409
+    )
     assert job['request']['custom']['version_ids'] == [original_version]
-    replacement = client.post(endpoint, files={'file':('security.md',b'Replacement retention guidance. This version must not replace the pinned source of an already queued evaluation.','text/markdown')})
+    replacement = client.post(
+        endpoint,
+        files={
+            'file': (
+                'security.md',
+                b'Replacement retention guidance. This version must not replace the pinned source of an already queued evaluation.',
+                'text/markdown',
+            )
+        },
+    )
     assert replacement.status_code == 201
     with research_executor():
         leased = lease('collection-evaluator')
@@ -190,13 +258,31 @@ def test_collection_evaluation_freezes_sources_expectations_and_configuration(cl
     assert all(r['request']['harness_config']['context_policy'] == 'strict' for r in children)
     result = db.one('SELECT * FROM evaluation_runs WHERE id=%s', (job['id'],))
     assert result['versions']['source_version_ids'] == [original_version]
-    assert len(result['raw']) == 6 and result['versions']['expectations'][0]['expected_sources'] == ['security.md']
+    assert len(result['raw']) == 6 and result['versions']['expectations'][0][
+        'expected_sources'
+    ] == ['security.md']
     assert all(r['status'] == 'completed' for r in result['raw'])
     assert all(r['question'] == EXAMPLES[1] for r in result['raw'])
-    assert all(r['expected_sources'] == ['security.md'] for r in result['raw'] if r['case'] == 'custom-1')
+    assert all(
+        r['expected_sources'] == ['security.md'] for r in result['raw'] if r['case'] == 'custom-1'
+    )
     assert all(r['expect_no_evidence'] is True for r in result['raw'] if r['case'] == 'custom-2')
-    assert all(r['checks']['abstained_without_claims'] is False for r in result['raw'] if r['case'] == 'custom-2')
+    assert all(
+        r['checks']['abstained_without_claims'] is False
+        for r in result['raw']
+        if r['case'] == 'custom-2'
+    )
     assert any('Original retention' in c['text'] for r in children for c in r['report']['claims'])
-    assert client.post(path,json={**body,'idempotency_key':db.uid(),'custom':{**custom,'mode':'live'}}).status_code == 409
+    assert (
+        client.post(
+            path, json={**body, 'idempotency_key': db.uid(), 'custom': {**custom, 'mode': 'live'}}
+        ).status_code
+        == 409
+    )
     other = project(client)
-    assert client.post(f'/api/projects/{other}/evaluation-jobs', json={**body,'idempotency_key':db.uid()}).status_code == 409
+    assert (
+        client.post(
+            f'/api/projects/{other}/evaluation-jobs', json={**body, 'idempotency_key': db.uid()}
+        ).status_code
+        == 409
+    )

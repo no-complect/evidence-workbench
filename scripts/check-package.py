@@ -1,9 +1,10 @@
 """Build and exercise the wheel away from the checkout, without service calls."""
+
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 from zipfile import ZipFile
 
 from workbench.evaluate import fingerprint
@@ -20,10 +21,23 @@ def main():
         installed = folder / 'installed'
         with ZipFile(wheel) as archive:
             archive.extractall(installed)
-        env = {key: value for key, value in os.environ.items()
-               if not key.startswith(('OPENAI_', 'ANTHROPIC_', 'TAVILY_', 'SUPABASE_',
-                                      'API_', 'DATABASE_', 'WORKBENCH_', 'PYTHONPATH'))}
-        code = '''
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith(
+                (
+                    'OPENAI_',
+                    'ANTHROPIC_',
+                    'TAVILY_',
+                    'SUPABASE_',
+                    'API_',
+                    'DATABASE_',
+                    'WORKBENCH_',
+                    'PYTHONPATH',
+                )
+            )
+        }
+        code = """
 import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
@@ -43,9 +57,10 @@ assert fingerprint() == sys.argv[2], 'Wheel and checkout implementation hashes d
 assert not RESULTS.is_relative_to(Path(workbench.__file__).parent)
 assert app.openapi()['paths']
 print('PASS: wheel imports API, prompts, migrations, fixtures and evaluation cases; fingerprints match')
-'''
-        subprocess.run([sys.executable, '-c', code, str(installed), expected],
-                       cwd=folder, env=env, check=True)
+"""
+        subprocess.run(
+            [sys.executable, '-c', code, str(installed), expected], cwd=folder, env=env, check=True
+        )
 
 
 if __name__ == '__main__':

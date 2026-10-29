@@ -1,21 +1,19 @@
-from typing import Protocol
 import tempfile
 from pathlib import Path
+from typing import Protocol
+
 import httpx
+
 from .config import settings
 
 
 class ObjectStorage(Protocol):
+    def put(self, key: str, data: bytes, content_type: str) -> None: ...
 
-    def put(self, key: str, data: bytes, content_type: str) -> None:
-        ...
-
-    def get(self, key: str) -> bytes:
-        ...
+    def get(self, key: str) -> bytes: ...
 
 
 class LocalStorage:
-
     def path(self, key):
         base = settings().storage_path.resolve()
         path = (base / key).resolve()
@@ -27,8 +25,9 @@ class LocalStorage:
         path = self.path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
-            with tempfile.NamedTemporaryFile(dir=path.parent, prefix='.upload-',
-                                             delete=False) as file:
+            with tempfile.NamedTemporaryFile(
+                dir=path.parent, prefix='.upload-', delete=False
+            ) as file:
                 file.write(data)
                 temporary = Path(file.name)
             try:
@@ -41,7 +40,6 @@ class LocalStorage:
 
 
 class SupabaseStorage:
-
     def url(self, key):
         if '..' in key or not all(c.isalnum() or c in '/-.' for c in key):
             raise ValueError('Invalid object key')
@@ -55,13 +53,12 @@ class SupabaseStorage:
         return {'Authorization': f'Bearer {key}', 'apikey': key}
 
     def put(self, key, data, content_type):
-        response = httpx.post(self.url(key),
-                              headers={
-                                  **self.headers(), 'Content-Type': content_type,
-                                  'x-upsert': 'false'
-                              },
-                              content=data,
-                              timeout=30)
+        response = httpx.post(
+            self.url(key),
+            headers={**self.headers(), 'Content-Type': content_type, 'x-upsert': 'false'},
+            content=data,
+            timeout=30,
+        )
         if response.status_code not in (200, 201, 400, 409):
             response.raise_for_status()
         if response.status_code == 400 and 'Duplicate' not in response.text:

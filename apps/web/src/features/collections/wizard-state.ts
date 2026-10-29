@@ -1,14 +1,17 @@
 import type { CollectionSetup } from "../../../../../packages/contracts/models";
+
 export type CollectionDraft = Pick<
   CollectionSetup,
   "name" | "purpose" | "source_kind" | "embedding_config"
 >;
+
 export const initialCollectionDraft: CollectionDraft = {
   name: "Architecture review",
   purpose: "security retention",
   source_kind: "starter",
   embedding_config: "demo-v1",
 };
+
 export function collectionRequest(
   draft: CollectionDraft,
   key: string,

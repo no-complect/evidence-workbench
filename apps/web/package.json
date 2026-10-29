@@ -10,8 +10,8 @@
     "test:e2e": "playwright test",
     "test:proxy": "node --test tests/api-proxy.test.cjs",
     "test:ui-state": "node --test tests/ui-state.test.cjs",
-    "format": "prettier --write src e2e supabase-e2e tests playwright.supabase.config.ts",
-    "format:check": "prettier --check src e2e supabase-e2e tests playwright.supabase.config.ts",
+    "format": "prettier --write src e2e supabase-e2e tests playwright.config.ts playwright.supabase.config.ts next.config.ts eslint.config.mjs postcss.config.mjs tsconfig.json package.json",
+    "format:check": "prettier --check src e2e supabase-e2e tests playwright.config.ts playwright.supabase.config.ts next.config.ts eslint.config.mjs postcss.config.mjs tsconfig.json package.json",
     "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {

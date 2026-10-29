@@ -1,5 +1,7 @@
 "use client";
+
 import { useState } from "react";
+
 import {
   ArrowUpRight,
   BookOpen,
@@ -9,9 +11,11 @@ import {
   Search,
   TextQuote,
 } from "lucide-react";
-import { Empty } from "./empty";
-import { Tooltip, HelpTip } from "./ui/tooltip";
+
+import { Empty } from "@/components/empty";
+import { Tooltip, HelpTip } from "@/components/ui/tooltip";
 import type { Evidence, Report } from "@/lib/contracts";
+
 import styles from "./evidence-board.module.css";
 
 type Finding = {

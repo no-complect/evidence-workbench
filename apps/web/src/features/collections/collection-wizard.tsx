@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, CheckCheck, FolderPlus, Loader2, X } from "lucide-react";
@@ -27,6 +28,7 @@ import styles from "./collections.module.css";
 import notebook from "@/features/workbench/notebook.module.css";
 
 const steps = ["Purpose", "Sources", "Review", "Try it"];
+
 export function CollectionWizard({
   projectId,
   collections,

@@ -2,7 +2,7 @@
 
 import { Activity, ArrowUpRight, Loader2, Check } from "lucide-react";
 
-import { Empty } from "./empty";
+import { Empty } from "@/components/empty";
 import type { Evidence, RunEvent } from "@/lib/api";
 
 export function ActivityView({

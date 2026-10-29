@@ -85,6 +85,7 @@ jobs:
         working-directory: apps/web
       - run: python3 scripts/check-publication.py
       - run: uv run ruff check services tests scripts
+      - run: uv run ruff format --check services tests scripts
       - run: uv run python scripts/check-contracts.py
       - name: Verify wheel runtime assets
         run: uv run --frozen python scripts/check-package.py

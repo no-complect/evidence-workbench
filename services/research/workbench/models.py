@@ -1,13 +1,16 @@
-from typing import Literal, Annotated
-from uuid import UUID
 from datetime import datetime
+from typing import Annotated, Literal
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 DEFAULT_QUESTION = 'Compare three approaches to deploying an enterprise AI assistant. Investigate security, operating costs, retrieval quality, and maintenance. Support recommendations with evidence and identify unresolved questions.'
 EXAMPLES = [
-    DEFAULT_QUESTION, 'What security controls are required for the AI assistant?',
+    DEFAULT_QUESTION,
+    'What security controls are required for the AI assistant?',
     'Compare the operating costs of the three proposals.',
-    'What evidence is stale or contradictory?', 'What is the measured latency at one million users?'
+    'What evidence is stale or contradictory?',
+    'What is the measured latency at one million users?',
 ]
 TOPICS = ['security', 'cost', 'retrieval', 'maintenance']
 
@@ -55,7 +58,9 @@ class RunCreate(StrictModel):
 class EvaluationCaseInput(StrictModel):
     question: str = Field(min_length=10, max_length=4000)
     query: str = Field(min_length=3, max_length=1000)
-    expected_sources: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(default_factory=list, max_length=20)
+    expected_sources: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(
+        default_factory=list, max_length=20
+    )
     expect_no_evidence: bool = False
     expected_disclosure: str = Field('', max_length=200)
 
@@ -135,11 +140,13 @@ class SynthesisClaim(Claim):
     support: Literal['model_assessed'] = Field(
         description='Model synthesis or paraphrase, not a verified direct quotation or independent judgment.',
         # Some provider schema converters omit const but support a single-value enum.
-        json_schema_extra={'enum': ['model_assessed']})
+        json_schema_extra={'enum': ['model_assessed']},
+    )
 
 
 class SynthesisReport(Report):
     """Live writer output; stored reports also support verified fixture excerpts."""
+
     claims: list[SynthesisClaim]
 
 

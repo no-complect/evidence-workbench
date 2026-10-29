@@ -5,6 +5,7 @@ export type UploadRow = {
   status: "queued" | "uploading" | "failed" | "invalid";
   error?: string;
 };
+
 export type UploadAction =
   | { type: "add"; rows: UploadRow[] }
   | {
@@ -14,6 +15,7 @@ export type UploadAction =
     }
   | { type: "clear"; collectionId: string }
   | { type: "submitted"; id: string };
+
 export function uploadReducer(
   state: UploadRow[],
   action: UploadAction,

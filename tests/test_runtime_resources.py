@@ -1,4 +1,5 @@
 """Connection ownership, transaction isolation and per-request identity regressions."""
+
 import httpx
 import pytest
 from fastapi import HTTPException
@@ -18,7 +19,9 @@ def test_pool_reuses_connections_rolls_back_and_keeps_lock_sessions_separate(dat
                 conn.execute('INSERT INTO pool_rollback_probe VALUES(1)')
                 raise ValueError('rollback')
         with db.connection() as conn:
-            assert conn.execute('SELECT count(*) AS n FROM pool_rollback_probe').fetchone()['n'] == 0
+            assert (
+                conn.execute('SELECT count(*) AS n FROM pool_rollback_probe').fetchone()['n'] == 0
+            )
             assert conn.execute('SELECT pg_backend_pid()').fetchone()['pg_backend_pid'] == pid
             with db.dedicated_connection() as lock:
                 assert lock.execute('SELECT pg_backend_pid()').fetchone()['pg_backend_pid'] != pid
@@ -29,8 +32,12 @@ def test_pool_reuses_connections_rolls_back_and_keeps_lock_sessions_separate(dat
 
 
 def test_shared_auth_transport_verifies_each_token_without_retaining_user_headers(monkeypatch):
-    profile = Settings(_env_file=None, auth_mode='supabase', supabase_url='https://synthetic.example',
-                       supabase_anon_key='synthetic-public')
+    profile = Settings(
+        _env_file=None,
+        auth_mode='supabase',
+        supabase_url='https://synthetic.example',
+        supabase_anon_key='synthetic-public',
+    )
     monkeypatch.setattr(auth, 'settings', lambda: profile)
     observed = []
 

@@ -1,15 +1,17 @@
-from pathlib import Path
 from functools import lru_cache
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
-from pydantic import model_validator, Field, ValidationError
+
+from pydantic import Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .constants import ROOT, DEMO_USER, DEMO_PROJECT, DEMO_COLLECTION  # re-export
+from .constants import DEMO_COLLECTION, DEMO_PROJECT, DEMO_USER, ROOT  # re-export
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', extra='ignore', env_ignore_empty=True,
-                                     hide_input_in_errors=True)
+    model_config = SettingsConfigDict(
+        env_file='.env', extra='ignore', env_ignore_empty=True, hide_input_in_errors=True
+    )
     app_env: str = 'local'
     auth_mode: str = 'demo'
     database_url: str = 'postgresql://workbench:workbench@localhost:55432/workbench'
@@ -49,7 +51,9 @@ class Settings(BaseSettings):
             issues.append('API_SHARED_SECRET is required')
         if self.auth_mode == 'supabase' or self.storage_backend == 'supabase':
             if not valid_service_origin(self.supabase_url, production=self.app_env == 'production'):
-                issues.append('SUPABASE_URL must be an HTTPS origin (loopback HTTP is allowed locally)')
+                issues.append(
+                    'SUPABASE_URL must be an HTTPS origin (loopback HTTP is allowed locally)'
+                )
         if self.auth_mode == 'supabase' and not self.supabase_anon_key.strip():
             issues.append('SUPABASE_ANON_KEY is required for Supabase authentication')
         if self.storage_backend == 'supabase':
@@ -60,13 +64,17 @@ class Settings(BaseSettings):
         if self.app_env == 'production':
             if self.auth_mode != 'supabase':
                 issues.append('Production rejects demo authentication; set AUTH_MODE=supabase')
-            if len(self.api_shared_secret.strip()) < 32 or self.api_shared_secret.startswith('local-'):
+            if len(self.api_shared_secret.strip()) < 32 or self.api_shared_secret.startswith(
+                'local-'
+            ):
                 issues.append('Production requires a random API_SHARED_SECRET (32+ characters)')
             if self.storage_backend != 'supabase':
                 issues.append('Production requires STORAGE_BACKEND=supabase')
             if 'database_url' not in self.model_fields_set or not valid_database(self.database_url):
-                issues.append('DATABASE_URL must explicitly use a PostgreSQL direct/session TLS connection '
-                              '(sslmode=require, verify-ca or verify-full); no local default')
+                issues.append(
+                    'DATABASE_URL must explicitly use a PostgreSQL direct/session TLS connection '
+                    '(sslmode=require, verify-ca or verify-full); no local default'
+                )
         if issues:
             raise ValueError('; '.join(issues))
         self.supabase_url = self.supabase_url.rstrip('/')
@@ -76,11 +84,22 @@ class Settings(BaseSettings):
 def valid_service_origin(value, *, production):
     try:
         url = urlsplit(value)
-        return bool(url.hostname and url.port != 0 and not url.username and not url.password
-                    and not url.query and not url.fragment and url.path in {'', '/'}
-                    and not any(char.isspace() or char == '\\' for char in value)
-                    and (url.scheme == 'https' or not production and url.scheme == 'http'
-                         and url.hostname in {'localhost', '127.0.0.1', '::1'}))
+        return bool(
+            url.hostname
+            and url.port != 0
+            and not url.username
+            and not url.password
+            and not url.query
+            and not url.fragment
+            and url.path in {'', '/'}
+            and not any(char.isspace() or char == '\\' for char in value)
+            and (
+                url.scheme == 'https'
+                or not production
+                and url.scheme == 'http'
+                and url.hostname in {'localhost', '127.0.0.1', '::1'}
+            )
+        )
     except ValueError:
         return False
 
@@ -88,11 +107,15 @@ def valid_service_origin(value, *, production):
 def valid_database(value):
     try:
         url = urlsplit(value)
-        return bool(url.scheme in {'postgres', 'postgresql'} and url.hostname and url.port != 0
-                    and url.hostname not in {'localhost', '127.0.0.1', '::1', 'db'}
-                    and url.path.strip('/') and not url.fragment
-                    and parse_qs(url.query).get('sslmode') in
-                    [['require'], ['verify-ca'], ['verify-full']])
+        return bool(
+            url.scheme in {'postgres', 'postgresql'}
+            and url.hostname
+            and url.port != 0
+            and url.hostname not in {'localhost', '127.0.0.1', '::1', 'db'}
+            and url.path.strip('/')
+            and not url.fragment
+            and parse_qs(url.query).get('sslmode') in [['require'], ['verify-ca'], ['verify-full']]
+        )
     except ValueError:
         return False
 
@@ -101,11 +124,19 @@ def configuration_status(s):
     """Authorized bootstrap metadata: static capability decisions, never secret values/probes."""
     notices = []
     if s.live_enabled and not s.openai_api_key:
-        notices.append('Live research is unavailable. Set OPENAI_API_KEY in the server environment '
-                       'for RAG embeddings, then restart the API and both workers. Demo remains available.')
-    return {'web_search_enabled': bool(s.live_enabled and s.openai_api_key and s.tavily_api_key
-                                      and s.web_search_usd_per_call is not None),
-            'notices': notices}
+        notices.append(
+            'Live research is unavailable. Set OPENAI_API_KEY in the server environment '
+            'for RAG embeddings, then restart the API and both workers. Demo remains available.'
+        )
+    return {
+        'web_search_enabled': bool(
+            s.live_enabled
+            and s.openai_api_key
+            and s.tavily_api_key
+            and s.web_search_usd_per_call is not None
+        ),
+        'notices': notices,
+    }
 
 
 class ConfigurationError(RuntimeError):
@@ -122,8 +153,11 @@ def settings():
         issues = []
         for error in exc.errors(include_input=False):
             field = error['loc'][0] if error['loc'] else None
-            issues.append(f'{str(field).upper()} has an invalid value' if field
-                          else str(error.get('ctx', {}).get('error', 'Invalid configuration')))
+            issues.append(
+                f'{str(field).upper()} has an invalid value'
+                if field
+                else str(error.get('ctx', {}).get('error', 'Invalid configuration'))
+            )
         raise ConfigurationError('Configuration needs attention: ' + '; '.join(issues)) from None
 
 

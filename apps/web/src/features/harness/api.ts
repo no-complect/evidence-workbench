@@ -8,6 +8,7 @@ import type {
   HarnessStudioState,
   InspectorStage,
 } from "./contracts";
+
 export const modelApi = {
   catalog: (project: string, signal?: AbortSignal) =>
     api<ModelCatalog>(`projects/${project}/harness/models`, { signal }),

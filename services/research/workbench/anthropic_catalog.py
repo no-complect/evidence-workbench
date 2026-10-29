@@ -1,6 +1,9 @@
 """Bounded complete discovery at a fixed endpoint. No inference or credentials stored."""
+
 import time
+
 import httpx
+
 from .provider_catalog import parse_catalog
 
 ENDPOINT = 'https://api.anthropic.com/v1/models'
@@ -18,8 +21,12 @@ def discover(key):
             params = {'limit': 1000}
             if cursor:
                 params['after_id'] = cursor
-            response = client.get(ENDPOINT, headers={'x-api-key': key, 'anthropic-version': API_VERSION},
-                                  params=params, timeout=remaining)
+            response = client.get(
+                ENDPOINT,
+                headers={'x-api-key': key, 'anthropic-version': API_VERSION},
+                params=params,
+                timeout=remaining,
+            )
             response.raise_for_status()
             payload = response.json()
             models, returned = parse_catalog(payload)

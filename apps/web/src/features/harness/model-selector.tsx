@@ -1,4 +1,5 @@
 "use client";
+
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -15,6 +16,7 @@ export type ModelSelectionProps = {
   onRefresh: () => void;
   compact?: boolean;
 };
+
 export function ModelSelector({
   catalog,
   fetching,

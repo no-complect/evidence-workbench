@@ -1,6 +1,6 @@
-from pathlib import Path
-from importlib.resources import files
 import os
+from importlib.resources import files
+from pathlib import Path
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 
@@ -10,8 +10,14 @@ def asset_root():
     packaged = Path(str(files('workbench').joinpath('_assets')))
     checkout = PACKAGE_ROOT.parents[2]
     for candidate in (packaged, checkout):
-        if all((candidate / path).is_file() for path in
-               ('prompts/plan-v1.md', 'fixtures/manifest.json', 'db/migrations/001_application.sql')):
+        if all(
+            (candidate / path).is_file()
+            for path in (
+                'prompts/plan-v1.md',
+                'fixtures/manifest.json',
+                'db/migrations/001_application.sql',
+            )
+        ):
             return candidate
     raise RuntimeError('Workbench runtime assets are missing; reinstall the complete package.')
 

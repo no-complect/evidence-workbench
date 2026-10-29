@@ -1,18 +1,23 @@
 """Required configuration fails early; optional integrations preserve the demo."""
+
 import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-from workbench.config import Settings, ConfigurationError, configuration_status, settings
+from workbench.config import ConfigurationError, Settings, configuration_status, settings
 
-
-PRODUCTION = dict(app_env='production', auth_mode='supabase', storage_backend='supabase',
-                  database_url='postgresql://owner:synthetic-db-private@db.example/research?sslmode=require',
-                  api_shared_secret='synthetic-random-server-private-at-least-32-characters',
-                  supabase_url='https://synthetic.example', supabase_anon_key='synthetic-public',
-                  supabase_service_role_key='synthetic-storage-private')
+PRODUCTION = dict(
+    app_env='production',
+    auth_mode='supabase',
+    storage_backend='supabase',
+    database_url='postgresql://owner:synthetic-db-private@db.example/research?sslmode=require',
+    api_shared_secret='synthetic-random-server-private-at-least-32-characters',
+    supabase_url='https://synthetic.example',
+    supabase_anon_key='synthetic-public',
+    supabase_service_role_key='synthetic-storage-private',
+)
 
 
 def test_production_validates_without_contacting_services():
@@ -21,18 +26,33 @@ def test_production_validates_without_contacting_services():
     assert configuration_status(s) == {'web_search_enabled': False, 'notices': []}
 
 
-@pytest.mark.parametrize('name,value,expected', [
-    ('database_url', '', 'DATABASE_URL'),
-    ('database_url', 'postgresql://owner:synthetic-db-private@localhost/research?sslmode=require', 'DATABASE_URL'),
-    ('database_url', 'postgresql://owner:synthetic-db-private@db.example/research', 'DATABASE_URL'),
-    ('database_url', 'postgresql://owner:synthetic-db-private@db.example/research?sslmode=disable', 'DATABASE_URL'),
-    ('supabase_service_role_key', '', 'SUPABASE_SERVICE_ROLE_KEY'),
-    ('supabase_anon_key', '', 'SUPABASE_ANON_KEY'),
-    ('supabase_url', 'https://user:synthetic-private@db.example', 'SUPABASE_URL'),
-    ('supabase_url', 'http://db.example', 'SUPABASE_URL'),
-    ('api_shared_secret', 'synthetic-private-short', 'API_SHARED_SECRET'),
-    ('storage_backend', 'local', 'STORAGE_BACKEND'),
-])
+@pytest.mark.parametrize(
+    'name,value,expected',
+    [
+        ('database_url', '', 'DATABASE_URL'),
+        (
+            'database_url',
+            'postgresql://owner:synthetic-db-private@localhost/research?sslmode=require',
+            'DATABASE_URL',
+        ),
+        (
+            'database_url',
+            'postgresql://owner:synthetic-db-private@db.example/research',
+            'DATABASE_URL',
+        ),
+        (
+            'database_url',
+            'postgresql://owner:synthetic-db-private@db.example/research?sslmode=disable',
+            'DATABASE_URL',
+        ),
+        ('supabase_service_role_key', '', 'SUPABASE_SERVICE_ROLE_KEY'),
+        ('supabase_anon_key', '', 'SUPABASE_ANON_KEY'),
+        ('supabase_url', 'https://user:synthetic-private@db.example', 'SUPABASE_URL'),
+        ('supabase_url', 'http://db.example', 'SUPABASE_URL'),
+        ('api_shared_secret', 'synthetic-private-short', 'API_SHARED_SECRET'),
+        ('storage_backend', 'local', 'STORAGE_BACKEND'),
+    ],
+)
 def test_production_required_settings_fail_without_echoing_secrets(name, value, expected):
     with pytest.raises(ValidationError) as exc:
         Settings(_env_file=None, **{**PRODUCTION, name: value})
@@ -51,8 +71,12 @@ def test_supabase_local_auth_and_storage_validate_separately():
         Settings(_env_file=None, auth_mode='supabase')
     with pytest.raises(ValidationError, match='SUPABASE_SERVICE_ROLE_KEY'):
         Settings(_env_file=None, storage_backend='supabase')
-    s = Settings(_env_file=None, auth_mode='supabase', supabase_url='http://127.0.0.1:54321',
-                 supabase_anon_key='synthetic-public')
+    s = Settings(
+        _env_file=None,
+        auth_mode='supabase',
+        supabase_url='http://127.0.0.1:54321',
+        supabase_anon_key='synthetic-public',
+    )
     assert s.storage_backend == 'local'
 
 
@@ -62,8 +86,13 @@ def test_optional_provider_configuration_does_not_stop_demo_or_claim_access():
     s = Settings(_env_file=None, live_enabled=True)
     status = configuration_status(s)
     assert not status['web_search_enabled'] and 'OPENAI_API_KEY' in status['notices'][0]
-    s = Settings(_env_file=None, live_enabled=True, openai_api_key='synthetic-model-private',
-                 tavily_api_key='synthetic-web-private', web_search_usd_per_call=0)
+    s = Settings(
+        _env_file=None,
+        live_enabled=True,
+        openai_api_key='synthetic-model-private',
+        tavily_api_key='synthetic-web-private',
+        web_search_usd_per_call=0,
+    )
     assert configuration_status(s)['web_search_enabled']
     assert 'synthetic-' not in json.dumps(configuration_status(s))
 
@@ -91,7 +120,9 @@ def test_environment_check_reports_failure_without_raw_settings(monkeypatch, cap
     assert 'PASS:' in capsys.readouterr().out
 
     def invalid():
-        raise ConfigurationError('Configuration needs attention: SUPABASE_SERVICE_ROLE_KEY is required')
+        raise ConfigurationError(
+            'Configuration needs attention: SUPABASE_SERVICE_ROLE_KEY is required'
+        )
 
     monkeypatch.setattr(check, 'settings', invalid)
     assert check.main() == 1

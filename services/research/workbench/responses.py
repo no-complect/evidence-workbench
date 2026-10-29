@@ -3,11 +3,14 @@
 Existing additional projection fields are retained for wire compatibility. Known
 fields are validated; raw saved context and provenance metadata stay opaque.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal
+
 from pydantic import BaseModel, ConfigDict
-from .models import Plan, Report, Limits
+
+from .models import Limits, Plan, Report
 
 
 class ApiResponse(BaseModel):
@@ -41,7 +44,7 @@ class Collection(ApiResponse):
     document_count: int
     embedding_config: str
     read_only: bool | None = None
-    setup_status: Literal["preparing", "ready", "failed"] | None = None
+    setup_status: Literal['preparing', 'ready', 'failed'] | None = None
     setup_error: str | None = None
     setup_request: CollectionIntent | None = None
 
@@ -133,6 +136,7 @@ class ContextPayload(ApiResponse):
     excluded: list[ContextPayloadExcludedItem] | None = None
     assembled_input: Any | None = None
     output_token_reservation: int | None = None
+
 
 class Context(ApiResponse):
     id: str
@@ -229,7 +233,7 @@ class SemanticGradeResultUsage(ApiResponse):
 
 
 class SemanticGradeResult(ApiResponse):
-    label: Literal["supported", "contradicted", "insufficient"] | None = None
+    label: Literal['supported', 'contradicted', 'insufficient'] | None = None
     reason: str | None = None
     estimated_cost_usd: float | None = None
     cost_source: str | None = None
@@ -240,7 +244,7 @@ class SemanticGrade(ApiResponse):
     id: str
     run_id: str
     claim_index: int
-    status: Literal["reserved", "graded", "ungraded"]
+    status: Literal['reserved', 'graded', 'ungraded']
     request: SemanticGradeRequest
     result: SemanticGradeResult
     tokens_charged: int
@@ -274,7 +278,7 @@ class EvaluationJobProgress(ApiResponse):
 
 class EvaluationJob(ApiResponse):
     id: str
-    status: Literal["queued", "running", "completed", "failed", "cancelled"]
+    status: Literal['queued', 'running', 'completed', 'failed', 'cancelled']
     request: EvaluationJobRequest
     progress: EvaluationJobProgress
     result_id: str | None
@@ -295,7 +299,7 @@ class Bootstrap(ApiResponse):
     live_enabled: bool
     evaluations_enabled: bool
     model_catalog_enabled: bool | None = None
-    auth_mode: Literal["demo", "supabase"]
+    auth_mode: Literal['demo', 'supabase']
 
 
 class ProjectData(ApiResponse):
@@ -316,7 +320,7 @@ class CollectionOptions(ApiResponse):
 class UploadResult(ApiResponse):
     document_id: str
     version_id: str
-    status: Literal["ready"]
+    status: Literal['ready']
     deduplicated: bool
     chunks: int | None = None
     vector_chunks: int | None = None
@@ -326,8 +330,8 @@ class IngestionJob(ApiResponse):
     id: str
     collection_id: str
     name: str
-    status: Literal["queued", "running", "ready", "failed", "cancelled"]
-    phase: Literal["queued", "reading", "embedding", "storage", "indexing", "finished"]
+    status: Literal['queued', 'running', 'ready', 'failed', 'cancelled']
+    phase: Literal['queued', 'reading', 'embedding', 'storage', 'indexing', 'finished']
     error: str | None
     result: UploadResult | None
     retry_of: str | None
@@ -353,7 +357,7 @@ class EmbeddingUsageRequestsItem(ApiResponse):
     input_hash: str
     input_count: int
     input_token_bound: int
-    status: Literal["reserved", "reported", "unreported"]
+    status: Literal['reserved', 'reported', 'unreported']
     reported_tokens: int | None
     usd_per_million: str | None
     estimated_cost_usd: str | None
@@ -394,7 +398,7 @@ class SearchHit(ApiResponse):
 
 
 class ModelCatalogProvidersItem(ApiResponse):
-    provider: Literal["openai", "anthropic"]
+    provider: Literal['openai', 'anthropic']
     count: int
     error: str | None
 
@@ -433,7 +437,7 @@ class HarnessSnapshotFingerprints(ApiResponse):
 
 
 class HarnessSnapshot(ApiResponse):
-    credential_source: Literal["environment"] | None = None
+    credential_source: Literal['environment'] | None = None
     cost_estimates_available: bool | None = None
     name: str | None = None
     revision_id: str | None = None
@@ -447,6 +451,7 @@ class HarnessStudioState(ApiResponse):
     prompts: dict[str, str]
     context_caps: dict[str, float]
     context_policy: str
+
 
 class EvidenceLookup(Evidence):
     # The lookup projection predates source_name; run-detail evidence includes it.

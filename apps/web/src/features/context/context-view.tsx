@@ -1,11 +1,15 @@
 "use client";
+
 import { useState } from "react";
+
 import { Layers3 } from "lucide-react";
-import { Empty } from "./empty";
-import { HelpTip } from "./ui/tooltip";
+
+import { Empty } from "@/components/empty";
+import { HelpTip } from "@/components/ui/tooltip";
 import type { Context, Evidence } from "@/lib/contracts";
-import { ContextRecordView } from "@/features/context/context-record-view";
-import styles from "@/features/context/context.module.css";
+
+import { ContextRecordView } from "./context-record-view";
+import styles from "./context.module.css";
 
 export function ContextView({
   contexts,

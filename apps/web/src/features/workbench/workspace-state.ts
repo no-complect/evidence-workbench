@@ -1,12 +1,15 @@
 export type WorkspaceTab =
   "execution" | "report" | "evidence" | "activity" | "context";
+
 export type EngineeringWorkspace =
   "harness" | "rag" | "workflows" | "evaluations";
+
 export type WorkspaceOverlay =
   | { kind: "create-project" }
   | { kind: "create-collection"; returnTo?: "workflows" }
   | { kind: "evidence"; evidenceId: string }
   | null;
+
 export type WorkspaceState = {
   runId: string;
   collectionId: string;
@@ -14,6 +17,7 @@ export type WorkspaceState = {
   workspace: EngineeringWorkspace;
   overlay: WorkspaceOverlay;
 };
+
 export type WorkspaceAction =
   | { type: "navigate"; tab: WorkspaceTab }
   | { type: "workspace"; workspace: EngineeringWorkspace }
@@ -22,6 +26,7 @@ export type WorkspaceAction =
   | { type: "new-investigation" }
   | { type: "select-collection"; collectionId: string }
   | { type: "show-overlay"; overlay: WorkspaceOverlay };
+
 export const initialWorkspaceState: WorkspaceState = {
   runId: "",
   collectionId: "",

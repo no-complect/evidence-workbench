@@ -1,18 +1,15 @@
 # Security
 
-Evidence Workbench is a document research application. Its local demo uses synthetic sources
-and explicit local-only credentials, with Compose ports bound to loopback.
-Publishing the source code does not make that configuration suitable for a
-publicly reachable deployment.
+The local demo uses synthetic sources, local-only credentials and loopback ports.
+Use the [deployment requirements](DEPLOYMENT.md) before exposing an instance publicly.
 
-Production uses Supabase authentication, project membership checks, RLS, and
-private object storage. See [deployment requirements](DEPLOYMENT.md) and
-[engineering boundaries](ARCHITECTURE.md). Hosted boundaries require separate
-verification; source filtering and context redaction are not comprehensive DLP
-or prompt-injection detection.
+Supabase mode uses authentication, project membership checks, RLS and private
+Storage. Context redaction and source filtering are limited; they are not
+comprehensive DLP or prompt-injection protection. See
+[Architecture](ARCHITECTURE.md) for the implemented boundaries and
+[verification scope](DEVELOPMENT.md#verification-scope) for their tested limits.
 
-Do not post credentials, private source documents, or an exploitable security
-issue in a public issue. If the GitHub repository has private vulnerability
-reporting enabled, use **Security → Report a vulnerability**. Otherwise request a
-private reporting channel without publishing exploit details. Repository
-maintainers should enable that channel before the public release.
+Do not post credentials, private documents or exploitable security issues in public
+issues. If the repository has private vulnerability reporting enabled, use
+**Security → Report a vulnerability**. Otherwise request a private reporting channel
+without publishing exploit details.

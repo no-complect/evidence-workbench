@@ -1,11 +1,13 @@
-from contextlib import contextmanager
-from uuid import uuid4
 import json
-import psycopg
-from psycopg_pool import ConnectionPool
+from contextlib import contextmanager
 from threading import Lock
+from uuid import uuid4
+
+import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
+from psycopg_pool import ConnectionPool
+
 from .config import ROOT, settings
 from .context import redact
 
@@ -15,8 +17,11 @@ _pool_lock = Lock()
 
 
 def connection_options():
-    return {'row_factory': dict_row, 'connect_timeout': 5,
-            'options': '-c search_path=public,extensions -c statement_timeout=30000'}
+    return {
+        'row_factory': dict_row,
+        'connect_timeout': 5,
+        'options': '-c search_path=public,extensions -c statement_timeout=30000',
+    }
 
 
 @contextmanager
@@ -25,9 +30,15 @@ def pooled_connections():
     global _pool, _pool_users
     with _pool_lock:
         if _pool is None:
-            _pool = ConnectionPool(settings().database_url, kwargs=connection_options(),
-                                   min_size=0, max_size=settings().db_pool_max_size, timeout=5, open=False,
-                                   name='workbench-db')
+            _pool = ConnectionPool(
+                settings().database_url,
+                kwargs=connection_options(),
+                min_size=0,
+                max_size=settings().db_pool_max_size,
+                timeout=5,
+                open=False,
+                name='workbench-db',
+            )
             _pool.open()
         pool = _pool
         _pool_users += 1
@@ -92,14 +103,17 @@ def migrate():
             'CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())'
         )
         for path in sorted((ROOT / 'db/migrations').glob('*.sql')):
-            if conn.execute('SELECT 1 FROM schema_migrations WHERE version=%s',
-                            (path.name, )).fetchone():
+            if conn.execute(
+                'SELECT 1 FROM schema_migrations WHERE version=%s', (path.name,)
+            ).fetchone():
                 continue
-            if 'supabase' in path.name and not conn.execute(
-                    "SELECT 1 FROM pg_namespace WHERE nspname='auth'").fetchone():
+            if (
+                'supabase' in path.name
+                and not conn.execute("SELECT 1 FROM pg_namespace WHERE nspname='auth'").fetchone()
+            ):
                 continue
             conn.execute(path.read_text())
-            conn.execute('INSERT INTO schema_migrations(version) VALUES(%s)', (path.name, ))
+            conn.execute('INSERT INTO schema_migrations(version) VALUES(%s)', (path.name,))
         conn.execute('CREATE SCHEMA IF NOT EXISTS graph_checkpoints')
         conn.execute('REVOKE ALL ON SCHEMA graph_checkpoints FROM PUBLIC')
 
@@ -107,8 +121,15 @@ def migrate():
 def event(run, key, stage, message, data=None):
     execute(
         'INSERT INTO run_events(run_id,project_id,event_key,stage,message,data) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(run_id,event_key) DO NOTHING',
-        (run['id'], run['project_id'], key, stage, redact(
-            {'message': message})['message'], jsonb(redact(data or {}))))
+        (
+            run['id'],
+            run['project_id'],
+            key,
+            stage,
+            redact({'message': message})['message'],
+            jsonb(redact(data or {})),
+        ),
+    )
 
 
 def scoped_run(run_id, project_id):

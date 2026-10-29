@@ -8,7 +8,9 @@ export type SettingRow = {
   right: string;
   changed: boolean;
 };
+
 type SettingValue = string | number | null;
+
 function field(label: string, value: SettingValue, empty = "") {
   return {
     label,
@@ -16,6 +18,7 @@ function field(label: string, value: SettingValue, empty = "") {
     display: value === null || value === "" ? empty : String(value),
   };
 }
+
 function fields(settings: HarnessPresetSettings) {
   return [
     field(
@@ -36,6 +39,7 @@ function fields(settings: HarnessPresetSettings) {
     ...limitFields.map(([key, label]) => field(label, settings.limits[key])),
   ];
 }
+
 export function compareSettings(
   left: HarnessPresetSettings,
   right: HarnessPresetSettings,

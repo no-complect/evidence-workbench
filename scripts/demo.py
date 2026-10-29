@@ -1,19 +1,24 @@
 import time
-import httpx
-from workbench.models import DEFAULT_QUESTION
-from workbench.config import settings, DEMO_PROJECT, DEMO_COLLECTION
-from workbench.db import uid
 
-client = httpx.Client(base_url='http://localhost:8000',
-                      headers={'X-Workbench-Key': settings().api_shared_secret},
-                      timeout=15)
-response = client.post(f'/api/projects/{DEMO_PROJECT}/runs',
-                       json={
-                           'collection_id': DEMO_COLLECTION,
-                           'question': DEFAULT_QUESTION,
-                           'approve_plan': False,
-                           'idempotency_key': uid()
-                       })
+import httpx
+from workbench.config import DEMO_COLLECTION, DEMO_PROJECT, settings
+from workbench.db import uid
+from workbench.models import DEFAULT_QUESTION
+
+client = httpx.Client(
+    base_url='http://localhost:8000',
+    headers={'X-Workbench-Key': settings().api_shared_secret},
+    timeout=15,
+)
+response = client.post(
+    f'/api/projects/{DEMO_PROJECT}/runs',
+    json={
+        'collection_id': DEMO_COLLECTION,
+        'question': DEFAULT_QUESTION,
+        'approve_plan': False,
+        'idempotency_key': uid(),
+    },
+)
 response.raise_for_status()
 run_id = response.json()['id']
 print(f'Queued {run_id}. Progress is durable; the worker does not depend on this process.')

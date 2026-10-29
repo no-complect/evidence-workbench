@@ -1,7 +1,10 @@
 """Local-instance encryption. The separate private volume must accompany DB backups."""
+
 import fcntl
 import os
+
 from cryptography.fernet import Fernet
+
 from .config import settings
 
 

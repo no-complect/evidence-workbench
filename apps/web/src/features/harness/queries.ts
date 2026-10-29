@@ -1,5 +1,6 @@
 import { queryOptions, useMutation } from "@tanstack/react-query";
 import { modelApi, studioApi } from "./api";
+
 export const modelCatalogKey = (project: string) =>
   ["workbench", "project", project, "model-catalog"] as const;
 export const modelCatalogOptions = (project: string, enabled: boolean) =>

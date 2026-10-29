@@ -2,13 +2,16 @@ import type { EvaluationCaseInput } from "../../../../../packages/contracts/mode
 
 export const MAX_CASES = 6;
 export const NO_EVIDENCE = "__none__";
+
 export type CaseDraft = {
   id: number;
   question: string;
   expected: string;
   disclosure: string;
 };
+
 export type CaseDrafts = { nextId: number; cases: CaseDraft[] };
+
 export type CaseAction =
   | { type: "add" }
   | { type: "remove"; id: number }
@@ -20,6 +23,7 @@ export type CaseAction =
     }
   | { type: "mode" }
   | { type: "collection" };
+
 const emptyCase = (id: number): CaseDraft => ({
   id,
   question: "",

@@ -1,4 +1,5 @@
 """Inspect the public file set without staging files or exposing secret values."""
+
 import argparse
 import re
 import subprocess
@@ -7,29 +8,64 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = {
-    'README.md', 'LICENSE', '.gitignore', '.dockerignore', '.env.example',
-    'compose.yaml', 'pyproject.toml', 'uv.lock', 'apps/web/package.json',
-    'apps/web/package-lock.json', 'apps/web/Dockerfile', 'services/research/Dockerfile',
-    'db/migrations/001_application.sql', 'db/migrations/002_supabase_rls.sql',
-    'fixtures/manifest.json', 'evals/cases.json', 'packages/contracts/models.ts',
-    '.github/workflows/ci.yml', 'scripts/dev.sh', 'scripts/stop.sh',
-    'scripts/demo.sh', 'scripts/eval.sh', 'scripts/test.sh',
-    'docs/DEVELOPMENT.md', 'docs/ARCHITECTURE.md', 'docs/DEPLOYMENT.md',
-    'docs/EVALUATION.md', 'docs/TROUBLESHOOTING.md', 'docs/examples/reviewer-notes.txt',
-    'docs/CONTRIBUTING.md', 'docs/SECURITY.md',
-    'prompts/plan-v1.md', 'prompts/assess-v1.md', 'prompts/report-v3.md', 'prompts/judge-v2.md',
-    'docs/diagrams/architecture.png', 'docs/diagrams/architecture.svg',
+    'README.md',
+    'LICENSE',
+    '.gitignore',
+    '.dockerignore',
+    '.env.example',
+    'compose.yaml',
+    'pyproject.toml',
+    'uv.lock',
+    'apps/web/package.json',
+    'apps/web/package-lock.json',
+    'apps/web/Dockerfile',
+    'services/research/Dockerfile',
+    'db/migrations/001_application.sql',
+    'db/migrations/002_supabase_rls.sql',
+    'fixtures/manifest.json',
+    'evals/cases.json',
+    'packages/contracts/models.ts',
+    '.github/workflows/ci.yml',
+    'scripts/dev.sh',
+    'scripts/stop.sh',
+    'scripts/demo.sh',
+    'scripts/eval.sh',
+    'scripts/test.sh',
+    'docs/DEVELOPMENT.md',
+    'docs/ARCHITECTURE.md',
+    'docs/DEPLOYMENT.md',
+    'docs/EVALUATION.md',
+    'docs/TROUBLESHOOTING.md',
+    'docs/examples/reviewer-notes.txt',
+    'docs/CONTRIBUTING.md',
+    'docs/SECURITY.md',
+    'prompts/plan-v1.md',
+    'prompts/assess-v1.md',
+    'prompts/report-v3.md',
+    'prompts/judge-v2.md',
+    'docs/diagrams/architecture.png',
+    'docs/diagrams/architecture.svg',
     'docs/diagrams/architecture.mmd',
 }
 LOCAL_DIRS = {
-    '.venv', '.cache', '.runtime', 'node_modules', '.next', '__pycache__',
-    '.pytest_cache', '.ruff_cache',
-    '.vscode', 'playwright-report', 'test-results',
+    '.venv',
+    '.cache',
+    '.runtime',
+    'node_modules',
+    '.next',
+    '__pycache__',
+    '.pytest_cache',
+    '.ruff_cache',
+    '.vscode',
+    'playwright-report',
+    'test-results',
 }
 PATTERNS = {
     'private key': re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'),
     'provider credential': re.compile(r'\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{24,}\b'),
-    'GitHub credential': re.compile(r'\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{30,})\b'),
+    'GitHub credential': re.compile(
+        r'\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{30,})\b'
+    ),
     'AWS access key': re.compile(r'\b(?:AKIA|ASIA)[A-Z0-9]{16}\b'),
     'machine-specific home path': re.compile(r'/(?:Users|home)/[A-Za-z0-9._-]+/'),
 }
@@ -43,9 +79,14 @@ def git(args, git_dir=None):
 
 
 def candidates(git_dir=None):
-    return sorted(set(git(
-        ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], git_dir
-    ).decode().split('\0')) - {''})
+    return sorted(
+        set(
+            git(['ls-files', '--cached', '--others', '--exclude-standard', '-z'], git_dir)
+            .decode()
+            .split('\0')
+        )
+        - {''}
+    )
 
 
 def forbidden(name):
@@ -54,8 +95,7 @@ def forbidden(name):
         path.name in {'AGENTS.md', 'CLAUDE.md', 'GEMINI.md'}
         or name.startswith(('.context/', 'docs/design/'))
         or name in {'docs/REFACTOR_STATUS.md', 'docs/ENTERPRISE_REFACTOR.md'}
-        or
-        any(part in LOCAL_DIRS or part.startswith(('.a', '.c')) for part in path.parts)
+        or any(part in LOCAL_DIRS or part.startswith(('.a', '.c')) for part in path.parts)
         or (path.name.startswith('.env') and path.name != '.env.example')
         or path.suffix in {'.pem', '.key', '.log', '.pyc', '.tsbuildinfo'}
         or path.name == '.DS_Store'
@@ -66,8 +106,10 @@ def forbidden(name):
 
 
 def inspect(files):
-    errors = [f'{name}: required runtime/documentation asset is missing or ignored'
-              for name in sorted(REQUIRED - set(files))]
+    errors = [
+        f'{name}: required runtime/documentation asset is missing or ignored'
+        for name in sorted(REQUIRED - set(files))
+    ]
     total = 0
     for name in files:
         path = ROOT / name
@@ -99,8 +141,9 @@ def inspect(files):
                 key, value = line.split('=', 1)
                 if any(word in key for word in ('KEY', 'SECRET', 'TOKEN', 'PASSWORD')):
                     value = value.strip().strip('"\'')
-                    if value and not (key == 'API_SHARED_SECRET'
-                                      and value == 'local-demo-only-not-for-production'):
+                    if value and not (
+                        key == 'API_SHARED_SECRET' and value == 'local-demo-only-not-for-production'
+                    ):
                         errors.append(f'{name}: {key} must be empty or an explicit demo default')
         if path.suffix == '.md':
             for target in re.findall(r'\[[^\]\n]*\]\(([^)\n]+)\)', content):
@@ -130,19 +173,27 @@ def main():
             files = candidates()
         else:
             with tempfile.TemporaryDirectory(prefix='workbench-publication-') as folder:
-                subprocess.run(['git', 'init', '--quiet', folder], check=True,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                subprocess.run(
+                    ['git', 'init', '--quiet', folder],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
                 files = candidates(Path(folder) / '.git')
         errors, total = inspect(files)
     except (OSError, subprocess.CalledProcessError):
-        raise SystemExit('Publication check could not run; ensure Git is installed and files are readable.')
+        raise SystemExit(
+            'Publication check could not run; ensure Git is installed and files are readable.'
+        )
     if args.list:
         print('\n'.join(files))
     if errors:
         print('\n'.join(f'FAIL: {error}' for error in errors))
         raise SystemExit(1)
-    print(f'PASS: {len(files)} candidate files ({total / 1024 / 1024:.2f} MiB); '
-          'required assets, ignore boundaries, links, and common secret patterns checked.')
+    print(
+        f'PASS: {len(files)} candidate files ({total / 1024 / 1024:.2f} MiB); '
+        'required assets, ignore boundaries, links, and common secret patterns checked.'
+    )
     print('Still review staged changes/history and run the clean-checkout demo before publishing.')
 
 

@@ -3,14 +3,14 @@ import os
 import subprocess
 import sys
 import time
+
 import pytest
 from workbench import db
-from workbench.config import DEMO_PROJECT, DEMO_COLLECTION
-from workbench.models import DEFAULT_QUESTION, EXAMPLES
-from workbench.worker import lease, execute_run
-from workbench.budget import reserve, BudgetExhausted
+from workbench.budget import BudgetExhausted, reserve
+from workbench.config import DEMO_COLLECTION, DEMO_PROJECT
 from workbench.evidence import verify
-from workbench.models import Report
+from workbench.models import DEFAULT_QUESTION, EXAMPLES, Report
+from workbench.worker import execute_run, lease
 
 pytestmark = pytest.mark.integration
 BASE = f'/api/projects/{DEMO_PROJECT}'
@@ -22,7 +22,7 @@ def create(client, **values):
         'question': DEFAULT_QUESTION,
         'approve_plan': False,
         'idempotency_key': db.uid(),
-        **values
+        **values,
     }
     response = client.post(BASE + '/runs', json=body)
     assert response.status_code == 202, response.text
@@ -66,6 +66,7 @@ def test_complete_journey_and_idempotency(client):
 
 def test_real_vector_and_full_text_retrieval(database):
     from workbench.retrieval import search
+
     hits = search(DEMO_PROJECT, DEMO_COLLECTION, 'security retention', 5)
     assert any('vector' in hit['ranks'] for hit in hits)
     assert any('full_text' in hit['ranks'] for hit in hits)
@@ -81,20 +82,28 @@ def test_two_projects_and_citation_storage_isolation(client):
     db.execute("INSERT INTO project_memberships VALUES(%s,%s,'owner')", (hidden, user))
     db.execute(
         "INSERT INTO collections(id,project_id,name,embedding_config) VALUES(%s,%s,'Secret','demo-v1')",
-        (collection, hidden))
+        (collection, hidden),
+    )
     assert client.get(f'/api/projects/{hidden}').status_code == 404
-    assert client.post(BASE + '/search', json={
-        'collection_id': collection,
-        'query': 'security'
-    }).status_code == 422
+    assert (
+        client.post(
+            BASE + '/search', json={'collection_id': collection, 'query': 'security'}
+        ).status_code
+        == 422
+    )
     assert client.get(f'/api/projects/{hidden}/evidence/{db.uid()}').status_code == 404
     assert client.get(f'/api/projects/{hidden}/versions/{db.uid()}/download').status_code == 404
-    assert client.post(BASE + '/runs',
-                       json={
-                           'collection_id': collection,
-                           'question': DEFAULT_QUESTION,
-                           'idempotency_key': db.uid()
-                       }).status_code == 404
+    assert (
+        client.post(
+            BASE + '/runs',
+            json={
+                'collection_id': collection,
+                'question': DEFAULT_QUESTION,
+                'idempotency_key': db.uid(),
+            },
+        ).status_code
+        == 404
+    )
 
 
 def test_approval_checkpoint_resume(client):
@@ -108,17 +117,23 @@ def test_approval_checkpoint_resume(client):
     completed = drive(run['id'])
     assert completed['status'] == 'completed'
     assert completed['plan'] == plan
-    assert db.one("SELECT count(*) AS n FROM contexts WHERE run_id=%s AND stage='plan'",
-                  (run['id'], ))['n'] == 1
+    assert (
+        db.one("SELECT count(*) AS n FROM contexts WHERE run_id=%s AND stage='plan'", (run['id'],))[
+            'n'
+        ]
+        == 1
+    )
 
 
 def test_arbitrary_demo_questions_explain_limitations(client):
-    response = client.post(BASE + '/runs',
-                           json={
-                               'collection_id': DEMO_COLLECTION,
-                               'question': 'Who won a real election yesterday?',
-                               'idempotency_key': db.uid()
-                           })
+    response = client.post(
+        BASE + '/runs',
+        json={
+            'collection_id': DEMO_COLLECTION,
+            'question': 'Who won a real election yesterday?',
+            'idempotency_key': db.uid(),
+        },
+    )
     assert response.status_code == 422 and 'seeded questions' in response.json()['detail']
 
 
@@ -135,8 +150,10 @@ def test_iteration_limit_and_insufficient_evidence(client):
     result = drive(run['id'])
     assert result['status'] == 'partial'
     assert any('million' in x for x in result['report']['limitations'])
-    assert db.one('SELECT max(iteration) AS n FROM research_tasks WHERE run_id=%s',
-                  (run['id'], ))['n'] == 1
+    assert (
+        db.one('SELECT max(iteration) AS n FROM research_tasks WHERE run_id=%s', (run['id'],))['n']
+        == 1
+    )
 
 
 def test_cancellation_of_queued_job(client):
@@ -168,6 +185,7 @@ def test_parallel_budget_is_atomic(client):
 
 def test_transient_timeout_retries_then_succeeds(client, monkeypatch):
     from workbench.providers import DemoProvider
+
     original = DemoProvider.invoke
     count = 0
 
@@ -181,10 +199,14 @@ def test_transient_timeout_retries_then_succeeds(client, monkeypatch):
     monkeypatch.setattr(DemoProvider, 'invoke', flaky)
     run, _ = create(client)
     assert drive(run['id'])['status'] == 'retrying'
-    db.execute('UPDATE research_runs SET available_at=now() WHERE id=%s', (run['id'], ))
+    db.execute('UPDATE research_runs SET available_at=now() WHERE id=%s', (run['id'],))
     assert drive(run['id'])['status'] == 'completed'
-    assert db.one("SELECT count(*) AS n FROM run_events WHERE run_id=%s AND stage='retry'",
-                  (run['id'], ))['n'] == 1
+    assert (
+        db.one(
+            "SELECT count(*) AS n FROM run_events WHERE run_id=%s AND stage='retry'", (run['id'],)
+        )['n']
+        == 1
+    )
 
 
 def test_checkpoint_survives_process_restart(client):
@@ -204,8 +226,13 @@ def test_checkpoint_survives_process_restart(client):
         finally:
             second.terminate()
             second.wait(timeout=45)
-        assert db.one("SELECT count(*) AS n FROM run_events WHERE run_id=%s AND event_key='plan'",
-                      (run['id'], ))['n'] == 1
+        assert (
+            db.one(
+                "SELECT count(*) AS n FROM run_events WHERE run_id=%s AND event_key='plan'",
+                (run['id'],),
+            )['n']
+            == 1
+        )
     finally:
         if first.poll() is None:
             first.kill()
@@ -216,8 +243,9 @@ def test_expired_lease_recovery(client):
     run, _ = create(client)
     first = lease('worker-that-crashed')
     assert str(first['id']) == run['id']
-    db.execute("UPDATE research_runs SET lease_until=now()-interval '1 second' WHERE id=%s",
-               (run['id'], ))
+    db.execute(
+        "UPDATE research_runs SET lease_until=now()-interval '1 second' WHERE id=%s", (run['id'],)
+    )
     recovered = drive(run['id'])
     assert recovered['attempts'] == 2 and recovered['status'] == 'completed'
 
@@ -228,13 +256,15 @@ def wait_status(run_id, statuses):
         state = db.scoped_run(run_id, DEMO_PROJECT)['status']
         if state in statuses:
             return state
-        time.sleep(.1)
+        time.sleep(0.1)
     raise AssertionError('Timed out waiting for worker')
 
 
 def test_cancellation_during_active_call(client, monkeypatch):
     import threading
+
     from workbench.providers import DemoProvider
+
     entered = threading.Event()
     release = threading.Event()
     original = DemoProvider.invoke
@@ -248,7 +278,7 @@ def test_cancellation_during_active_call(client, monkeypatch):
     run, _ = create(client)
     leased = lease('cancel-active')
     assert str(leased['id']) == run['id']
-    thread = threading.Thread(target=execute_run, args=(leased, ))
+    thread = threading.Thread(target=execute_run, args=(leased,))
     thread.start()
     try:
         assert entered.wait(timeout=5)
@@ -257,13 +287,15 @@ def test_cancellation_during_active_call(client, monkeypatch):
         release.set()
         thread.join(timeout=10)
     assert db.scoped_run(run['id'], DEMO_PROJECT)['status'] == 'cancelled'
-    assert db.one('SELECT count(*) AS n FROM evidence WHERE run_id=%s', (run['id'], ))['n'] == 0
+    assert db.one('SELECT count(*) AS n FROM evidence WHERE run_id=%s', (run['id'],))['n'] == 0
 
 
 def test_document_replacement_preserves_pinned_versions(client):
     from workbench.retrieval import search
-    response = client.post(BASE + '/collections',
-                           json={'name': 'Version isolation ' + db.uid()[:8]})
+
+    response = client.post(
+        BASE + '/collections', json={'name': 'Version isolation ' + db.uid()[:8]}
+    )
     collection = response.json()['id']
     path = BASE + f'/collections/{collection}/sources'
     old = b'Alpha security requirements are synthetic and belong to the first immutable source version.'
@@ -286,6 +318,7 @@ def test_document_replacement_preserves_pinned_versions(client):
 
 def test_failed_error_handler_leaves_recoverable_lease(client, monkeypatch):
     from workbench import worker
+
     original = worker.partial_report
     run, _ = create(client, limits={'tokens': 500})
     leased = lease('failed-error-handler')

@@ -12,6 +12,7 @@ import { ApiError } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
 type AuthIdentity = { id: string; email: string | undefined } | null;
+
 const AuthIdentityContext = createContext<AuthIdentity>(null);
 export const useAuthIdentity = () => useContext(AuthIdentityContext);
 

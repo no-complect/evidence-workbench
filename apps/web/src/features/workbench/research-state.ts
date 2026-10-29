@@ -2,8 +2,11 @@ import type { Limits } from "@/lib/contracts";
 
 export const DEFAULT_QUESTION =
   "Compare three approaches to deploying an enterprise AI assistant. Investigate security, operating costs, retrieval quality, and maintenance. Support recommendations with evidence and identify unresolved questions.";
+
 export type ExecutionMode = "demo" | "live";
+
 export type ResearchStrategy = "agent" | "rag" | "workflow";
+
 export const limitFields = [
   ["iterations", "Max iterations", 1, 5],
   ["tool_calls", "Tool calls", 1, 100],
@@ -22,6 +25,7 @@ export type ResearchDraft = {
   approval: boolean;
   webEnabled: boolean;
 };
+
 export const initialResearchDraft: ResearchDraft = {
   question: DEFAULT_QUESTION,
   mode: "demo",
@@ -38,6 +42,7 @@ export const initialResearchDraft: ResearchDraft = {
     top_k: "5",
   },
 };
+
 export type DraftAction =
   | { type: "question"; value: string }
   | { type: "mode"; value: ExecutionMode }
@@ -106,6 +111,7 @@ export function researchRequest(draft: ResearchDraft, collection: string) {
 }
 
 export type SubmissionIntent = { fingerprint: string; key: string };
+
 export function submissionIntent(
   previous: SubmissionIntent | null,
   request: unknown,

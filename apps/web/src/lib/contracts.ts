@@ -9,10 +9,12 @@ import type {
 
 // Query-cache projections belong to the client rather than the wire protocol.
 export type EvaluationSplit = "development" | "held-out" | "all";
+
 export type EvaluationSnapshot = {
   evaluations: Evaluation[];
   jobs: EvaluationJob[];
 };
+
 export type RunSnapshot = {
   detail: Detail;
   events: RunEvent[];

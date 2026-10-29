@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { browserConfiguration } from "./browser-environment";
+
 let client: ReturnType<typeof createClient> | null = null;
+
 export function supabase() {
   if (
     process.env.NEXT_PUBLIC_AUTH_MODE !== "supabase" ||

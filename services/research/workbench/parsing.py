@@ -1,4 +1,5 @@
 """Pure source parsing; PDF support is imported only for PDF inputs."""
+
 import io
 import re
 from pathlib import Path
@@ -20,6 +21,7 @@ def chunks_from_file(name, data):
     if suffix == '.pdf':
         try:
             from pypdf import PdfReader
+
             reader = PdfReader(io.BytesIO(data))
             if reader.is_encrypted or len(reader.pages) > 200:
                 raise IngestionError('Encrypted PDFs and PDFs over 200 pages are unsupported')
@@ -28,10 +30,12 @@ def chunks_from_file(name, data):
             raise
         except Exception as exc:
             raise IngestionError('Invalid PDF') from exc
-        if not any(text.strip()
-                   for _, text in pages) or any(len(text.strip()) < 10 for _, text in pages):
+        if not any(text.strip() for _, text in pages) or any(
+            len(text.strip()) < 10 for _, text in pages
+        ):
             raise IngestionError(
-                'Scanned or mixed scanned PDFs are unsupported; OCR is unavailable')
+                'Scanned or mixed scanned PDFs are unsupported; OCR is unavailable'
+            )
     else:
         try:
             pages = [(None, data.decode('utf-8'))]
@@ -45,14 +49,16 @@ def chunks_from_file(name, data):
             if passage.startswith('#'):
                 section = passage.lstrip('# ').splitlines()[0][:200]
             for offset in range(0, len(passage), 1600):
-                body = passage[offset:offset + 1600]
-                chunks.append({
-                    'text': body,
-                    'page': page,
-                    'section': section,
-                    'start_offset': match.start() + offset,
-                    'end_offset': match.start() + offset + len(body)
-                })
+                body = passage[offset : offset + 1600]
+                chunks.append(
+                    {
+                        'text': body,
+                        'page': page,
+                        'section': section,
+                        'start_offset': match.start() + offset,
+                        'end_offset': match.start() + offset + len(body),
+                    }
+                )
     if not chunks:
         raise IngestionError('No readable text found')
     if len(chunks) > 1000:

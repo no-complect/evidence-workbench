@@ -1,4 +1,5 @@
 """Real LangChain/OpenAI transport responses and SQL; no external provider calls."""
+
 import json
 from decimal import Decimal
 from types import SimpleNamespace
@@ -7,8 +8,8 @@ from unittest.mock import Mock
 import httpx
 import pytest
 from psycopg.errors import CheckViolation
-
-from workbench import api, db, ingest, ingestion_jobs, ingestion_worker as worker
+from workbench import collection_api, db, ingest, ingestion_jobs, project_api
+from workbench import ingestion_worker as worker
 from workbench.config import settings
 from workbench.embedding_usage import AccountingError, RecordingClient, reported_tokens, request_id
 
@@ -40,12 +41,20 @@ def test_accounting_failure_prevents_provider_invocation_and_never_retries():
 @pytest.fixture
 def scenario(client, monkeypatch):
     import langchain_openai
+
     base_settings = settings()
     state = {'rate': 0.02, 'behavior': 'reported', 'calls': [], 'after_response': None}
+
     def profile():
-        return base_settings.model_copy(update={'live_enabled': True, 'openai_api_key': 'synthetic-not-a-real-key',
-                                               'embedding_usd_per_million': state['rate']})
-    for module in [api, ingest, ingestion_jobs]:
+        return base_settings.model_copy(
+            update={
+                'live_enabled': True,
+                'openai_api_key': 'synthetic-not-a-real-key',
+                'embedding_usd_per_million': state['rate'],
+            }
+        )
+
+    for module in [collection_api, project_api, ingest, ingestion_jobs]:
         monkeypatch.setattr(module, 'settings', profile)
     original = langchain_openai.OpenAIEmbeddings
 
@@ -54,33 +63,61 @@ def scenario(client, monkeypatch):
         state['calls'].append(body)
         headers = {'x-request-id': f'req_synthetic_{len(state["calls"])}'}
         if state['behavior'] == 'error':
-            return httpx.Response(429, headers=headers, json={'error': {
-                'code': 'insufficient_quota', 'message': 'synthetic-private-response-body', 'type': 'insufficient_quota'}})
-        payload = {'object': 'list', 'model': body['model'], 'data': [
-            {'object': 'embedding', 'index': i, 'embedding': [.1] * 1536}
-            for i, _ in enumerate(body['input'])]}
+            return httpx.Response(
+                429,
+                headers=headers,
+                json={
+                    'error': {
+                        'code': 'insufficient_quota',
+                        'message': 'synthetic-private-response-body',
+                        'type': 'insufficient_quota',
+                    }
+                },
+            )
+        payload = {
+            'object': 'list',
+            'model': body['model'],
+            'data': [
+                {'object': 'embedding', 'index': i, 'embedding': [0.1] * 1536}
+                for i, _ in enumerate(body['input'])
+            ],
+        }
         if state['behavior'] != 'missing':
-            payload['usage'] = {'prompt_tokens': 7 * len(body['input']), 'total_tokens': 7 * len(body['input'])}
+            payload['usage'] = {
+                'prompt_tokens': 7 * len(body['input']),
+                'total_tokens': 7 * len(body['input']),
+            }
         if state['after_response']:
             state['after_response']()
         return httpx.Response(200, headers=headers, json=payload)
 
     def adapter(**kwargs):
-        kwargs['http_client'] = httpx.Client(transport=httpx.MockTransport(response), trust_env=False)
+        kwargs['http_client'] = httpx.Client(
+            transport=httpx.MockTransport(response), trust_env=False
+        )
         kwargs['openai_api_base'] = 'https://api.openai.com/v1'
         return original(**kwargs)
+
     monkeypatch.setattr(langchain_openai, 'OpenAIEmbeddings', adapter)
     pid = client.post('/api/projects', json={'name': 'Embedding accounting'}).json()['id']
     base = f'/api/projects/{pid}'
-    cid = client.post(base + '/collections', json={'name': 'Live index', 'embedding_config': 'openai-small-v1'}).json()['id']
+    cid = client.post(
+        base + '/collections', json={'name': 'Live index', 'embedding_config': 'openai-small-v1'}
+    ).json()['id']
     state.update(pid=pid, cid=cid, base=base, path=base + f'/collections/{cid}')
     yield state
-    db.execute("UPDATE ingestion_jobs SET status='cancelled',phase='finished' WHERE project_id=%s AND status IN ('queued','running')", (pid,))
+    db.execute(
+        "UPDATE ingestion_jobs SET status='cancelled',phase='finished' WHERE project_id=%s AND status IN ('queued','running')",
+        (pid,),
+    )
 
 
 def submit(client, scope, data, key=None):
-    result = client.post(scope['path'] + '/ingestions', data={'idempotency_key': key or db.uid()},
-                         files={'file': ('policy.txt', data, 'text/plain')})
+    result = client.post(
+        scope['path'] + '/ingestions',
+        data={'idempotency_key': key or db.uid()},
+        files={'file': ('policy.txt', data, 'text/plain')},
+    )
     assert result.status_code == 202, result.text
     return result.json()['id']
 
@@ -95,18 +132,28 @@ def execute(scope, jid):
 @pytest.mark.integration
 def test_real_transport_batches_are_recorded_and_submission_rate_is_pinned(client, scenario):
     s = scenario
-    data = '\n\n'.join(f'Synthetic private passage {i} requires archival review.' for i in range(65)).encode()
+    data = '\n\n'.join(
+        f'Synthetic private passage {i} requires archival review.' for i in range(65)
+    ).encode()
     jid = submit(client, s, data)
     s['rate'] = 9
     assert execute(s, jid)['status'] == 'ready'
     result = client.get(s['path'] + '/embedding-usage')
     assert result.status_code == 200
     summary = result.json()['summary']
-    assert summary['requests'] == 3 and summary['reported_tokens'] == 455 and summary['unreported_requests'] == 0
+    assert (
+        summary['requests'] == 3
+        and summary['reported_tokens'] == 455
+        and summary['unreported_requests'] == 0
+    )
     assert Decimal(summary['estimated_cost_usd']) == Decimal('0.0000091')
-    assert summary['input_token_bound'] == sum(len(p['text'].encode()) for p in ingest.chunks_from_file('policy.txt', data))
+    assert summary['input_token_bound'] == sum(
+        len(p['text'].encode()) for p in ingest.chunks_from_file('policy.txt', data)
+    )
     assert [len(call['input']) for call in s['calls']] == [32, 32, 1]
-    rows = db.all_rows('SELECT * FROM embedding_usage WHERE project_id=%s ORDER BY ordinal', (s['pid'],))
+    rows = db.all_rows(
+        'SELECT * FROM embedding_usage WHERE project_id=%s ORDER BY ordinal', (s['pid'],)
+    )
     assert all(row['usd_per_million'] == Decimal('0.02') for row in rows)
     assert rows[0]['provider_request_id'] == 'req_synthetic_1' and len(rows[0]['input_hash']) == 64
     assert 'Synthetic private passage' not in str(rows)
@@ -118,7 +165,10 @@ def test_real_transport_batches_are_recorded_and_submission_rate_is_pinned(clien
         db.execute('UPDATE ingestion_jobs SET embedding_usd_per_million=3 WHERE id=%s', (jid,))
     duplicate = submit(client, s, data)
     assert execute(s, duplicate)['result']['deduplicated'] and len(s['calls']) == 3
-    assert client.get(f'/api/projects/{db.uid()}/collections/{s["cid"]}/embedding-usage').status_code == 404
+    assert (
+        client.get(f'/api/projects/{db.uid()}/collections/{s["cid"]}/embedding-usage').status_code
+        == 404
+    )
     assert client.get(s['base'] + f'/collections/{db.uid()}/embedding-usage').status_code == 404
 
 
@@ -136,22 +186,33 @@ def test_unknown_usage_and_unknown_prices_remain_unavailable(client, scenario, v
     assert data['summary']['requests'] == 1
     assert data['summary']['reported_tokens'] == (None if variant == 'missing' else 7)
     assert data['summary']['unreported_requests'] == (1 if variant == 'missing' else 0)
-    assert (Decimal(data['summary']['estimated_cost_usd']) == 0) if variant == 'zero_rate' else data['summary']['estimated_cost_usd'] is None
+    assert (
+        (Decimal(data['summary']['estimated_cost_usd']) == 0)
+        if variant == 'zero_rate'
+        else data['summary']['estimated_cost_usd'] is None
+    )
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize('stop', ['cancel', 'expire', 'revoke'])
 def test_late_reported_usage_survives_stopping_and_no_next_batch_is_sent(client, scenario, stop):
     s = scenario
-    content = '\n\n'.join(f'Quasar passage {i} remains private source evidence.' for i in range(33)).encode()
+    content = '\n\n'.join(
+        f'Quasar passage {i} remains private source evidence.' for i in range(33)
+    ).encode()
     jid = submit(client, s, content)
+
     def stop_request():
         if stop == 'cancel':
             db.execute('UPDATE ingestion_jobs SET cancel_requested=true WHERE id=%s', (jid,))
         elif stop == 'expire':
-            db.execute("UPDATE ingestion_jobs SET lease_until=now()-interval '1 second' WHERE id=%s", (jid,))
+            db.execute(
+                "UPDATE ingestion_jobs SET lease_until=now()-interval '1 second' WHERE id=%s",
+                (jid,),
+            )
         else:
             db.execute('DELETE FROM project_memberships WHERE project_id=%s', (s['pid'],))
+
     s['after_response'] = stop_request
     result = execute(s, jid)
     worker.recover()
@@ -160,22 +221,32 @@ def test_late_reported_usage_survives_stopping_and_no_next_batch_is_sent(client,
     assert len(s['calls']) == 1
     usage = db.one('SELECT * FROM embedding_usage WHERE job_id=%s', (jid,))
     assert usage['status'] == 'reported' and usage['reported_tokens'] == 224
-    assert db.one('SELECT count(*) AS n FROM source_versions WHERE project_id=%s', (s['pid'],))['n'] == 0
+    assert (
+        db.one('SELECT count(*) AS n FROM source_versions WHERE project_id=%s', (s['pid'],))['n']
+        == 0
+    )
 
 
 @pytest.mark.integration
 def test_index_rollback_keeps_provider_usage_but_no_source_version(client, scenario, monkeypatch):
     publish = ingest._publish
+
     def failure(*args):
         publish(*args)
         raise RuntimeError('synthetic-private-indexing-details')
+
     monkeypatch.setattr(ingest, '_publish', failure)
     jid = submit(client, scenario, b'Quasar source must keep paid usage if indexing fails.')
     assert execute(scenario, jid)['status'] == 'failed'
     data = client.get(scenario['path'] + '/embedding-usage').json()
     assert data['summary']['reported_tokens'] == 7
     assert 'synthetic-private-indexing-details' not in str(data)
-    assert db.one('SELECT count(*) AS n FROM source_versions WHERE project_id=%s', (scenario['pid'],))['n'] == 0
+    assert (
+        db.one('SELECT count(*) AS n FROM source_versions WHERE project_id=%s', (scenario['pid'],))[
+            'n'
+        ]
+        == 0
+    )
 
 
 @pytest.mark.integration
@@ -184,7 +255,13 @@ def test_ambiguous_reserved_request_is_not_replayed_or_reported_as_free(client, 
     jid = submit(client, s, b'Quasar source with an interrupted request boundary.')
     job = worker.lease(db.uid())
     recorder = worker.Control(job).embedding_recorder(s['pid'], s['cid'], job['version_id'])
-    recorder.reserve({'input': ['Earlier ambiguous input'], 'model': 'text-embedding-3-small', 'dimensions': 1536})
+    recorder.reserve(
+        {
+            'input': ['Earlier ambiguous input'],
+            'model': 'text-embedding-3-small',
+            'dimensions': 1536,
+        }
+    )
     worker.execute(job)
     assert db.one('SELECT status FROM ingestion_jobs WHERE id=%s', (jid,))['status'] == 'failed'
     assert s['calls'] == []
@@ -205,7 +282,9 @@ def test_failure_and_explicit_retry_keep_separate_rates_without_automatic_calls(
     child = client.post(retry_path).json()['id']
     assert client.post(retry_path).json()['id'] == child
     assert execute(s, child)['status'] == 'ready' and len(s['calls']) == 2
-    rows = db.all_rows('SELECT * FROM embedding_usage WHERE project_id=%s ORDER BY created_at', (s['pid'],))
+    rows = db.all_rows(
+        'SELECT * FROM embedding_usage WHERE project_id=%s ORDER BY created_at', (s['pid'],)
+    )
     assert [row['usd_per_million'] for row in rows] == [Decimal('.02'), Decimal('.04')]
     assert rows[0]['status'] == 'unreported' and rows[1]['reported_tokens'] == 7
     assert 'synthetic-private-response-body' not in str(rows)
@@ -219,7 +298,10 @@ def test_compatibility_upload_is_accounted_without_assigning_historical_usage(cl
     s = scenario
     empty = client.get(s['path'] + '/embedding-usage').json()['summary']
     assert empty['requests'] == 0 and empty['estimated_cost_usd'] is None and s['calls'] == []
-    response = client.post(s['path'] + '/sources', files={'file': ('legacy.txt', b'Quasar compatibility source ingestion.')})
+    response = client.post(
+        s['path'] + '/sources',
+        files={'file': ('legacy.txt', b'Quasar compatibility source ingestion.')},
+    )
     assert response.status_code == 201
     rows = client.get(s['path'] + '/embedding-usage').json()['requests']
     assert len(rows) == 1 and rows[0]['job_id'] is None and rows[0]['reported_tokens'] == 7

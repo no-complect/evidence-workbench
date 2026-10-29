@@ -1,25 +1,31 @@
 # Troubleshooting
 
-| Symptom | Action |
-|---|---|
-| `Docker is not accessible` | Start Docker Desktop; check `docker info` in your shell. A sandbox may deny the Docker Unix socket even when Docker is running. |
-| Port already allocated / address already in use | Ports 3000, 8000, and 55432 must be free. If another copy is running, run `bash scripts/stop.sh` from that copy's directory before starting this one. |
-| `Local demo requires a loopback hostname` | Open `http://localhost:3000` or `http://127.0.0.1:3000` directly. If an older copy rejects those URLs too, update the API proxy route and rebuild with `bash scripts/dev.sh --no-follow`; older builds checked the container bind address instead of the browser's Host header. |
-| Registry DNS failure / `ENOTCACHED` / uv offline resolution error | The first build needs access to image and package registries. Check your network/proxy configuration and retry `bash scripts/dev.sh --no-follow`; use the committed lockfiles rather than regenerating them to fix a download failure. |
-| Frontend says API unavailable | Check `docker compose ps` and API logs. Host mode needs `APP_ENV=local`; production needs a reachable HTTPS API_URL and matching shared secret. |
-| Startup seed fails with `vector` type not found | Use the pgvector image, not stock Postgres. On Supabase enable the vector extension and check the public/extensions search path. |
-| Production rejects demo auth or local storage | Set the full production environment matrix; this rejection is deliberate. Never disable the startup guard to deploy. |
-| Run remains queued | The independent worker must be running against the same database. Inspect worker logs and `research_runs.lease_until`. |
-| Run is awaiting approval | Review/edit the plan in the UI. Resume uses the existing graph thread; do not submit a replacement run. |
-| Partial report | Inspect the budget event and limits. Reservations include UTF-8 input bounds, output and schema overhead. Intentionally tiny budgets are expected to return partial results. |
-| Cancel takes time | Cancellation is cooperative. An in-flight provider/fetch/DB operation must return or hit its timeout before it is observed. |
-| Live mode is unavailable | Set LIVE_ENABLED and credentials on both API and worker, plus all configured price estimates. Create an OpenAI embedding collection and ingest sources there. No scripted fallback is used. |
-| Arbitrary question is rejected in demo | Choose one of the five examples or configure live mode. This avoids fabricated research. |
-| Uploaded demo file has zero vectors | Only seeded passage hashes have fixture embeddings. New uploads remain full-text searchable. Use a live collection for arbitrary semantic embeddings. |
-| PDF rejected | Only text-based, nonencrypted PDFs up to 200 pages are supported. Scanned or mixed scanned documents require OCR, which is unavailable. |
-| Evidence missing after document replacement | New runs pin new versions; older runs retain their exact original evidence. Re-uploading identical bytes is idempotent. |
-| Vercel cannot reach backend | Its localhost is not your laptop. Deploy API/worker separately and set API_URL to an authenticated HTTPS endpoint. |
-| MCP tool request denied | Configure project ID and shared secret; production also needs the member's current access token. Tool names alone do not grant collection access. |
-| Evaluation panel empty | No evaluations are saved in this local database yet. Open **Evaluations** and select **Run benchmark**; both the research `worker` and `eval-worker` services must be running. See [Evaluation](EVALUATION.md) for benchmark commands and local exports. |
+Start with service status and recent logs:
 
-Never paste API keys into issues or screenshots. Worker logs report exception classes; detailed source/context inspection stays behind project authorization.
+```bash
+docker compose ps
+docker compose logs --tail=100 api worker ingestion-worker eval-worker web
+```
+
+| Symptom | What to check |
+| --- | --- |
+| Docker unavailable | Start Docker Desktop and check `docker info`. Restricted shells may need Docker socket access. |
+| Port already in use | Free ports 3000/8000/55432 or set `WORKBENCH_WEB_PORT`, `WORKBENCH_API_PORT` and `WORKBENCH_DB_PORT` in `.env`. |
+| First build cannot download dependencies | Check registry/network/proxy access and retry startup. Keep the committed lockfiles. |
+| Local demo rejects the hostname | Open `http://localhost:3000` or `http://127.0.0.1:3000` directly, using your chosen web port. |
+| Workspace setup is incomplete | Expand the setup details, correct the named settings and restart the affected services. Rebuild Next.js after changing `NEXT_PUBLIC_*`. |
+| API unavailable | Check API health/logs, `API_URL` and matching `API_SHARED_SECRET` values. A hosted frontend needs a reachable HTTPS backend, not your laptop's localhost. |
+| `vector` type not found | Use the pgvector database image. On Supabase, enable the vector extension and check the `public,extensions` search path. |
+| A job stays queued | Check `worker` for research, `ingestion-worker` for uploads and `eval-worker` plus `worker` for evaluations. They must share the correct database/storage. |
+| Awaiting approval | Review the saved plan and select **Approve & investigate**. |
+| Partial report or slow cancellation | Inspect limits/events. Budget exhaustion preserves partial evidence; cancellation waits for in-flight operations to finish or time out. |
+| Live mode unavailable | Set `LIVE_ENABLED=true` and provider keys on the Python API/workers, then create a live collection. OpenAI embeddings are required even with Anthropic research. Missing rates leave dollar estimates unavailable. |
+| Custom question rejected in demo | Use a supplied question or configure live execution. |
+| Uploaded demo file has zero vectors | New demo uploads support keyword search. Live collections provide embeddings for arbitrary documents. |
+| Upload rejected or interrupted | Check file errors and retry explicitly. Supported inputs are UTF-8 text, Markdown and text-based, nonencrypted PDFs within the documented limits; OCR is unavailable. |
+| Old citation shows an older document | Runs pin source versions at submission. Replacing a document affects new runs; existing citations retain their original passages. |
+| Evaluation panel empty | Queue a benchmark or collection suite and check both evaluation and research workers. See [Evaluation](EVALUATION.md). |
+| MCP access denied | Check project ID and backend secret; Supabase mode also needs a current member access token. |
+
+For environment requirements, see [Deployment](DEPLOYMENT.md). Remove credentials
+and private source content before sharing logs or screenshots.

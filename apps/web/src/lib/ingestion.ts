@@ -1,5 +1,6 @@
 export const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
 export const MAX_BATCH_FILES = 20;
+
 export function sourceFileError(file: {
   name: string;
   size: number;
