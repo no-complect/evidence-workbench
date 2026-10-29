@@ -1,0 +1,46 @@
+{
+  "name": "evidence-workbench-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build --webpack",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:proxy": "node --test tests/api-proxy.test.cjs",
+    "test:ui-state": "node --test tests/ui-state.test.cjs",
+    "format": "prettier --write src e2e supabase-e2e tests playwright.config.ts playwright.supabase.config.ts next.config.ts eslint.config.mjs postcss.config.mjs tsconfig.json package.json",
+    "format:check": "prettier --check src e2e supabase-e2e tests playwright.config.ts playwright.supabase.config.ts next.config.ts eslint.config.mjs postcss.config.mjs tsconfig.json package.json",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tooltip": "^1.4.1",
+    "@supabase/supabase-js": "^2.57.0",
+    "@tanstack/react-query": "^5.104.5",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "0.577.0",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tailwind-merge": "3.6.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@next/eslint-plugin-next": "^16.3.4",
+    "@playwright/test": "1.62.1",
+    "@tailwindcss/postcss": "4.2.2",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "tailwindcss": "4.2.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1"
+  }
+}

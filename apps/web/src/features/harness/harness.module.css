@@ -1,0 +1,30 @@
+.form {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 16px 0 24px;
+}
+.form label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.form select {
+  width: 100%;
+  min-width: 0;
+  font-size: 14px;
+}
+.form > :global(.button) {
+  justify-self: start;
+}
+.form p {
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 650px) {
+  .form select {
+    font-size: 16px;
+  }
+}

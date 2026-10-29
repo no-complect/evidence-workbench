@@ -1,0 +1,235 @@
+.record {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.heading > div {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.heading h2 {
+  font-size: 18px;
+  line-height: 1.6;
+}
+.heading p {
+  color: #647184;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.call {
+  display: grid;
+  gap: 7px;
+  flex: 0 1 340px;
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+  color: #647184;
+}
+.call select {
+  width: 100%;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--border);
+  margin: 12px 0;
+}
+.stats > div {
+  padding: 16px;
+  background: #fafbfc;
+  min-width: 0;
+}
+.stats span {
+  display: block;
+  font-size: 11px;
+  color: #647184;
+  margin-bottom: 8px;
+}
+.stats strong {
+  display: block;
+  font:
+    13px/1.7 ui-monospace,
+    monospace;
+  overflow-wrap: anywhere;
+  color: #344456;
+}
+.boundary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid #dce2e9;
+  border-radius: 8px;
+  background: #f4f6f8;
+  color: #4c5a6b;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.boundary svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: #637b9a;
+}
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 18px;
+  min-width: 0;
+}
+.surface {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: white;
+  padding: 20px;
+  min-width: 0;
+}
+.surface h3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 8px;
+}
+.caption {
+  font-size: 12px;
+  color: #647184;
+  line-height: 1.8;
+}
+.text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #344456;
+  margin: 12px 0;
+}
+.record details {
+  margin-top: 12px;
+  min-width: 0;
+}
+.record summary {
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.8;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.passages {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+}
+.passages > li {
+  border-top: 1px solid var(--border);
+  padding: 4px 0 14px;
+}
+.passage {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-left: 3px solid #b3bfd0;
+  margin: 12px 0;
+  padding: 10px 16px;
+  background: #f6f7f9;
+  color: #344456;
+  font-size: 13px;
+  line-height: 1.9;
+}
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid #dae1e9;
+  border-radius: 5px;
+  background: #f3f5f8;
+  color: #53677d;
+  padding: 2px 7px;
+}
+.metadata {
+  display: grid;
+  grid-template-columns: minmax(95px, 140px) minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 14px 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.metadata dt {
+  color: #647184;
+}
+.metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #344456;
+}
+.decisions {
+  padding: 0;
+  list-style: none;
+}
+.decisions li {
+  margin-top: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.decisions code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #647184;
+  font-size: 11px;
+  margin: 4px 0;
+}
+.debug {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.debug > summary svg {
+  display: inline;
+  vertical-align: middle;
+  margin-right: 7px;
+}
+.debug .json {
+  margin-top: 0;
+  border-radius: 0 0 7px 7px;
+}
+.json {
+  background: #41494f;
+  color: #eef1f5;
+  border-radius: 7px;
+  font:
+    12px/1.8 ui-monospace,
+    monospace;
+  padding: 18px;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-top: 12px;
+}
+@media (max-width: 600px) {
+  .surface {
+    padding: 16px;
+  }
+  .metadata {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .metadata dd {
+    margin-bottom: 8px;
+  }
+}

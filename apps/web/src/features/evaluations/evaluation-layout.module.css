@@ -1,0 +1,75 @@
+.workspace {
+  display: grid;
+  gap: 28px;
+  min-width: 0;
+}
+
+.workspace > .setup {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  margin: 0;
+}
+
+.setupHeading {
+  flex-wrap: wrap;
+}
+
+.feedback {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.feedback:empty {
+  display: none;
+}
+
+.comparisons {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.comparisonHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.comparisonHeading > div {
+  min-width: 0;
+}
+
+.comparisonHeading h2 {
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.comparisonHeading p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+  margin-top: 8px;
+}
+
+.comparisonHeading > svg {
+  flex: 0 0 23px;
+  margin-top: 3px;
+}
+
+.comparisons :global(.evaluation) {
+  min-width: 0;
+  margin: 0;
+}
+
+.metadata {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.metadata > time {
+  overflow-wrap: anywhere;
+}
