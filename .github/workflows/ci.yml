@@ -1,0 +1,139 @@
+name: Workbench verification
+on: [push, pull_request]
+permissions: { contents: read }
+jobs:
+  supabase:
+    name: Supabase identity and storage
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { version: '0.12.7', python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - uses: supabase/setup-cli@v3
+        with: { version: '2.120.0' }
+      - run: uv sync --frozen
+      - run: npm ci --no-audit --no-fund
+        working-directory: apps/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Verify real local Supabase services and two-user isolation
+        run: uv run --frozen python scripts/verify-supabase.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: supabase-verification-results
+          # Auth callbacks contain tokens: no browser traces, state or HTML reports.
+          path: .runtime/supabase-verification
+  compose:
+    name: Fresh container journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - run: npm ci --no-audit --no-fund
+        working-directory: apps/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Build, start and exercise disposable containers
+        run: python3 scripts/verify-compose.py --browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-verification-results
+          path: |
+            .runtime/compose-verification
+            apps/web/playwright-report
+            apps/web/test-results
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env: { POSTGRES_USER: workbench, POSTGRES_PASSWORD: workbench, POSTGRES_DB: workbench_test }
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U workbench -d workbench_test"
+          --health-interval 3s --health-timeout 5s --health-retries 20
+    env:
+      APP_ENV: test
+      AUTH_MODE: demo
+      LIVE_ENABLED: 'false'
+      DATABASE_URL: postgresql://workbench:workbench@localhost:55432/workbench_test
+      STORAGE_PATH: .runtime/test-objects
+      API_SHARED_SECRET: local-demo-only-not-for-production
+      WORKBENCH_INTEGRATION: '1'
+      NEXT_PUBLIC_AUTH_MODE: demo
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { version: '0.12.7', python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - run: uv sync --frozen
+      - run: npm ci --no-audit --no-fund
+        working-directory: apps/web
+      - run: python3 scripts/check-publication.py
+      - run: uv run ruff check services tests scripts
+      - run: uv run ruff format --check services tests scripts
+      - run: uv run python scripts/check-contracts.py
+      - name: Verify wheel runtime assets
+        run: uv run --frozen python scripts/check-package.py
+      - name: Validate judge challenges without model calls
+        run: uv run --frozen python -m workbench.calibrate_judge
+      - run: uv run pytest --timeout=180
+      - run: npm run test:proxy
+        working-directory: apps/web
+      - run: npm run test:ui-state && npm run lint && npm run format:check
+        working-directory: apps/web
+      - run: npm run typecheck && npm run build
+        working-directory: apps/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Verify real browser journey
+        run: |
+          mkdir -p .runtime
+          .venv/bin/uvicorn workbench.api:app --host 127.0.0.1 --port 8000 > .runtime/api.log 2>&1 &
+          api_pid=$!
+          .venv/bin/python -m workbench.worker > .runtime/worker.log 2>&1 &
+          worker_pid=$!
+          .venv/bin/python -m workbench.ingestion_worker > .runtime/ingestion-worker.log 2>&1 &
+          ingestion_pid=$!
+          .venv/bin/python -m workbench.evaluation_worker > .runtime/evaluation-worker.log 2>&1 &
+          evaluation_pid=$!
+          npm --prefix apps/web run start > .runtime/web.log 2>&1 &
+          web_pid=$!
+          trap 'kill "$api_pid" "$worker_pid" "$ingestion_pid" "$evaluation_pid" "$web_pid" 2>/dev/null || true' EXIT
+          workbench_ready=false
+          for i in $(seq 1 45); do
+            if curl -fsS http://localhost:3000 > /dev/null && curl -fsS http://localhost:8000/health > /dev/null; then
+              workbench_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$workbench_ready" != true ]; then echo 'Web/API services did not become ready'; exit 1; fi
+          .venv/bin/python scripts/verify-deployment.py
+          npm --prefix apps/web run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-results
+          # These explicit paths contain only synthetic local verification data.
+          # Include .runtime logs/results as well as the browser artifacts.
+          include-hidden-files: true
+          path: |
+            .runtime/*.log
+            .runtime/deployment-verification/result.json
+            apps/web/playwright-report
+            apps/web/test-results

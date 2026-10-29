@@ -1,0 +1,9 @@
+Reviewer upload example — synthetic demonstration material.
+
+Security requirements: scope source access to the selected project, preserve
+source versions for existing reports, and review the passages supplied to models.
+
+Maintenance question: who owns retrieval updates and incident response?
+
+This file demonstrates ingestion and full-text search. It does not add scripted
+answers or neural vectors to the local demo.
