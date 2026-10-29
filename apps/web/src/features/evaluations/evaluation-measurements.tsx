@@ -1,6 +1,7 @@
 import { ShieldCheck, ScanSearch, Quote, AlertCircle } from "lucide-react";
 import styles from "@/features/harness/studio.module.css";
 import { HelpTip } from "@/components/ui/tooltip";
+
 const measures = [
   [
     ScanSearch,

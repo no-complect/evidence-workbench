@@ -18,6 +18,7 @@ export const collectionOptions = (project: string) =>
     enabled: !!project,
     staleTime: 60_000,
   });
+
 export function usePrepareCollection(project: string) {
   const client = useQueryClient();
   return useMutation({
@@ -46,6 +47,7 @@ export function usePrepareCollection(project: string) {
       }),
   });
 }
+
 export function useResumeCollection(project: string, collection: string) {
   const client = useQueryClient();
   return useMutation({
@@ -64,6 +66,7 @@ export function useResumeCollection(project: string, collection: string) {
     },
   });
 }
+
 export const retrievalOptions = (
   project: string,
   request: SearchRequest | null,

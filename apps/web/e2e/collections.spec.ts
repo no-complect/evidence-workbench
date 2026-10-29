@@ -197,6 +197,9 @@ test("loading and failed collection metadata never masquerade as a new collectio
   await expect(
     workspace.getByRole("button", { name: "Set up collection", exact: true }),
   ).toHaveCount(0);
+  await page.getByRole("button", { name: "RAG", exact: true }).click();
+  await expect(page.getByLabel("Upload source file")).toBeDisabled();
+  await page.getByRole("button", { name: "Workflows", exact: true }).click();
   release();
   await expect(
     workspace.getByRole("button", { name: "Set up collection", exact: true }),
@@ -559,6 +562,13 @@ test("embedding usage shows missing accounting honestly and recovers read errors
 }, info) => {
   let failed = false;
   const writes: string[] = [];
+  // Other journeys prepare files in the shared demo project. Their job updates
+  // must not invalidate this test's controlled usage error before Retry is clicked.
+  await page.route("**/api/backend/projects/*/ingestions", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({ json: [] })
+      : route.fallback(),
+  );
   page.on("request", (request) => {
     if (request.method() === "POST") writes.push(request.url());
   });

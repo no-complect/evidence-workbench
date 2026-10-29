@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ErrorNotice } from "@/components/error-notice";
-import { SourcesView } from "@/components/sources-view";
+import { SourcesView } from "@/features/collections/sources-view";
 import { sourceOptions } from "./queries";
 import { UploadBatch } from "@/features/collections/upload-batch";
 import type { UploadQueue } from "@/features/collections/use-upload-queue";

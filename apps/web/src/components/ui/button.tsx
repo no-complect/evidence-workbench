@@ -3,6 +3,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { Tooltip } from "./tooltip";
+
 // shadcn/ui composition pattern, styled for the workbench.
 const variants = cva("button", {
   variants: {
@@ -16,6 +17,7 @@ const variants = cva("button", {
   },
   defaultVariants: { variant: "default", size: "default" },
 });
+
 export function Button({
   className,
   variant,

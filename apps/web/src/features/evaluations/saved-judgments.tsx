@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { useSavedJudgments } from "./judgment-queries";
 import { ErrorNotice } from "@/components/error-notice";

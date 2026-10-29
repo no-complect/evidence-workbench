@@ -1,12 +1,14 @@
 import type { Run } from "@/lib/contracts";
 import type { WorkspaceTab } from "./workspace-state";
 import styles from "./investigation-header.module.css";
+
 const steps = [
   ["Scope the question", "execution"],
   ["Review the plan", "execution"],
   ["Explore the evidence", "evidence"],
   ["Read the brief", "report"],
 ] as const;
+
 export function InvestigationHeader({
   run,
   collectionName,

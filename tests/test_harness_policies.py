@@ -1,11 +1,14 @@
 from types import SimpleNamespace
+
 import pytest
 from workbench import credential_store, harness
-from workbench.models import ModelVerification, ConnectionCreate
+from workbench.models import ConnectionCreate, ModelVerification
 
 
 def test_credentials_encrypt_at_rest_and_key_permissions_fail_closed(tmp_path, monkeypatch):
-    monkeypatch.setattr(credential_store, 'settings', lambda: SimpleNamespace(credential_store_path=tmp_path))
+    monkeypatch.setattr(
+        credential_store, 'settings', lambda: SimpleNamespace(credential_store_path=tmp_path)
+    )
     secret = 'synthetic-provider-credential-only'
     encrypted = credential_store.encrypt(secret)
     assert secret not in encrypted and credential_store.decrypt(encrypted) == secret
@@ -20,8 +23,12 @@ def test_credential_source_and_probe_budget_are_explicit():
     for values in [{}, {'use_environment': True, 'api_key': 'synthetic-key-for-tests'}]:
         with pytest.raises(ValueError):
             ConnectionCreate(name='Test', **values)
-    body = ModelVerification(model_id='fine-tuned:model-version', input_usd_per_million=1,
-                             output_usd_per_million=3, idempotency_key='11111111-1111-4111-8111-111111111111')
+    body = ModelVerification(
+        model_id='fine-tuned:model-version',
+        input_usd_per_million=1,
+        output_usd_per_million=3,
+        idempotency_key='11111111-1111-4111-8111-111111111111',
+    )
     assert harness.check_cost(body) > 3 * 2200 * 3 / 1_000_000
     for value in [0, -1, float('inf'), float('nan')]:
         with pytest.raises(ValueError):
@@ -29,35 +36,55 @@ def test_credential_source_and_probe_budget_are_explicit():
 
 
 def test_openai_adapter_uses_pinned_model_prices_and_fixed_endpoint(monkeypatch):
-    from workbench.providers import OpenAIProvider
-    from workbench.models import Plan, Task
     import langchain_openai
+    from workbench.models import Plan, Task
+    from workbench.providers import OpenAIProvider
+
     observed = {}
-    plan = Plan(tasks=[Task(id='test', topic='security', question='test question')], rationale='test')
+    plan = Plan(
+        tasks=[Task(id='test', topic='security', question='test question')], rationale='test'
+    )
 
     class Chat:
         def __init__(self, **kwargs):
             observed.update(kwargs)
+
         def with_structured_output(self, schema, **kwargs):
             observed['schema'] = schema
             assert kwargs == {'method': 'json_schema', 'strict': True, 'include_raw': True}
             return self
+
         def invoke(self, messages):
-            return {'parsed': plan, 'raw': SimpleNamespace(usage_metadata={
-                'input_tokens': 100, 'output_tokens': 50, 'total_tokens': 150})}
+            return {
+                'parsed': plan,
+                'raw': SimpleNamespace(
+                    usage_metadata={'input_tokens': 100, 'output_tokens': 50, 'total_tokens': 150}
+                ),
+            }
+
     monkeypatch.setattr(langchain_openai, 'ChatOpenAI', Chat)
     target = {'model_id': 'account-model', 'input_usd_per_million': 2, 'output_usd_per_million': 8}
     result, tokens, cost = OpenAIProvider(target, 'synthetic-test-credential').invoke(
-        'plan', {'trusted_instructions': 'test', 'untrusted_sources': []}, Plan, timeout=8)
+        'plan', {'trusted_instructions': 'test', 'untrusted_sources': []}, Plan, timeout=8
+    )
     assert result == plan and tokens == 150 and cost == pytest.approx(0.0006)
-    assert observed['model'] == 'account-model' and observed['base_url'] == 'https://api.openai.com/v1'
+    assert (
+        observed['model'] == 'account-model' and observed['base_url'] == 'https://api.openai.com/v1'
+    )
     assert observed['max_retries'] == 0 and observed['max_tokens'] == 2200
 
 
 def test_model_catalog_preserves_all_families_and_reports_the_full_response_count():
     from workbench.provider_catalog import parse_catalog
-    ids = ['gpt-4.1', 'gpt-4.1-mini', 'ft:account:model:v2', 'text-embedding-3-small',
-           'audio-test-model', 'image-test-model'] + [f'future-family-{i}' for i in range(125)]
+
+    ids = [
+        'gpt-4.1',
+        'gpt-4.1-mini',
+        'ft:account:model:v2',
+        'text-embedding-3-small',
+        'audio-test-model',
+        'image-test-model',
+    ] + [f'future-family-{i}' for i in range(125)]
     models, returned = parse_catalog({'data': [{'id': mid} for mid in ids] + [{'id': ids[0]}]})
     assert models == sorted(ids) and returned == len(ids) + 1
     assert parse_catalog({'data': []}) == ([], 0)
@@ -65,8 +92,13 @@ def test_model_catalog_preserves_all_families_and_reports_the_full_response_coun
 
 def test_malformed_catalogs_fail_instead_of_silently_truncating_the_model_list():
     from workbench.provider_catalog import parse_catalog
-    for payload in [{}, {'data': None}, {'data': [{'id': 'valid'}, {'id': 'bad\nmodel'}]},
-                    {'data': [{'id': 'valid'}, {'id': None}]}]:
+
+    for payload in [
+        {},
+        {'data': None},
+        {'data': [{'id': 'valid'}, {'id': 'bad\nmodel'}]},
+        {'data': [{'id': 'valid'}, {'id': None}]},
+    ]:
         with pytest.raises(ValueError):
             parse_catalog(payload)
 
@@ -75,25 +107,47 @@ def test_environment_adapter_accepts_new_model_families_without_pricing_or_prefl
     import langchain_openai
     from workbench import providers
     from workbench.models import Plan, Task
+
     observed = {}
-    profile = SimpleNamespace(openai_model='future-chat-family', openai_api_key='synthetic-test-key',
-                              model_input_usd_per_million=None, model_output_usd_per_million=None)
+    profile = SimpleNamespace(
+        openai_model='future-chat-family',
+        openai_api_key='synthetic-test-key',
+        model_input_usd_per_million=None,
+        model_output_usd_per_million=None,
+    )
     monkeypatch.setattr(providers, 'settings', lambda: profile)
-    plan = Plan(tasks=[Task(id='test', topic='security', question='test question')], rationale='test')
+    plan = Plan(
+        tasks=[Task(id='test', topic='security', question='test question')], rationale='test'
+    )
+
     class Chat:
-        def __init__(self, **kwargs): observed.update(kwargs)
-        def with_structured_output(self, *args, **kwargs): return self
+        def __init__(self, **kwargs):
+            observed.update(kwargs)
+
+        def with_structured_output(self, *args, **kwargs):
+            return self
+
         def invoke(self, messages):
-            return {'parsed': plan, 'raw': SimpleNamespace(usage_metadata={
-                'input_tokens': 100, 'output_tokens': 50, 'total_tokens': 150})}
+            return {
+                'parsed': plan,
+                'raw': SimpleNamespace(
+                    usage_metadata={'input_tokens': 100, 'output_tokens': 50, 'total_tokens': 150}
+                ),
+            }
+
     monkeypatch.setattr(langchain_openai, 'ChatOpenAI', Chat)
-    result, tokens, cost = providers.OpenAIProvider().invoke('plan', {'trusted_instructions': 'test'}, Plan)
+    result, tokens, cost = providers.OpenAIProvider().invoke(
+        'plan', {'trusted_instructions': 'test'}, Plan
+    )
     assert result == plan and tokens == 150 and cost is None
     assert observed['model'] == 'future-chat-family'
 
     class Denied(Exception):
         status_code = 403
-    def denied(*args): raise Denied('synthetic-test-key')
+
+    def denied(*args):
+        raise Denied('synthetic-test-key')
+
     monkeypatch.setattr(Chat, 'invoke', denied)
     with pytest.raises(providers.ModelCompatibilityError) as failure:
         providers.OpenAIProvider().invoke('plan', {'trusted_instructions': 'test'}, Plan)
@@ -102,12 +156,31 @@ def test_environment_adapter_accepts_new_model_families_without_pricing_or_prefl
 
 def test_context_configuration_changes_assembly_and_pins_the_effective_prompt_hash():
     from workbench.context import assemble
-    evidence = [{'id': f'00000000-0000-4000-8000-{i:012d}', 'text': (f'Evidence passage {i} about retention requirements. ' * 25),
-                 'metadata': {}, 'scores': {'rrf': 1}, 'source_name': f'source-{i}',
-                 'page': None, 'section': '', 'start_offset': 0, 'end_offset': 1200} for i in range(6)]
+
+    evidence = [
+        {
+            'id': f'00000000-0000-4000-8000-{i:012d}',
+            'text': (f'Evidence passage {i} about retention requirements. ' * 25),
+            'metadata': {},
+            'scores': {'rrf': 1},
+            'source_name': f'source-{i}',
+            'page': None,
+            'section': '',
+            'start_offset': 0,
+            'end_offset': 1200,
+        }
+        for i in range(6)
+    ]
     _, balanced = assemble('report', 'Compare security requirements.', evidence)
-    payload, strict = assemble('report', 'Compare security requirements.', evidence,
-                               configuration={'system_instruction': 'Preserve explicit evidence gaps.', 'context_policy': 'strict'})
+    payload, strict = assemble(
+        'report',
+        'Compare security requirements.',
+        evidence,
+        configuration={
+            'system_instruction': 'Preserve explicit evidence gaps.',
+            'context_policy': 'strict',
+        },
+    )
     assert strict['context_cap'] < balanced['context_cap']
     assert len(strict['selected']) < len(balanced['selected'])
     assert strict['prompt_hash'] != balanced['prompt_hash']

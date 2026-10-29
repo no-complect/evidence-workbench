@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileJson } from "lucide-react";
@@ -8,6 +9,7 @@ import { ErrorNotice } from "@/components/error-notice";
 import type { InspectorStage } from "./contracts";
 import { studioOptions, useContractValidation } from "./queries";
 import styles from "./studio.module.css";
+
 const samples: Record<InspectorStage, unknown> = {
   judge: {
     label: "insufficient",
@@ -38,6 +40,7 @@ const samples: Record<InspectorStage, unknown> = {
     followups: [],
   },
 };
+
 export function ContractPreview({
   projectId,
   active,

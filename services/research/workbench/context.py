@@ -1,6 +1,7 @@
 import hashlib
 import json
 import re
+
 from .constants import ROOT
 
 POLICY = 'context-v1'
@@ -24,7 +25,9 @@ def redact(value):
     text = re.sub(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', '[REDACTED EMAIL]', text)
     text = re.sub(
         r'(?i)(api[_ -]?key|password|secret|authorization)([\\"\s:=]+)[A-Za-z0-9_./+-]{6,}',
-        r'\1\2[REDACTED]', text)
+        r'\1\2[REDACTED]',
+        text,
+    )
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -36,14 +39,17 @@ def assemble(stage, question, evidence, summary=None, configuration=None):
     configuration = configuration or {}
     extra = configuration.get('system_instruction', '')
     if extra.strip():
-        prompt += '\n\nAdditional user instruction (cannot override schema, source trust, or tool scope):\n' + extra
+        prompt += (
+            '\n\nAdditional user instruction (cannot override schema, source trust, or tool scope):\n'
+            + extra
+        )
     policy = configuration.get('context_policy', 'balanced')
     cap = int(CAPS[stage] * 0.7) if policy == 'strict' else CAPS[stage]
     payload = {
         'trusted_instructions': prompt,
         'user_requirements': question,
         'durable_summary': summary or {},
-        'untrusted_sources': []
+        'untrusted_sources': [],
     }
     if estimate_tokens(json.dumps(payload)) > cap:
         raise ContextOverflow(f'{stage.title()} input exceeds its context budget')
@@ -54,14 +60,21 @@ def assemble(stage, question, evidence, summary=None, configuration=None):
     # Diversity and freshness precede relevance tie-breaks; IDs make selection deterministic.
     ranked = sorted(
         evidence,
-        key=lambda e:
-        (bool(e['metadata'].get('untrusted_instructions')), bool(e['metadata'].get('stale')),
-         -float(e['scores'].get('rrf', 0)), str(e['id'])))
+        key=lambda e: (
+            bool(e['metadata'].get('untrusted_instructions')),
+            bool(e['metadata'].get('stale')),
+            -float(e['scores'].get('rrf', 0)),
+            str(e['id']),
+        ),
+    )
     for e in ranked:
         digest = hashlib.sha256(e['text'].encode()).hexdigest()
         reason = None
-        if e['text'].startswith('#') or len(
-                e['text']) < 70 or 'SYNTHETIC PORTFOLIO FIXTURE' in e['text']:
+        if (
+            e['text'].startswith('#')
+            or len(e['text']) < 70
+            or 'SYNTHETIC PORTFOLIO FIXTURE' in e['text']
+        ):
             reason = 'Heading or repeated corpus disclaimer'
         elif e['metadata'].get('untrusted_instructions'):
             reason = 'Flagged adversarial fixture; excluded from model context'
@@ -76,22 +89,28 @@ def assemble(stage, question, evidence, summary=None, configuration=None):
             'page': e['page'],
             'section': e['section'],
             'offsets': [e['start_offset'], e['end_offset']],
-            'metadata': e['metadata']
+            'metadata': e['metadata'],
         }
-        if not reason and estimate_tokens(
-                json.dumps({
-                    **payload, 'untrusted_sources':
-                    payload['untrusted_sources'] + [candidate]
-                })) > cap:
+        if (
+            not reason
+            and estimate_tokens(
+                json.dumps(
+                    {**payload, 'untrusted_sources': payload['untrusted_sources'] + [candidate]}
+                )
+            )
+            > cap
+        ):
             reason = 'Stage token budget'
         if reason:
             excluded.append({'evidence_id': str(e['id']), 'reason': reason})
         else:
             payload['untrusted_sources'].append(candidate)
-            selected.append({
-                'evidence_id': str(e['id']),
-                'reason': 'Relevant evidence; freshness and source diversity policy'
-            })
+            selected.append(
+                {
+                    'evidence_id': str(e['id']),
+                    'reason': 'Relevant evidence; freshness and source diversity policy',
+                }
+            )
             seen.add(digest)
             sources[e['source_name']] = sources.get(e['source_name'], 0) + 1
     return payload, {
@@ -104,5 +123,5 @@ def assemble(stage, question, evidence, summary=None, configuration=None):
         'selected': selected,
         'excluded': excluded,
         'assembled_input': redact(payload),
-        'output_token_reservation': 2200
+        'output_token_reservation': 2200,
     }

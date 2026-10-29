@@ -10,8 +10,12 @@ def parse_catalog(payload):
     models = []
     for item in items:
         model_id = item.get('id') if isinstance(item, dict) else None
-        if (not isinstance(model_id, str) or not model_id or len(model_id) > 1024
-                or any(ord(char) < 32 or ord(char) == 127 for char in model_id)):
+        if (
+            not isinstance(model_id, str)
+            or not model_id
+            or len(model_id) > 1024
+            or any(ord(char) < 32 or ord(char) == 127 for char in model_id)
+        ):
             # A partial list must never be presented as a successful full discovery.
             raise ValueError('Invalid model identifier in catalog')
         models.append(model_id)

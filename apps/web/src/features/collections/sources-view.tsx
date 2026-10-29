@@ -1,9 +1,12 @@
 "use client";
+
 import { useRef } from "react";
+
 import { Database, FileText, Loader2, ShieldCheck, Upload } from "lucide-react";
-import { Button } from "./ui/button";
-import { Empty } from "./empty";
-import { HelpTip } from "./ui/tooltip";
+
+import { Empty } from "@/components/empty";
+import { Button } from "@/components/ui/button";
+import { HelpTip } from "@/components/ui/tooltip";
 import type { Source } from "@/lib/api";
 
 export function SourcesView({
@@ -54,6 +57,7 @@ export function SourcesView({
             accept=".md,.txt,.pdf"
             className="sr-only"
             aria-label="Upload source file"
+            disabled={!canUpload || busy}
             onChange={(e) => {
               if (e.target.files?.length) onUpload(Array.from(e.target.files));
               e.target.value = "";

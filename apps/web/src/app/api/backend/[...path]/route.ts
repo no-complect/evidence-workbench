@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import { proxyConfigurationIssues } from "@/lib/server-environment";
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
 const allowed = new Set(["bootstrap", "projects"]);
+
 async function proxy(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
@@ -125,4 +128,5 @@ async function proxy(
     );
   }
 }
+
 export { proxy as GET, proxy as POST };

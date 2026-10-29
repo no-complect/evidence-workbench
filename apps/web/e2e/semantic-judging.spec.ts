@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import type { EvaluationCreate } from "../../../packages/contracts/models";
 
 async function expectCheckboxLayout(page: Page, name: string) {
   const checkbox = page.getByRole("checkbox", { name, exact: true });
@@ -74,7 +75,7 @@ test("real judge contract validates without inference and scripted suites omit m
 test("provider-double UI: judge selection, configuration-bound consent and saved claim grades", async ({
   page,
 }, info) => {
-  let submitted: Record<string, any> | undefined;
+  let submitted: EvaluationCreate | undefined;
   let gradeReads = 0;
   let judgePricingKnown = true;
   let defaultModel = "judge-b";
@@ -407,14 +408,14 @@ test("provider-double UI: judge selection, configuration-bound consent and saved
     .getByRole("button", { name: "Run collection evaluation", exact: true })
     .click();
   await expect(page.locator(".benchmark-job .completed")).toBeVisible();
-  expect(submitted?.custom.judge).toEqual({
+  expect(submitted?.custom?.judge).toEqual({
     model_id: "judge-c",
     max_claims_per_run: 2,
     tokens: 5500,
     wall_seconds: 60,
     estimated_cost_usd: 0.1,
   });
-  expect(submitted?.custom.confirm_paid).toBe(true);
+  expect(submitted?.custom?.confirm_paid).toBe(true);
   await page.getByText("Inspect 3 case results", { exact: true }).click();
   const grading = page
     .getByRole("region", { name: "Model judgments", exact: true })

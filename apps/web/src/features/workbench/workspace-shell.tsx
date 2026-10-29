@@ -175,6 +175,8 @@ export function WorkspaceFrame({
         Skip to workspace
       </a>
       <header className={styles.header}>
+        {/* Full navigation intentionally resets transient workspace drafts. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/" className={styles.brand}>
           <span>
             <ScanLine size={22} />

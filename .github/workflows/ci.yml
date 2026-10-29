@@ -85,13 +85,16 @@ jobs:
         working-directory: apps/web
       - run: python3 scripts/check-publication.py
       - run: uv run ruff check services tests scripts
+      - run: uv run ruff format --check services tests scripts
       - run: uv run python scripts/check-contracts.py
+      - name: Verify wheel runtime assets
+        run: uv run --frozen python scripts/check-package.py
       - name: Validate judge challenges without model calls
         run: uv run --frozen python -m workbench.calibrate_judge
       - run: uv run pytest --timeout=180
       - run: npm run test:proxy
         working-directory: apps/web
-      - run: npm run test:ui-state && npm run format:check
+      - run: npm run test:ui-state && npm run lint && npm run format:check
         working-directory: apps/web
       - run: npm run typecheck && npm run build
         working-directory: apps/web
@@ -126,6 +129,9 @@ jobs:
         if: always()
         with:
           name: verification-results
+          # These explicit paths contain only synthetic local verification data.
+          # Include .runtime logs/results as well as the browser artifacts.
+          include-hidden-files: true
           path: |
             .runtime/*.log
             .runtime/deployment-verification/result.json

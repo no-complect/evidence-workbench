@@ -1,4 +1,5 @@
 import type { RunEvent, Context } from "@/lib/contracts";
+
 export const executionNodes = [
   {
     id: "plan",
@@ -56,6 +57,7 @@ export const executionNodes = [
       "The verifier checks citation access and exact substrings for direct quotes. This is not an independent semantic assessment of synthesized claims.",
   },
 ] as const;
+
 export function nodeRecords(
   id: string,
   events: RunEvent[],

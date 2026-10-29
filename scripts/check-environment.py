@@ -1,5 +1,6 @@
 """Validate Python service configuration without printing values or contacting providers."""
-from workbench.config import settings, configuration_status, ConfigurationError
+
+from workbench.config import ConfigurationError, configuration_status, settings
 
 
 def main():

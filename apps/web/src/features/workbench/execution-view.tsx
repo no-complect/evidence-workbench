@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import {
   ListChecks,
@@ -17,6 +18,7 @@ import { executionNodes, nodeRecords } from "./execution-state";
 import { ContextRecordView } from "@/features/context/context-record-view";
 import styles from "./execution-view.module.css";
 import studio from "@/features/harness/studio.module.css";
+
 const icons = {
   plan: ListChecks,
   gather: Files,
@@ -24,6 +26,7 @@ const icons = {
   report: NotebookPen,
   verify: ShieldCheck,
 };
+
 export function ExecutionView({
   snapshot,
   strategy,
@@ -187,8 +190,9 @@ export function ExecutionView({
               <details className={styles.event} key={context.id}>
                 <summary>{context.stage} · assembled context</summary>
                 <p>
-                  {context.payload.selected.length} selected ·{" "}
-                  {context.payload.excluded.length} excluded passages
+                  {context.payload.selected?.length ?? "not recorded"} selected
+                  · {context.payload.excluded?.length ?? "not recorded"}{" "}
+                  excluded passages
                 </p>
                 <p className="fine-print">
                   Policy: {context.payload.policy_version} · Prompt:{" "}

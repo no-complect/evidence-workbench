@@ -1,6 +1,8 @@
 .git
 .env
 .env.*
+.envs
+IDEA.md
 node_modules
 **/node_modules
 **/.next

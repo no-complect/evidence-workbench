@@ -1,13 +1,13 @@
 "use client";
-import { ErrorNotice } from "./error-notice";
-import { useEvaluations } from "@/features/evaluations/use-evaluations";
-import { EvaluationJobs } from "@/features/evaluations/evaluation-jobs";
-import { EvaluationResults } from "@/features/evaluations/evaluation-results";
-import layout from "@/features/evaluations/evaluation-layout.module.css";
-import {
-  EvaluationEditor,
-  type EvaluationSetup,
-} from "@/features/evaluations/evaluation-editor";
+
+import { ErrorNotice } from "@/components/error-notice";
+
+import { EvaluationEditor, type EvaluationSetup } from "./evaluation-editor";
+import { EvaluationJobs } from "./evaluation-jobs";
+import layout from "./evaluation-layout.module.css";
+import { EvaluationResults } from "./evaluation-results";
+import { useEvaluations } from "./use-evaluations";
+
 export function EvaluationsView({
   projectId,
   enabled,

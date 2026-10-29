@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+
 export type * from "./contracts";
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -39,6 +40,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   return response.json();
 }
+
 export async function exportReport(path: string) {
   const client = supabase();
   const headers: Record<string, string> = {};
@@ -67,6 +69,7 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
+
 function errorMessage(body: unknown, status: number): string {
   if (body && typeof body === "object" && "detail" in body) {
     const detail = body.detail;

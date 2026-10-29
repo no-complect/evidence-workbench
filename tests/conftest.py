@@ -1,4 +1,5 @@
 import os
+
 import pytest
 
 
@@ -9,6 +10,7 @@ def database():
     from workbench import db
     from workbench.seed import seed
     from workbench.worker import setup_checkpoints
+
     seed()
     setup_checkpoints()
     return db
@@ -19,5 +21,6 @@ def client(database):
     from fastapi.testclient import TestClient
     from workbench.api import app
     from workbench.config import settings
+
     with TestClient(app, headers={'X-Workbench-Key': settings().api_shared_secret}) as client:
         yield client

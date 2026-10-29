@@ -39,7 +39,7 @@ export function ContextPassages({
         <ol className={styles.passages}>
           {input.passages.map((passage, index) => {
             const original = byId.get(passage.evidenceId);
-            const decision = trace.selected.find(
+            const decision = trace.selected?.find(
               (item) => item.evidence_id === passage.evidenceId,
             );
             return (

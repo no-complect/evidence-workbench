@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./supabase-e2e",
+  forbidOnly: !!process.env.CI,
   timeout: 180_000,
   workers: 1,
   reporter: [["list"]],

@@ -1,115 +1,46 @@
 "use client";
 
 import { useReducer, useState } from "react";
+
 import { useQuery } from "@tanstack/react-query";
-import { ErrorNotice } from "./error-notice";
-import { SessionControls } from "@/features/workbench/session-controls";
+
+import { ErrorNotice } from "@/components/error-notice";
+import { CollectionWizard } from "@/features/collections/collection-wizard";
+import { RagWorkspace } from "@/features/collections/rag-workspace";
+import { useUploadQueue } from "@/features/collections/use-upload-queue";
+import { EvaluationsView } from "@/features/evaluations/evaluations-view";
 import { initialHarnessConfiguration } from "@/features/harness/configuration";
-import {
-  initialResearchDraft,
-  researchReducer,
-} from "@/features/workbench/research-state";
 import { modelCatalogOptions } from "@/features/harness/queries";
 import { ApiError } from "@/lib/api";
-import { browserConfiguration } from "@/lib/browser-environment";
-import { ConfigurationNotice } from "@/features/workbench/configuration-notice";
 import type { Bootstrap, Project } from "@/lib/contracts";
-import { AuthPanel } from "@/features/workbench/auth-panel";
-import { CreateDialog } from "@/features/workbench/create-dialog";
-import { EvidenceDrawer } from "@/features/workbench/evidence-drawer";
-import { PlanReview } from "@/features/workbench/plan-review";
-import { InvestigationHeader } from "@/features/workbench/investigation-header";
-import { ResearchComposer } from "@/features/workbench/research-composer";
-import { RunStrip } from "@/features/workbench/run-strip";
-import { RunViews } from "@/features/workbench/run-views";
-import { HarnessView } from "@/features/workbench/harness-view";
-import { RagWorkspace } from "@/features/collections/rag-workspace";
-import { CollectionWizard } from "@/features/collections/collection-wizard";
-import { useUploadQueue } from "@/features/collections/use-upload-queue";
-import { EvaluationsView } from "./evaluations-view";
+
+import { AuthPanel } from "./auth-panel";
+import { ConfigurationNotice } from "./configuration-notice";
+import { CreateDialog } from "./create-dialog";
+import { EvidenceDrawer } from "./evidence-drawer";
+import { HarnessView } from "./harness-view";
+import { InvestigationHeader } from "./investigation-header";
+import { PlanReview } from "./plan-review";
+import { projectOptions, useResearchRun, isTerminalRun } from "./queries";
+import { ResearchComposer } from "./research-composer";
+import { initialResearchDraft, researchReducer } from "./research-state";
+import { RunStrip } from "./run-strip";
+import { RunViews } from "./run-views";
+import { SessionControls } from "./session-controls";
 import {
   WorkspaceFrame,
   WorkspaceNavigation,
   WorkspaceHeading,
   ProjectBar,
-} from "@/features/workbench/workspace-shell";
-import {
-  bootstrapOptions,
-  projectOptions,
-  useResearchRun,
-  isTerminalRun,
-} from "@/features/workbench/queries";
+} from "./workspace-shell";
 import {
   initialWorkspaceState,
   workspaceReducer,
   resolveSelection,
   type WorkspaceAction,
-} from "@/features/workbench/workspace-state";
+} from "./workspace-state";
 
-export function Workbench() {
-  const configurationIssues = browserConfiguration();
-  const bootstrap = useQuery({
-    ...bootstrapOptions(),
-    enabled: !configurationIssues.length,
-  });
-  const [selectedProjectId, setSelectedProjectId] = useState("");
-  const project = resolveSelection(
-    bootstrap.data?.projects ?? [],
-    selectedProjectId,
-  );
-  const needsAuth =
-    process.env.NEXT_PUBLIC_AUTH_MODE === "supabase" &&
-    bootstrap.error instanceof ApiError &&
-    bootstrap.error.status === 401 &&
-    bootstrap.error.code !== "configuration_error";
-  if (
-    configurationIssues.length ||
-    (!bootstrap.data &&
-      bootstrap.error instanceof ApiError &&
-      bootstrap.error.code === "configuration_error")
-  )
-    return (
-      <WorkspaceFrame connection="offline" navigation={null} projectBar={null}>
-        <ConfigurationNotice
-          issues={
-            configurationIssues.length
-              ? configurationIssues
-              : [bootstrap.error!.message]
-          }
-        />
-      </WorkspaceFrame>
-    );
-  if (!bootstrap.data && bootstrap.isError && !needsAuth)
-    return (
-      <WorkspaceFrame connection="offline" navigation={null} projectBar={null}>
-        <ErrorNotice
-          title="Connection unavailable"
-          error={bootstrap.error}
-          onRetry={() => void bootstrap.refetch()}
-        />
-      </WorkspaceFrame>
-    );
-  return (
-    <ProjectWorkspace
-      key={project?.id ?? "unselected"}
-      project={project}
-      bootstrap={bootstrap.data}
-      connection={
-        bootstrap.isPending
-          ? "connecting"
-          : bootstrap.isError
-            ? "offline"
-            : "connected"
-      }
-      bootstrapError={bootstrap.error}
-      needsAuth={needsAuth}
-      onRetryBootstrap={() => void bootstrap.refetch()}
-      onProjectChange={setSelectedProjectId}
-    />
-  );
-}
-
-function ProjectWorkspace({
+export function ProjectWorkspace({
   project,
   bootstrap,
   connection,

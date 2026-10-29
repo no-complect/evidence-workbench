@@ -1,11 +1,13 @@
 "use client";
 
 import { Database, Download, FileText, ShieldCheck } from "lucide-react";
-import { Button } from "./ui/button";
-import styles from "./decision-brief.module.css";
-import { Empty } from "./empty";
-import { Tooltip } from "./ui/tooltip";
+
+import { Empty } from "@/components/empty";
+import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { Run, Evidence } from "@/lib/api";
+
+import styles from "./decision-brief.module.css";
 
 export function ReportView({
   run,

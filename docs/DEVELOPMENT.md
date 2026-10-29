@@ -1,23 +1,23 @@
 # Development and tests
 
-The [Docker quick start](../README.md#running-the-application) is the recommended local startup
-path. It does not require host language tools. This guide is for changing code.
+To try the app, use the [Docker quick start](../README.md#running-the-application).
+This guide is for changing the code. Run commands from the repository root unless
+shown otherwise.
 
 ## Host setup
 
-Install Python 3.12+, uv, and Node 24. `scripts/install-deps-macos.sh` can inspect
-macOS prerequisites; installation is opt-in with `--install`.
+Install Python 3.12–3.14, uv, Node 24 and Docker with Compose v2.
 
 ```bash
 uv sync --frozen
 npm --prefix apps/web ci
-cp .env.example .env
+test -f .env || cp .env.example .env
 docker compose up -d db
 uv run --frozen python -m workbench.seed
 ```
 
-If `.env` already exists, retain your configuration rather than replacing it.
-Run these in separate terminals from the repository root:
+Review existing `.env` settings before using them for local development. Start each
+process in a separate terminal:
 
 ```bash
 uv run --frozen uvicorn workbench.api:app --host 127.0.0.1 --port 8000 --reload
@@ -27,29 +27,42 @@ uv run --frozen python -m workbench.evaluation_worker
 APP_ENV=local npm --prefix apps/web run dev -- --hostname 127.0.0.1
 ```
 
-Use `http://localhost:3000` for the UI and `http://localhost:8000/docs` for the
-API schema. Do not also start the container API/web on those same ports.
+Open `http://localhost:3000`; the API schema is at `http://localhost:8000/docs`.
+Avoid running the container API/web on the same ports. Python reads the root
+`.env`; host Next.js reads its process environment or `apps/web/.env.local`.
+See [configuration](DEPLOYMENT.md#configuration-validation-and-recovery) for live/auth settings.
 
 ## Unit, contract, and frontend checks
 
 ```bash
 ./scripts/test.sh
 uv run --frozen ruff check services tests scripts
+uv run --frozen ruff format --check services tests scripts
+uv run --frozen python scripts/check-package.py
 python3 scripts/check-offline.py
 python3 scripts/check-publication.py
 ```
 
-If your environment restricts the default uv cache, set
-`UV_CACHE_DIR=.cache/uv`. An internet connection is required for initial installs.
+The test script runs Python lint/format and unit tests, generated-contract checks, frontend state
+and proxy tests, lint, formatting, type checking and the production frontend build.
+The package check exercises the wheel outside the checkout. The offline check
+validates syntax and fixture integrity; the publication check checks the candidate
+file set, required assets, links and common secret patterns.
 
-The Pydantic-to-TypeScript generator is `scripts/check-contracts.py`; use its
-`--write` flag after changing shared request/report models, then rerun the check.
+After changing Pydantic request/response models, regenerate and check shared types:
+
+```bash
+uv run --frozen python scripts/check-contracts.py --write
+uv run --frozen python scripts/check-contracts.py
+```
+
+Generated transport types live in `packages/contracts/models.ts`. See
+[packages and contracts](ARCHITECTURE.md#packages-and-contracts) for runtime boundaries.
 
 ## Real integration tests
 
-Use a **dedicated disposable test database**. The suite seeds and changes data;
-never point it at a production or research database. Start the local `db` service
-and create the test database once:
+Use a **dedicated disposable database**: these tests seed and modify data. With
+the local `db` service running, create the test database once, then run:
 
 ```bash
 docker compose exec -T db createdb -U workbench workbench_test
@@ -59,9 +72,8 @@ STORAGE_PATH=.runtime/test-objects WORKBENCH_INTEGRATION=1 \
 uv run --frozen pytest --timeout=180
 ```
 
-The suite exercises actual SQL/vector retrieval, project/citation/storage
-isolation, approval replay, version pinning, budget stops, cancellation,
-parallel reservations, retries, process recovery, and the MCP client.
+Coverage includes SQL/vector retrieval, authorization, source version pinning,
+approval, budget reservations, cancellation, recovery and the MCP client.
 
 ## Browser checks
 
@@ -73,88 +85,59 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Tests use the actual API and database on desktop and mobile. They create research
-runs and upload synthetic files. Screenshots, traces and HTML results stay in ignored `test-results/` and
-`playwright-report/` directories.
+Desktop/mobile journeys create runs and upload synthetic files. They run serially
+because they share seeded data and background workers; backend integration tests
+cover concurrency separately. Browser artifacts stay in ignored `test-results/`
+and `playwright-report/` directories.
 
 ## Fresh container verification
-
-With Docker Engine and Compose v2 available, run from the repository root:
 
 ```bash
 python3 scripts/verify-compose.py
 ```
 
-This builds the shipped images and starts an isolated Compose project with empty
-volumes and random loopback ports. It ignores your `.env`, clears provider keys,
-and uses only synthetic fixtures. Checks go through the Next standalone proxy:
-starter collection setup/retry, pgvector ingestion, worker planning, approval
-resumption after application container replacement, citations/source downloads,
-and an authored evaluation across all three strategies. Queued file preparation
-survives service recreation and completes through the ingestion worker.
-The runner removes only its own containers and volumes, including on failure.
-It does not modify the normal development stack or delete its data.
+Add `--browser` after installing frontend dependencies and Chromium to include the
+browser suite.
 
-After installing frontend dependencies and Playwright Chromium, add `--browser`
-to also run the existing desktop/mobile collection and research/evaluation journeys
-against these containers. CI runs this as the separate **Fresh container journey**
-job. Synthetic logs, service status and the successful result IDs are written to
-`.runtime/compose-verification`; browser artifacts use the normal ignored folders.
-This verifies the local demo topology; hosted Supabase identity/storage, public
-TLS routing and paid-provider behavior require separate checks.
+The runner builds the shipped images, compares installed files with build inputs,
+and exercises setup, retrieval, uploads, research, citations and evaluation through
+the Next.js proxy. It recreates services to check worker recovery. It uses fresh
+volumes, random loopback ports and synthetic fixtures, ignores local provider
+credentials, and removes only its own containers/volumes. Results are written to
+`.runtime/compose-verification`.
 
 ## Supabase identity and storage verification
 
-CI's **Supabase identity and storage** job uses pinned Supabase CLI 2.120.0 and a
-temporary local project, with real Auth, PostgREST and Storage services. After the
-host dependencies and Playwright Chromium are installed, the same check is:
+With Supabase CLI 2.120.0 and the browser test dependencies installed:
 
 ```bash
 uv run --frozen python scripts/verify-supabase.py
 ```
 
-The runner ignores hosted credentials, creates two synthetic local identities,
-applies the actual migrations, builds Next with Supabase auth and runs the API and
-research worker. Desktop/mobile browsers sign in using local generated magic links
-without sending email, inspect private source data, sign out and switch accounts.
-Checks cover owner reads, denied cross-user/anonymous API access, direct PostgREST
-row policies and write denial, private bucket reads/writes, citation/source access,
-and clearing project caches/drafts on account changes. Research uses explicit
-scripted fixtures with paid integrations disabled. No hosted project is touched.
+This creates a temporary local Supabase project and two identities. It checks
+Auth, project RLS, private Storage, API/citation access and desktop/mobile account
+switching. Hosted credentials are ignored; paid integrations are disabled. Cleanup
+removes the temporary project. Safe logs/results stay in
+`.runtime/supabase-verification`; auth browser artifacts are disabled to avoid
+retaining callback tokens.
 
-Auth browser traces, screenshots, state and HTML reports are disabled. Only safe
-application logs and a success summary are retained in `.runtime/supabase-verification`.
-Cleanup stops only the temporary Supabase project and its data. These local HTTP
-checks do not verify production TLS, hosted resource settings or email delivery.
-The app's account control signs out the current browser session; an already issued
-access token can remain valid until expiry, as with normal Supabase JWT sessions.
+## Verification scope
 
-## Deployed HTTPS checks
+The [CI workflow](../.github/workflows/ci.yml) runs the checks above. Consult
+[CI runs](https://github.com/no-complect/evidence-workbench/actions/workflows/ci.yml)
+for the tested revision and results.
 
-`scripts/verify-deployment.py` runs read-only checks against an existing web/API
-pair; see [Deployment](DEPLOYMENT.md#read-only-local-or-hosted-check) for usage,
-optional user-session handling, output and limits. It does not start services or
-provision resources. CI tests its protocol/failure handling using synthetic HTTP
-responses, including redirects, protection pages, wrong proxy keys, transport
-failures and credential-free reporting. These tests do not establish that any
-hosted deployment has passed.
-
-## Configuration error paths
-
-`uv run --frozen python scripts/check-environment.py` validates the Python service
-settings without contacting services or printing values. See
-[configuration recovery](DEPLOYMENT.md#configuration-validation-and-recovery) for
-required versus optional settings and the distinct Next build-time environment.
-Tests cover production/local/Supabase requirements, redacted startup failures,
-proxy failures without upstream calls, client SDK guards and desktop/mobile setup,
-connection retry and optional-feature recovery states. Negative UI tests simulate
-API metadata/errors; the separate real Supabase job retains actual sign-in/storage
-happy-path coverage. Screenshots contain only synthetic setup states.
+Synthetic providers establish integration behavior, not live-model quality or judge
+accuracy. Local Supabase tests do not establish hosted deployment readiness. Before
+public use, verify real sign-in/redirects, two-user data/storage isolation, all
+workers, TLS routing and email delivery on the deployed services. Production-scale
+throughput and availability have not been measured. The
+[read-only deployment check](DEPLOYMENT.md#read-only-local-or-hosted-check) covers
+routing/authentication smoke checks only.
 
 ## Dependency updates
 
-Normal startup, builds, and CI use the committed locks. Only regenerate them for
-an intentional dependency update:
+Startup and CI use committed lockfiles. For an intentional update:
 
 ```bash
 ./scripts/lock-deps.sh
@@ -163,18 +146,12 @@ npm --prefix apps/web ci
 ./scripts/test.sh
 ```
 
-Commit both manifests and any changed lockfiles together. The GitHub workflow
-runs tests and the real browser journey without paid provider calls.
+Commit manifests and lockfiles together. Initial installs/builds need internet
+access; use `UV_CACHE_DIR=.cache/uv` if your environment restricts the default cache.
 
 ## Before publishing changes
 
-Run the checks relevant to the change and `python3 scripts/check-publication.py`.
-The publication check validates required runtime/documentation assets, local links,
-script permissions, file sizes and common credential patterns; it is not an
-exhaustive secret scanner. Inspect `git diff --cached --check`, the staged diff
-and tracked files. Ignore rules do not remove already tracked secrets or history.
-
-Commit dependency locks, generated contracts and required runtime assets. Keep
-credentials, uploads, logs, generated results and private working notes untracked.
-For release validation, run the fresh-container and identity/storage checks above;
-record measured source/CI evidence in [Verification status](BUILD_STATUS.md).
+Follow [Contributing](CONTRIBUTING.md). Review the diff and publication check output;
+ignore rules do not remove already tracked secrets or Git history. Keep credentials,
+uploads, generated results and local execution artifacts untracked. Publication
+checks are not an exhaustive secret scanner.

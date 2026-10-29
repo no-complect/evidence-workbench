@@ -15,7 +15,7 @@ export function ContextDecisions({
   onInspect?: (evidence: Evidence) => void;
 }) {
   const byId = evidenceById;
-  const trace = { selected, excluded };
+  const trace = { selected: selected ?? [], excluded: excluded ?? [] };
   return (
     <section
       className={styles.surface}
@@ -26,7 +26,9 @@ export function ContextDecisions({
         Evidence selection decisions
       </h3>
       <p className={styles.caption}>
-        {trace.selected.length} selected · {trace.excluded.length} excluded.
+        {selected == null || excluded == null
+          ? "Selection counts were not recorded."
+          : `${selected.length} selected · ${excluded.length} excluded.`}
         Excluded passages were not supplied in this model input.
       </p>
       <details>
